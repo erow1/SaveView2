@@ -45,6 +45,9 @@
   <ItemGroup Label="PDF / Reports">
     <PackageVersion Include="QuestPDF" Version="2024.12.1" />
   </ItemGroup>
+  <ItemGroup Label="OpenAPI / Swagger (offline — bundles UI assets w NuGet, brak CDN)">
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="7.2.0" />
+  </ItemGroup>
   <ItemGroup Label="Jobs">
     <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.17" />
     <PackageVersion Include="Hangfire.Mongo" Version="1.11.1" />

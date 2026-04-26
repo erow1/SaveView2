@@ -431,6 +431,7 @@
   <data name="Nav.AuditLog"><value>Audit Log</value></data>
   <data name="Nav.SystemEvents"><value>System Logs</value></data>
   <data name="Nav.Performance"><value>Performance</value></data>
+  <data name="Nav.ApiDocs"><value>API docs (Swagger)</value></data>
   <!-- Phase 5: Performance dashboard -->
   <data name="Performance.Description"><value>Real-time pipeline latency and throughput per camera, ROI, and model. In-memory rolling window, resets on app restart.</value></data>
   <data name="Performance.Window"><value>Window</value></data>

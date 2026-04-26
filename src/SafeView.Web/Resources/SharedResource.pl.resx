@@ -429,6 +429,7 @@
   <data name="Nav.AuditLog"><value>Dziennik audytu</value></data>
   <data name="Nav.SystemEvents"><value>Logi systemowe</value></data>
   <data name="Nav.Performance"><value>Wydajność</value></data>
+  <data name="Nav.ApiDocs"><value>API docs (Swagger)</value></data>
   <data name="Performance.Description"><value>Real-time opóźnienia i przepustowość pipeline-u per kamera, ROI, model. In-memory rolling window, resetuje się przy restarcie aplikacji.</value></data>
   <data name="Performance.Window"><value>Okno</value></data>
   <data name="Performance.AutoRefresh"><value>Auto (5s)</value></data>

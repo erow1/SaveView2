@@ -397,6 +397,22 @@ api:incidents:read, api:cameras:read, api:zones:read  # API v1 scopes
 
 **Pełna dokumentacja**: `documentation/API_INGEST.md` (curl examples, response codes, format spec, smoke test E2E).
 
+## Swagger / OpenAPI (`/swagger`, 2026-04-26)
+
+**Stack**: `Swashbuckle.AspNetCore` 7.2.0 — bundluje SwaggerUI assets w NuGet packagecie (offline-first, brak CDN runtime). Spec generowany dla endpointów `/api/v1/*` (REST API + ingest), reszta (Blazor SignalR, `/auth/*`, `/culture/set`, snapshot endpointy) odfiltrowana przez `DocInclusionPredicate`.
+
+**Endpointy**:
+- `GET /swagger/v1/swagger.json` — OpenAPI 3.0 spec
+- `GET /swagger` — interactive UI (try endpoints z Authorize button dla API key)
+
+**Auth**: cookie-gate przez custom middleware (anon → redirect `/login?ReturnUrl=/swagger`). Spec definiuje security scheme `ApiKey` (type=apiKey, in=header, name=Authorization, format=`Bearer YOUR_KEY`) — jest globalny security requirement, czyli każdy operation w UI ma "Authorize" button.
+
+**Endpoint metadata**: `.WithTags("Group")` + `.WithSummary("...")` + `.WithDescription("...")` + `.Produces<T>(200)` + `.ProducesProblem(400/401/etc)` na każdym endpoincie w `ApiV1Endpoints` i `IngestEndpoints`. To powoduje że UI grupuje endpointy po tag-ach (Incidents/Cameras/Zones/Health/Ingest) z opisem, schematami request/response i statusami.
+
+**Kiedy dodajesz nowy endpoint**: po `.RequireAuthorization(...)` dorzuć `.WithTags("Group").WithSummary("Krótko").Produces<T>(200).ProducesProblem(401)`. Bez tego endpoint pojawi się w UI bez opisu (brzydko, ale działa).
+
+**Vendor note**: Swashbuckle bundluje SwaggerUI w NuGet (embedded resources). Nie wymaga vendoringu do `wwwroot/vendor/`. To wyjątek od reguły offline-first (asset jest częścią DLL-a, nie HTTP fetch).
+
 ---
 
 **Gdy user pyta "co dalej" bez kontekstu** — przeczytaj `documentation/ROADMAP.md` i zaproponuj 3 najważniejsze tickety.

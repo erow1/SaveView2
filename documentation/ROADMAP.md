@@ -85,6 +85,28 @@ Pełna implementacja: auto-detect dynamic/compiled, batch (SAHI), `IClipTextEnco
 
 ## Ukończone (2026-04-26)
 
+### ✅ TICKET #52 — Swagger / OpenAPI (`Swashbuckle.AspNetCore` 7.2.0)
+
+**Kontekst**: po Ticketach #43-#49 mamy `/api/v1/*` REST API + ingest, ale brakowało interactive docs. Devs/integratorzy musieli czytać `documentation/API_INGEST.md` + grep źródeł.
+
+**Goal**: Swagger UI pod `/swagger` z security schema dla API key, automatyczne grupowanie po tag-ach, "try it out" w przeglądarce.
+
+**Dostarczone**:
+- `Swashbuckle.AspNetCore` 7.2.0 do `Directory.Packages.props` (offline — assets bundled w NuGet, nie wymaga vendoringu).
+- Swagger config w `Program.cs`: `SwaggerDoc("v1", ...)`, security scheme `ApiKey` (Bearer header), global security requirement, `DocInclusionPredicate` filtrujący do `/api/v1/*`.
+- Swagger UI middleware z **cookie-auth gate** — anon redirect na `/login?ReturnUrl=/swagger`. Spec JSON pod `/swagger/v1/swagger.json`.
+- Endpoint metadata na wszystkich `/api/v1/*` (`.WithTags/.WithSummary/.WithDescription/.Produces/.ProducesProblem`):
+  - **ApiV1Endpoints**: Incidents (list + get by id), Cameras (list), Zones (list filtrowana), Health (`/ping`).
+  - **IngestEndpoints**: multipart (`/ingest`) + JSON-only (`/ingest-json`) z dokładnymi opisami body, security, rate limit.
+- Nav menu link: Administracja → "API docs (Swagger)" — otwiera w nowej karcie.
+- resx PL/EN/neutral.
+
+**Convention dla nowych endpointów**: po `.RequireAuthorization(...)` dorzuć `.WithTags("Group").WithSummary("Krótko").Produces<T>(200).ProducesProblem(401)`. CLAUDE.md ma sekcję "Swagger / OpenAPI" z tym hint-em.
+
+**Tests**: build 0/0, runtime weryfikacja po `sudo ./restart.sh`: `curl /swagger/v1/swagger.json` (z cookie session) zwraca OpenAPI 3.0 JSON, UI ładuje się pod `/swagger`.
+
+---
+
 ### ✅ TICKET #43-#49 — ApiCamera (push-based ingest)
 
 **Problem**: dotychczas SafeView pollował kamery przez RTSP/HTTP/File, ale wdrożenia z edge inference (Frigate, własny ML server, embedded camera z built-in detekcją) chciały pchać klatki + pre-computed detekcje, nie być pollowane.

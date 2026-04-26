@@ -427,6 +427,7 @@
   <data name="Nav.AuditLog"><value>Audit Log</value></data>
   <data name="Nav.SystemEvents"><value>System Logs</value></data>
   <data name="Nav.Performance"><value>Performance</value></data>
+  <data name="Nav.ApiDocs"><value>API docs (Swagger)</value></data>
   <data name="Performance.Description"><value>Pipeline latency metrics.</value></data>
   <data name="Performance.Window"><value>Window</value></data>
   <data name="Performance.AutoRefresh"><value>Auto (5s)</value></data>

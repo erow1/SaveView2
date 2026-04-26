@@ -53,13 +53,26 @@ public static class ApiV1Endpoints
                 Status = i.Status.ToString(),
                 i.OccurredAt
             }));
-        }).RequireAuthorization(ScopePolicy(Permission.ApiIncidentsRead));
+        })
+        .RequireAuthorization(ScopePolicy(Permission.ApiIncidentsRead))
+        .WithTags("Incidents")
+        .WithSummary("Lista incydentów w przedziale czasu")
+        .WithDescription("Filtry: `from` (UTC, default: -24h), `until` (UTC, default: now), `limit` (1..1000, default: 200). Wymaga scope `api:incidents:read`.")
+        .Produces(200)
+        .ProducesProblem(401);
 
         grp.MapGet("/incidents/{id}", async (string id, IIncidentRepository repo, CancellationToken ct) =>
         {
             var i = await repo.GetByIdAsync(id, ct);
             return i is null ? Results.NotFound() : Results.Ok(i);
-        }).RequireAuthorization(ScopePolicy(Permission.ApiIncidentsRead));
+        })
+        .RequireAuthorization(ScopePolicy(Permission.ApiIncidentsRead))
+        .WithTags("Incidents")
+        .WithSummary("Pełen szczegół incydentu")
+        .WithDescription("Zwraca pełną encję `Incident` (z detekcjami, trigger info, klatka path).")
+        .Produces<Incident>(200)
+        .Produces(404)
+        .ProducesProblem(401);
 
         // ── Cameras ──────────────────────────────────────────────────────────
         grp.MapGet("/cameras", async (ICameraRepository cameras, CancellationToken ct) =>
@@ -69,7 +82,13 @@ public static class ApiV1Endpoints
             {
                 c.Id, c.Name, c.Location, c.Enabled, c.Tags
             }));
-        }).RequireAuthorization(ScopePolicy(Permission.ApiCamerasRead));
+        })
+        .RequireAuthorization(ScopePolicy(Permission.ApiCamerasRead))
+        .WithTags("Cameras")
+        .WithSummary("Lista kamer")
+        .WithDescription("Zwraca podstawowe metadane wszystkich kamer (Id/Name/Location/Enabled/Tags). Wymaga scope `api:cameras:read`.")
+        .Produces(200)
+        .ProducesProblem(401);
 
         // ── Zones ────────────────────────────────────────────────────────────
         grp.MapGet("/zones", async (string? cameraId, IZoneRepository zones, CancellationToken ct) =>
@@ -78,14 +97,26 @@ public static class ApiV1Endpoints
                 ? await zones.ListAsync(ct)
                 : await zones.ListByCameraAsync(cameraId, ct);
             return Results.Ok(items);
-        }).RequireAuthorization(ScopePolicy(Permission.ApiZonesRead));
+        })
+        .RequireAuthorization(ScopePolicy(Permission.ApiZonesRead))
+        .WithTags("Zones")
+        .WithSummary("Lista stref (opcjonalnie filtrowana po kamerze)")
+        .WithDescription("Query param: `cameraId` (opcjonalny). Bez filtra → wszystkie strefy. Wymaga scope `api:zones:read`.")
+        .Produces(200)
+        .ProducesProblem(401);
 
         // ── Health ───────────────────────────────────────────────────────────
         endpoints.MapGet("/api/v1/ping", (HttpContext ctx) =>
         {
             var who = ctx.User.Identity?.Name ?? "anonymous";
             return Results.Ok(new { ok = true, identity = who, scheme = ctx.User.Identity?.AuthenticationType });
-        }).RequireAuthorization(basePolicy);
+        })
+        .RequireAuthorization(basePolicy)
+        .WithTags("Health")
+        .WithSummary("Sanity check — sprawdza że API key działa")
+        .WithDescription("Zwraca `{ok, identity, scheme}`. Najprostszy test integracyjny dla nowego klucza.")
+        .Produces(200)
+        .ProducesProblem(401);
 
         return endpoints;
     }

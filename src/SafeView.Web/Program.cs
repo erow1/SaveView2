@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.OpenApi.Models;
 using MudBlazor;
 using MudBlazor.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -206,6 +207,45 @@ try
     builder.Services.AddSingleton<SafeView.Application.Abstractions.Detection.IFlowEventPublisher,
                                    SafeView.Web.Hubs.SignalRFlowEventPublisher>();
 
+    // ─── OpenAPI / Swagger ────────────────────────────────────────────────────
+    // Spec generowany dla endpointów /api/v1/* (REST API + ingest). UI bundled
+    // w paczce Swashbuckle.AspNetCore (offline-first — brak CDN runtime).
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen(opts =>
+    {
+        opts.SwaggerDoc("v1", new OpenApiInfo
+        {
+            Title = "SafeView API",
+            Version = "v1",
+            Description = "REST API dla integratorów + push-based ingest dla kamer typu " +
+                          "`CameraTransport.Api`. Format zbliżony do Roboflow Inference. " +
+                          "Pełna dokumentacja: `documentation/API_INGEST.md`.",
+            Contact = new OpenApiContact { Name = "SafeView", Url = new Uri("https://github.com/erow1/SaveView2") }
+        });
+
+        // API key (Bearer) — schema dla wszystkich endpointów /api/v1/*
+        opts.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.ApiKey,
+            In = ParameterLocation.Header,
+            Name = "Authorization",
+            Description = "API key z `/api-keys`. Format: `Bearer YOUR_API_KEY`",
+            Scheme = "Bearer"
+        });
+        opts.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "ApiKey" }
+                }
+            ] = Array.Empty<string>()
+        });
+
+        // Filtruj tylko /api/v1/* — pomijamy Blazor SignalR, /auth/*, /culture/set, snapshot endpointy itd.
+        opts.DocInclusionPredicate((docName, apiDesc) =>
+            apiDesc.RelativePath?.StartsWith("api/v1", StringComparison.OrdinalIgnoreCase) == true);
+    });
+
     var app = builder.Build();
 
     // ─── Middleware ────────────────────────────────────────────────────────────
@@ -249,6 +289,29 @@ try
 
     app.UseAuthentication();
     app.UseAuthorization();
+
+    // ─── Swagger UI ────────────────────────────────────────────────────────────
+    // Bundled w Swashbuckle.AspNetCore (offline-first). Gate na cookie-auth —
+    // anon redirect na /login z return-url. Spec JSON pod /swagger/v1/swagger.json.
+    app.Use(async (ctx, next) =>
+    {
+        if (ctx.Request.Path.StartsWithSegments("/swagger") &&
+            ctx.User?.Identity?.IsAuthenticated != true)
+        {
+            ctx.Response.Redirect("/login?ReturnUrl=" +
+                Uri.EscapeDataString(ctx.Request.Path + ctx.Request.QueryString));
+            return;
+        }
+        await next();
+    });
+    app.UseSwagger();
+    app.UseSwaggerUI(opts =>
+    {
+        opts.SwaggerEndpoint("/swagger/v1/swagger.json", "SafeView API v1");
+        opts.DocumentTitle = "SafeView API — Swagger";
+        opts.DefaultModelsExpandDepth(1);
+        opts.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.List);
+    });
 
     app.UseAntiforgery();
 

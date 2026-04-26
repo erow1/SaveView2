@@ -145,6 +145,19 @@ Single source of truth: encja `LlmProvider` w Mongo, edytowana wyłącznie przez
 ### Sampler: adaptacyjny sleep
 Usunięto globalny `CameraRefreshSeconds` — sampler budzi się zgodnie z najbliższym `nextDue` per-kamera (na podstawie `SnapshotIntervalSeconds`), ograniczony dołem przez `MinTickMilliseconds` (default 250ms). Każda kamera działa w swojej własnej kadencji.
 
+### Swagger / OpenAPI (2026-04-26)
+
+`Swashbuckle.AspNetCore` 7.2.0 — offline-first (assets bundled w NuGet). Dokumentacja dla `/api/v1/*` endpointów, reszta odfiltrowana przez `DocInclusionPredicate`. Cookie-auth gate na UI (anon → redirect /login). Security scheme `ApiKey` (Bearer) globalny w spec — UI ma "Authorize" button do testowania endpointów z API key.
+
+**Endpoint metadata** (`.WithTags/.WithSummary/.WithDescription/.Produces/.ProducesProblem`) dodana do wszystkich endpointów w `ApiV1Endpoints` (Incidents/Cameras/Zones/Health) i `IngestEndpoints` (multipart + JSON-only). Grupy w UI:
+- **Incidents** — list w przedziale czasu, get by ID
+- **Cameras** — list metadanych
+- **Zones** — list opcjonalnie filtrowana per kamera
+- **Health** — `/api/v1/ping`
+- **Ingest** — push-based dla `CameraTransport.Api`
+
+Nav menu: Administracja → "API docs (Swagger)" otwiera w nowej karcie.
+
 ### ApiCamera — push-based ingest (2026-04-26)
 
 Nowy typ kamery `CameraTransport.Api` — zewnętrzny system (edge appliance, Frigate, własny inference server) wysyła klatki + pre-computed detekcje przez REST. SafeView nie polluje, tylko czeka na push.
@@ -256,6 +269,10 @@ Nowy typ kamery `CameraTransport.Api` — zewnętrzny system (edge appliance, Fr
 ### Push-based ingest (scope `api:cameras:write`, rate `camera-ingest`)
 - `POST /api/v1/cameras/{cameraId}/ingest` — multipart (frame binary + JSON metadata)
 - `POST /api/v1/cameras/{cameraId}/ingest-json` — JSON-only z `image_base64` lub `image_url`
+
+### Swagger / OpenAPI (cookie-auth)
+- `GET /swagger` — interactive Swagger UI (Swashbuckle bundle, offline-first)
+- `GET /swagger/v1/swagger.json` — OpenAPI 3.0 spec dla wszystkich `/api/v1/*` endpointów
 
 ### Open-vocabulary detection (permisja `admin:detection-classes`)
 - `GET /api/detection-classes/{classId}/refs/{refName}` — serwuje crop referencyjny (thumbnail)

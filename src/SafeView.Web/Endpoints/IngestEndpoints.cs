@@ -133,7 +133,29 @@ public static class IngestEndpoints
             return await DispatchAsync(meta, camera!, absPath, relPath, pipeline, log, sw, ct).ConfigureAwait(false);
         })
         .DisableAntiforgery()
-        .WithName("IngestMultipart");
+        .WithName("IngestMultipart")
+        .WithTags("Ingest")
+        .WithSummary("Push frame + detekcje (multipart, primary)")
+        .WithDescription("""
+            Primary endpoint dla push-based kamer (`CameraTransport.Api`). Wysyłaj multipart/form-data
+            z polami:
+             • `frame` — image/jpeg lub image/png (max 20MB)
+             • `metadata` — application/json (`IngestMetadataDto`, max 1MB)
+
+            Bbox w pixel coords (top-left origin); server normalizuje do `[0..1]` względem
+            `frame.width/height`. Idempotency po opcjonalnym `frame_id`. Pipeline pomija stage
+            inferencji, wpada do TriggerEvaluator/VLLM/ActionDispatcher.
+
+            Wymaga: scope `api:cameras:write`. Camera musi mieć `Transport=Api`.
+            Rate limit: 1800 req/min/cam.
+            """)
+        .Accepts<IngestMetadataDto>("multipart/form-data")
+        .Produces<IngestResponseDto>(200)
+        .ProducesProblem(400)
+        .ProducesProblem(401)
+        .ProducesProblem(403)
+        .ProducesProblem(404)
+        .ProducesProblem(429);
 
         // ── JSON-only (fallback) ────────────────────────────────────────────
         grp.MapPost("/{cameraId}/ingest-json", async (
@@ -227,7 +249,25 @@ public static class IngestEndpoints
 
             return await DispatchAsync(meta, camera!, absPath, relPath, pipeline, log, sw, ct).ConfigureAwait(false);
         })
-        .WithName("IngestJson");
+        .WithName("IngestJson")
+        .WithTags("Ingest")
+        .WithSummary("Push frame + detekcje (JSON-only, fallback)")
+        .WithDescription("""
+            Fallback dla senderów którzy nie radzą sobie z multipart (cloud webhooks, S3-style
+            integracje). Body jest pure JSON (`IngestMetadataDto`), z jednym z:
+             • `image_base64` — JPEG/PNG zakodowany base64 (33% size overhead)
+             • `image_url` — http(s) URL z którego serwer pobierze obraz (max 10MB, 5s timeout)
+
+            Reszta semantyki jak `/ingest` multipart. SSRF safe (tylko http/https).
+            Wymaga: scope `api:cameras:write`. Rate limit: 1800 req/min/cam.
+            """)
+        .Accepts<IngestMetadataDto>("application/json")
+        .Produces<IngestResponseDto>(200)
+        .ProducesProblem(400)
+        .ProducesProblem(401)
+        .ProducesProblem(403)
+        .ProducesProblem(404)
+        .ProducesProblem(429);
 
         return endpoints;
     }
