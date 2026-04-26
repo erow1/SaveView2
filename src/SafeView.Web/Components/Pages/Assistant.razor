@@ -1,9 +1,10 @@
 @page "/assistant"
 @attribute [Authorize(Policy = "perm:llm:chat")]
-@inject SafeView.Application.Abstractions.LLM.IChatClient Chat
+@inject SafeView.Application.Abstractions.LLM.IChatClientFactory ChatFactory
 @inject SafeView.Application.Abstractions.Persistence.IIncidentRepository IncidentRepo
 @inject SafeView.Application.Abstractions.Persistence.ICameraRepository CameraRepo
 @inject ISnackbar Snackbar
+@inject NavigationManager Nav
 @inject IStringLocalizer<SharedResource> L
 @rendermode InteractiveServer
 
@@ -12,15 +13,31 @@
 <MudStack Spacing="3" Style="height: calc(100vh - 140px);">
     <MudStack Row="true" AlignItems="AlignItems.Center">
         <MudText Typo="Typo.h4">@L["Assistant.Title"]</MudText>
-        <MudChip T="string" Size="Size.Small" Class="sv-chip-info">@Chat.Backend</MudChip>
+        @if (_chat is not null)
+        {
+            <MudChip T="string" Size="Size.Small" Class="sv-chip-info">@_chat.Backend</MudChip>
+        }
         <MudSpacer />
-        <MudButton StartIcon="@Icons.Material.Filled.NetworkPing" OnClick="Ping" Variant="Variant.Outlined" Size="Size.Small">
+        <MudButton StartIcon="@Icons.Material.Filled.NetworkPing" OnClick="Ping" Variant="Variant.Outlined" Size="Size.Small"
+                   Disabled="_chat is null">
             Test połączenia
         </MudButton>
         <MudButton StartIcon="@Icons.Material.Filled.Refresh" OnClick="Reset" Variant="Variant.Outlined" Size="Size.Small">
             Wyczyść
         </MudButton>
     </MudStack>
+
+    @if (_providerError is not null)
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+            <MudText Typo="Typo.body2">@_providerError</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="mt-2"
+                       StartIcon="@Icons.Material.Filled.Hub"
+                       OnClick="@(() => Nav.NavigateTo("/admin/llm-providers"))">
+                Otwórz Dostawców LLM
+            </MudButton>
+        </MudAlert>
+    }
 
     <MudPaper Class="pa-3 sv-card" Elevation="0" Style="flex:1; overflow-y:auto;">
         @if (_messages.Count == 0)
@@ -51,9 +68,9 @@
     <MudStack Row="true" Spacing="2">
         <MudTextField @bind-Value="_input" Placeholder="Wpisz pytanie…" Variant="Variant.Outlined"
                       Margin="Margin.Dense" Immediate="true"
-                      OnKeyDown="OnKey" Disabled="_busy" Style="flex:1;" />
+                      OnKeyDown="OnKey" Disabled="_busy || _chat is null" Style="flex:1;" />
         <MudButton StartIcon="@Icons.Material.Filled.Send" OnClick="Send" Color="Color.Primary"
-                   Variant="Variant.Filled" Disabled="_busy || string.IsNullOrWhiteSpace(_input)">
+                   Variant="Variant.Filled" Disabled="_busy || _chat is null || string.IsNullOrWhiteSpace(_input)">
             Wyślij
         </MudButton>
     </MudStack>
@@ -64,10 +81,27 @@
     private string _input = string.Empty;
     private bool _busy;
     private int _lastIncidentCount;
+    private SafeView.Application.Abstractions.LLM.IChatClient? _chat;
+    private string? _providerError;
 
     protected override async Task OnInitializedAsync()
     {
+        await ResolveChatAsync();
         await BuildSystemContextAsync();
+    }
+
+    private async Task ResolveChatAsync()
+    {
+        try
+        {
+            _chat = await ChatFactory.GetForAsync(null);
+            _providerError = null;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _chat = null;
+            _providerError = $"Brak skonfigurowanego dostawcy LLM. {ex.Message}";
+        }
     }
 
     private async Task BuildSystemContextAsync()
@@ -96,7 +130,7 @@
 
     private async Task Send()
     {
-        if (string.IsNullOrWhiteSpace(_input) || _busy) return;
+        if (string.IsNullOrWhiteSpace(_input) || _busy || _chat is null) return;
         var question = _input.Trim();
         _input = string.Empty;
         _messages.Add(new SafeView.Application.Abstractions.LLM.ChatMessage(
@@ -105,7 +139,7 @@
         StateHasChanged();
         try
         {
-            var resp = await Chat.ChatAsync(_messages);
+            var resp = await _chat.ChatAsync(_messages);
             if (!resp.Success)
             {
                 Snackbar.Add($"Błąd LLM: {resp.ErrorMessage}", Severity.Error);
@@ -133,14 +167,16 @@
 
     private async Task Reset()
     {
+        await ResolveChatAsync();
         await BuildSystemContextAsync();
         Snackbar.Add("Kontekst odświeżony.", Severity.Info);
     }
 
     private async Task Ping()
     {
-        var ok = await Chat.PingAsync();
-        Snackbar.Add(ok ? $"OK ({Chat.Backend})" : $"Brak połączenia ({Chat.Backend})",
+        if (_chat is null) return;
+        var ok = await _chat.PingAsync();
+        Snackbar.Add(ok ? $"OK ({_chat.Backend})" : $"Brak połączenia ({_chat.Backend})",
             ok ? Severity.Success : Severity.Error);
     }
 }

@@ -77,7 +77,8 @@ public sealed class LlmProvider : Entity
 
     /// <summary>
     /// Czy to "domyślny" provider — używany gdy trigger / playground nie podaje explicit <c>LlmProviderId</c>.
-    /// Tylko jeden provider w systemie może być default. Seeder tworzy go przy pierwszym starcie z LlmOptions.
+    /// Tylko jeden provider w systemie może być default (UI wymusza). Brak default-a = factories rzucają
+    /// <see cref="InvalidOperationException"/> przy pierwszym użyciu.
     /// </summary>
     public bool IsDefault { get; set; }
 }

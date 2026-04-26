@@ -24,7 +24,6 @@ namespace SafeView.LLM;
 /// </summary>
 public sealed class VllmChecker : IVllmChecker
 {
-    private readonly IChatClient _defaultChat;
     private readonly IChatClientFactory _factory;
     private readonly ILogger<VllmChecker> _log;
 
@@ -46,9 +45,8 @@ public sealed class VllmChecker : IVllmChecker
         }
         """;
 
-    public VllmChecker(IChatClient chat, IChatClientFactory factory, ILogger<VllmChecker> log)
+    public VllmChecker(IChatClientFactory factory, ILogger<VllmChecker> log)
     {
-        _defaultChat = chat;
         _factory = factory;
         _log = log;
     }
@@ -83,10 +81,8 @@ public sealed class VllmChecker : IVllmChecker
 
         try
         {
-            // Wybierz klienta: albo per-trigger provider, albo default. Cache jest w factory.
-            var chat = string.IsNullOrWhiteSpace(config.LlmProviderId)
-                ? _defaultChat
-                : await _factory.GetForAsync(config.LlmProviderId, ct).ConfigureAwait(false);
+            // Wybierz klienta: per-trigger provider albo default (IsDefault=true). Cache jest w factory.
+            var chat = await _factory.GetForAsync(config.LlmProviderId, ct).ConfigureAwait(false);
             var resp = await chat.ChatAsync(messages, options, ct).ConfigureAwait(false);
             if (!resp.Success)
             {
@@ -96,6 +92,12 @@ public sealed class VllmChecker : IVllmChecker
             return Parse(resp.Content, config);
         }
         catch (OperationCanceledException) { throw; }
+        catch (InvalidOperationException ex)
+        {
+            // Brak skonfigurowanego providera (lub provider o ID nie istnieje + nie ma default).
+            _log.LogWarning("VLLM check: brak skonfigurowanego providera LLM ({Msg})", ex.Message);
+            return new VllmCheckResult(false, 0, $"LLM provider not configured: {ex.Message}", null, IsError: true);
+        }
         catch (Exception ex)
         {
             _log.LogWarning(ex, "VLLM check exception");

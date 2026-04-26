@@ -4,7 +4,7 @@
 @inject SafeView.Application.Abstractions.Persistence.IIncidentRepository IncidentRepo
 @inject SafeView.Application.Abstractions.Media.ISnapshotService Snapshots
 @inject SafeView.Application.Abstractions.Storage.IFileStore Files
-@inject SafeView.Application.Abstractions.LLM.IChatClient Chat
+@inject SafeView.Application.Abstractions.LLM.IChatClientFactory ChatFactory
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
 @inject IStringLocalizer<SharedResource> L
@@ -265,6 +265,14 @@ else
         _busyLlm = true;
         try
         {
+            SafeView.Application.Abstractions.LLM.IChatClient chat;
+            try { chat = await ChatFactory.GetForAsync(null); }
+            catch (InvalidOperationException)
+            {
+                _llmSummary = "Brak skonfigurowanego dostawcy LLM. Dodaj na /admin/llm-providers.";
+                return;
+            }
+
             var lines = _recent7d.Take(80).Select(i =>
                 $"- {i.OccurredAt:yyyy-MM-dd HH:mm} | {i.Category} | sev={i.Severity} | status={i.Status} | {i.Summary}");
             var prompt = $"""
@@ -279,7 +287,7 @@ else
                 Wskaż dominujące wzorce, potencjalne false-positives, rekomendowane działania.
                 Bez markdown, czysty tekst.
                 """;
-            var resp = await Chat.ChatAsync(
+            var resp = await chat.ChatAsync(
                 new List<SafeView.Application.Abstractions.LLM.ChatMessage>
                 {
                     new(SafeView.Application.Abstractions.LLM.ChatRole.System, "Jesteś asystentem BHP. Odpowiadaj zwięźle, po polsku."),

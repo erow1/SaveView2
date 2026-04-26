@@ -20,13 +20,13 @@ namespace SafeView.LLM;
 /// </summary>
 public sealed class LlmPromptGenerator : IPromptGenerator
 {
-    private readonly IChatClient _chat;
+    private readonly IChatClientFactory _factory;
     private readonly ILogger<LlmPromptGenerator> _log;
     private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
 
-    public LlmPromptGenerator(IChatClient chat, ILogger<LlmPromptGenerator> log)
+    public LlmPromptGenerator(IChatClientFactory factory, ILogger<LlmPromptGenerator> log)
     {
-        _chat = chat;
+        _factory = factory;
         _log = log;
     }
 
@@ -189,9 +189,17 @@ public sealed class LlmPromptGenerator : IPromptGenerator
             MaxTokens: 3000,
             JsonSchema: OutputSchema);
 
+        IChatClient chat;
+        try { chat = await _factory.GetForAsync(null, ct).ConfigureAwait(false); }
+        catch (InvalidOperationException ex)
+        {
+            _log.LogWarning("PromptGenerator: brak skonfigurowanego providera LLM ({Msg})", ex.Message);
+            return Error("Brak skonfigurowanego dostawcy LLM. Dodaj na /admin/llm-providers.");
+        }
+
         try
         {
-            var resp = await _chat.ChatAsync(messages, options, ct).ConfigureAwait(false);
+            var resp = await chat.ChatAsync(messages, options, ct).ConfigureAwait(false);
             if (!resp.Success)
             {
                 _log.LogWarning("PromptGenerator LLM error: {Err}", resp.ErrorMessage);

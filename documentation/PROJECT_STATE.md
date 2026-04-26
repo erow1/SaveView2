@@ -1,7 +1,7 @@
 # SafeView — Mapa stanu implementacji
 
-**Ostatnia aktualizacja**: 2026-04-23
-**Status**: Fazy 1-5 (pipeline) + Dashboard + Batch + Secrets + GPU + Homografia + SpatialFilters + VLLM szablony/playground/quality-loop + Multi-provider LLM + Monitor wall + Flow topology + **Open-vocabulary detection (7 faz: DetectionClass library, YOLO-World Apache 2.0, compiled prompt packs, YOLOE swap-ready visual prompts, quality loop per klasa)**. **204/204 testów zielone**.
+**Ostatnia aktualizacja**: 2026-04-26
+**Status**: Fazy 1-5 (pipeline) + Dashboard + Batch + Secrets + GPU + Homografia + SpatialFilters + VLLM szablony/playground/quality-loop + Multi-provider LLM + Monitor wall + Flow topology + Open-vocabulary detection (7 faz: DetectionClass library, YOLO-World Apache 2.0, compiled prompt packs, YOLOE swap-ready visual prompts, quality loop per klasa) + **LLM config consolidation (single source of truth = `/admin/llm-providers`, drop appsettings.Llm + LlmAdmin + LlmProviderSeeder)**. **204/204 testów zielone**.
 
 ## Stan testów
 
@@ -119,14 +119,17 @@ Topologia systemu jako graf Cytoscape.js + live events przez SignalR.
 - **Import/Export JSON**: endpointy `/api/vllm/templates/{id}/export`, `/export-all`, `POST /import`. UI: przyciski + MudFileUpload.
 - **Feedback przez incident**: `/incidents/{id}` ma zunifikowany przycisk **"Fałszywy alarm"** który ustawia `WasFalsePositive=true` ORAZ zamyka incident (`Status=FalsePositive + ResolvedAt/By`). Wcześniejszy dualizm "Rozwiąż jako fałszywy" zlikwidowany.
 
-### Multi-provider LLM
-Wcześniej jeden globalny endpoint w `/admin/llm`. Teraz:
+### Multi-provider LLM (single source of truth, 2026-04-26 consolidation)
+Single source of truth: encja `LlmProvider` w Mongo, edytowana wyłącznie przez `/admin/llm-providers`. Brak duplikacji konfiguracji — appsettings sekcja `Llm`, strona `/admin/llm` (`LlmAdmin.razor`) i `LlmProviderSeeder` zostały zlikwidowane.
 - `LlmProvider` entity + `LlmProviderKind` enum (Ollama/LmStudio/Vllm/LocalAi/OpenAI/AzureOpenAI/Groq/TogetherAi/MistralAi/DeepSeek/OpenAiCompatible).
 - Strona `/admin/llm-providers` — CRUD z **presetami per typ** (Ollama → localhost:11434/v1 + qwen2.5-vl:7b; OpenAI → api.openai.com/v1 + gpt-4o-mini; itd.). Przycisk **Test połączenia** (ping `/models`). Flag `IsDefault` (tylko jeden; zmiana wyłącza poprzedniego).
-- `IChatClientFactory.GetForAsync(providerId)` — cache per providerId, per-provider dedicated `HttpClient`. `Invalidate(id)` po CRUD.
-- `VllmChecker` dostaje `IChatClient` (default fallback) + `IChatClientFactory` (per-call resolve).
+- `IChatClientFactory.GetForAsync(providerId)` — cache per providerId, per-provider dedicated `HttpClient`. Null/empty providerId → resolwuje providera z `IsDefault=true`. Brak skonfigurowanego providera → `InvalidOperationException` z linkiem do strony konfiguracji. `Invalidate(id)` po CRUD.
+- `IEmbeddingsClientFactory` analogicznie (CLIP encoder external strategy).
+- `VllmChecker` używa wyłącznie `IChatClientFactory` (drop legacy fallback `IChatClient`).
 - `VllmCheckConfig.LlmProviderId?` + dropdown providera w TriggerDialog i playground.
-- `LlmProviderSeeder` przy pierwszym starcie migruje appsettings `Llm` → default provider (backward compat).
+- Konsumenci po refactorze: `Assistant.razor`, `CameraDetail.razor`, `LlmProviders.razor`, `IncidentAnalyzer`, `LlmPromptGenerator`, `VllmChecker` — wszyscy przez factory.
+- `LlmOptions` pozostaje jako wewnętrzny DTO budowany przez factory z `LlmProvider` (nie jest bindowany z appsettings).
+- `Assistant.razor` + `CameraDetail.razor.SummarizeAsync` mają empty-state gdy brak providera (link do `/admin/llm-providers`).
 
 ### In-app notifications
 `IInAppNotificationBroker` singleton → event Published. `MainLayout` subskrybuje, pokazuje `MudSnackbar.Add` u każdego aktywnie zalogowanego usera. `InAppNotificationHandler` publikuje + logi. Config key `severity` (info/success/warning/error).
@@ -242,7 +245,7 @@ Usunięto globalny `CameraRefreshSeconds` — sampler budzi się zgodnie z najbl
 Operator: `/` (Home), `/monitor`, `/flow`, `/incidents`, `/incidents/{id}`, `/reports`, `/assistant`
 Cameras: `/cameras`, `/cameras/{id}/live`, `/cameras/{id}/detail`, `/cameras/{id}/calibration`
 Detection: `/zones`, `/admin/rois`, `/admin/triggers`, `/admin/actions`, `/admin/actions/history`, `/models`, **`/admin/detection-classes`, `/admin/prompt-packs`**
-LLM: `/admin/llm` (legacy single config), `/admin/llm-providers` (new multi), `/admin/vllm-templates`, `/admin/vllm-playground`
+LLM: `/admin/llm-providers` (single source of truth, multi-provider), `/admin/vllm-templates`, `/admin/vllm-playground`
 Admin (perm:admin:*): `/users`, `/license`, `/audit`, `/admin/settings`, `/admin/system-events`, `/admin/performance`, `/admin/mediamtx`, `/api-keys`
 Auth: `/login`, `/setup`, `/forbidden`, `/not-found`, `/Error`
 Account: `/account/password`
@@ -280,7 +283,6 @@ Account: `/account/password`
 - `CameraFrameSampler` — adaptacyjny per-kamera
 - `DailyDigestJob` — codziennie 06:00 UTC
 - **`PromptTemplateSeeder`** — 12 built-in szablonów VLLM
-- **`LlmProviderSeeder`** — migracja appsettings.Llm → default provider
 - **`DetectionClassSeeder`** — 14 built-in klas BHP (Faza Open-Vocab #1)
 
 ---
@@ -325,7 +327,7 @@ SafeView.Infrastructure:
   + Persistence/MongoPromptTemplateVersionRepository.cs
   + Persistence/MongoLlmProviderRepository.cs
   + Vllm/PromptTemplateSeeder.cs + BuiltInTemplates.cs (12 szablonów BHP)
-  + Llm/LlmProviderSeeder.cs
+  - Llm/LlmProviderSeeder.cs (DELETED 2026-04-26 — single source = DB, brak migracji z appsettings)
 
 SafeView.LLM:
   + ChatClientFactory.cs (cache per-provider HttpClient)

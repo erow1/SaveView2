@@ -1,9 +1,14 @@
 namespace SafeView.LLM;
 
+/// <summary>
+/// Wewnętrzny DTO konfiguracji klienta OpenAI-compatible (<see cref="OpenAiCompatibleChatClient"/>,
+/// <see cref="OpenAiCompatibleEmbeddingsClient"/>). Budowany przez <see cref="ChatClientFactory"/> /
+/// <see cref="EmbeddingsClientFactory"/> z encji <c>LlmProvider</c> w Mongo.
+///
+/// NIE jest bindowany z appsettings — single source of truth to <c>/admin/llm-providers</c>.
+/// </summary>
 public sealed class LlmOptions
 {
-    public const string SectionName = "Llm";
-
     /// <summary>Backend: "openai", "vllm", "ollama", "lmstudio". Steruje extras (np. guided_json).</summary>
     public string Backend { get; set; } = "openai";
 

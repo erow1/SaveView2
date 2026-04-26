@@ -83,6 +83,36 @@ Pełna implementacja: auto-detect dynamic/compiled, batch (SAHI), `IClipTextEnco
 
 ---
 
+## Ukończone (2026-04-26)
+
+### ✅ TICKET #42 — LLM config consolidation (single source of truth)
+
+**Problem**: trzy źródła konfiguracji LLM rozjeżdżały się: strona `/admin/llm` (read-only display z appsettings), strona `/admin/llm-providers` (DB-backed), sekcja `appsettings.Llm`. Edycja providera w UI pokazywała inne dane niż `/admin/llm`. Dwa codepathy konsumentów: bezpośredni `IChatClient` (z appsettings) vs `IChatClientFactory.GetForAsync` (z DB).
+
+**Rozwiązanie**: jedyne źródło prawdy = `LlmProvider` w Mongo, edytowane przez `/admin/llm-providers`.
+
+- **Konsumenci po refactorze** — wszyscy przez `IChatClientFactory`: `Assistant.razor`, `CameraDetail.razor`, `IncidentAnalyzer`, `LlmPromptGenerator`, `VllmChecker` (drop legacy `_defaultChat`).
+- **Factories** (`ChatClientFactory`, `EmbeddingsClientFactory`) — usunięty fallback do `IOptions<LlmOptions>`. Brak providera = `InvalidOperationException` z linkiem do strony konfiguracji.
+- **Skasowane**:
+  - `Components/Pages/LlmAdmin.razor` (read-only display strony)
+  - `src/SafeView.Infrastructure/Llm/LlmProviderSeeder.cs` (one-shot migrator z appsettings → DB)
+  - DI: `services.AddOptions<LlmOptions>().Bind(...)`, `services.AddHttpClient<IChatClient, OpenAiCompatibleChatClient>()`, `services.AddHostedService<LlmProviderSeeder>()`
+  - `appsettings.json` sekcja `"Llm"` + `appsettings.Runtime.json` `"Llm": {}`
+  - `LlmOptions.SectionName` const
+  - resx: `Nav.Llm`, `LlmAdmin.DefaultModel` (3 pliki PL/EN/neutral)
+  - Menu link `/admin/llm` w `NavMenu.razor`
+- **Pozostawione**:
+  - `LlmOptions` jako wewnętrzny DTO budowany przez factory z `LlmProvider` (zaktualizowany docstring). Konsumują go ctory `OpenAiCompatibleChatClient` i `OpenAiCompatibleEmbeddingsClient`.
+  - `AddSafeViewLLM(IServiceCollection)` — dropped `IConfiguration` parameter, `Program.cs` zaktualizowany.
+- **UX**: `Assistant.razor` + `CameraDetail.razor.SummarizeAsync` mają empty-state alert "Brak skonfigurowanego dostawcy LLM" + przycisk "Otwórz Dostawców LLM" → `/admin/llm-providers`.
+- **Migracja**: BRAK (decyzja: nie produkcja jeszcze; user musi raz przejść na `/admin/llm-providers` po starcie).
+
+**Tests**: 204/204 zielone, 0 warnings.
+
+**Files changed**: 14 (zmodyfikowane) + 2 (usunięte: `LlmAdmin.razor`, `LlmProviderSeeder.cs`).
+
+---
+
 ## Otwarte tickety
 
 ## 🔴 TICKET #14 — Szyfrowanie API key w `LlmProvider` (Critical)

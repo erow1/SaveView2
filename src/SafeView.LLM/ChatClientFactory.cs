@@ -9,28 +9,29 @@ using SafeView.Domain.Llm;
 namespace SafeView.LLM;
 
 /// <summary>
-/// Fabryka klientów LLM — per <see cref="LlmProvider"/>. Tworzy dedykowany
-/// <see cref="OpenAiCompatibleChatClient"/> z własnym <see cref="HttpClient"/> (BaseAddress,
-/// ApiKey, Timeout), kompatybilnym backendem (kind → string "ollama/vllm/openai"). Cache per
-/// providerId. Invalidate po UpdateAsync (CRUD page woła).
+/// Fabryka klientów LLM — single source of truth: <see cref="LlmProvider"/> z Mongo
+/// (zarządzane na <c>/admin/llm-providers</c>). Tworzy dedykowany
+/// <see cref="OpenAiCompatibleChatClient"/> z własnym <see cref="HttpClient"/> per provider
+/// (BaseAddress, ApiKey, Timeout). Cache per providerId. Invalidate po UpdateAsync.
+///
+/// Gdy <c>providerId</c> jest null/empty → resolwuje providera z <c>IsDefault=true</c>.
+/// Gdy żaden provider nie istnieje (lub default nie jest oznaczony) → rzuca
+/// <see cref="InvalidOperationException"/> z linkiem do strony konfiguracji.
 /// </summary>
 public sealed class ChatClientFactory : IChatClientFactory, IDisposable
 {
     private readonly ILlmProviderRepository _repo;
     private readonly ILoggerFactory _loggerFactory;
-    private readonly IOptions<LlmOptions> _fallbackOpts;
     private readonly ConcurrentDictionary<string, IChatClient> _cache = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, HttpClient> _httpClients = new(StringComparer.Ordinal);
     private const string DefaultKey = "__default__";
 
     public ChatClientFactory(
         ILlmProviderRepository repo,
-        ILoggerFactory loggerFactory,
-        IOptions<LlmOptions> fallbackOpts)
+        ILoggerFactory loggerFactory)
     {
         _repo = repo;
         _loggerFactory = loggerFactory;
-        _fallbackOpts = fallbackOpts;
     }
 
     public async Task<IChatClient> GetForAsync(string? providerId, CancellationToken ct = default)
@@ -39,13 +40,13 @@ public sealed class ChatClientFactory : IChatClientFactory, IDisposable
 
         if (_cache.TryGetValue(key, out var cached)) return cached;
 
-        LlmProvider? provider = null;
+        LlmProvider? provider;
         if (key != DefaultKey)
         {
             provider = await _repo.GetByIdAsync(key, ct).ConfigureAwait(false);
             if (provider is null || !provider.Enabled)
             {
-                // Fallback — invalidated / disabled provider → default
+                // Provider o tym ID zniknął albo wyłączony → fallback na default.
                 return await GetForAsync(null, ct).ConfigureAwait(false);
             }
         }
@@ -54,7 +55,13 @@ public sealed class ChatClientFactory : IChatClientFactory, IDisposable
             provider = await _repo.GetDefaultAsync(ct).ConfigureAwait(false);
         }
 
-        var client = BuildFromProviderOrFallback(provider);
+        if (provider is null)
+        {
+            throw new InvalidOperationException(
+                "Brak skonfigurowanego dostawcy LLM. Dodaj providera na /admin/llm-providers (zaznacz IsDefault).");
+        }
+
+        var client = BuildFromProvider(provider);
         _cache[key] = client;
         return client;
     }
@@ -66,27 +73,16 @@ public sealed class ChatClientFactory : IChatClientFactory, IDisposable
         if (_httpClients.TryRemove(key, out var http)) http.Dispose();
     }
 
-    private OpenAiCompatibleChatClient BuildFromProviderOrFallback(LlmProvider? provider)
+    private OpenAiCompatibleChatClient BuildFromProvider(LlmProvider provider)
     {
-        LlmOptions opts;
-        string cacheKey;
-        if (provider is not null)
+        var opts = new LlmOptions
         {
-            opts = new LlmOptions
-            {
-                Backend = KindToBackend(provider.Kind),
-                BaseUrl = provider.BaseUrl,
-                ApiKey = provider.ApiKey,
-                DefaultModel = provider.DefaultModel,
-                TimeoutSeconds = provider.TimeoutSeconds
-            };
-            cacheKey = provider.Id;
-        }
-        else
-        {
-            opts = _fallbackOpts.Value;
-            cacheKey = DefaultKey;
-        }
+            Backend = KindToBackend(provider.Kind),
+            BaseUrl = provider.BaseUrl,
+            ApiKey = provider.ApiKey,
+            DefaultModel = provider.DefaultModel,
+            TimeoutSeconds = provider.TimeoutSeconds
+        };
 
         var http = new HttpClient();
         if (!string.IsNullOrWhiteSpace(opts.BaseUrl))
@@ -99,7 +95,7 @@ public sealed class ChatClientFactory : IChatClientFactory, IDisposable
             http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", opts.ApiKey);
         }
 
-        _httpClients[cacheKey] = http;
+        _httpClients[provider.Id] = http;
 
         var logger = _loggerFactory.CreateLogger<OpenAiCompatibleChatClient>();
         return new OpenAiCompatibleChatClient(http, Options.Create(opts), logger);

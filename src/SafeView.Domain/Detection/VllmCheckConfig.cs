@@ -43,7 +43,7 @@ public sealed class VllmCheckConfig
     /// </summary>
     public bool IncludeFrame { get; set; } = true;
 
-    /// <summary>Nazwa modelu (override <see cref="Configuration.LlmOptions.DefaultModel"/>). Null = użyj domyślnego.</summary>
+    /// <summary>Nazwa modelu (override <c>LlmProvider.DefaultModel</c>). Null = użyj domyślnego z providera.</summary>
     public string? ModelName { get; set; }
 
     /// <summary>

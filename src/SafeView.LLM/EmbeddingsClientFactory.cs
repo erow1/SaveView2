@@ -10,25 +10,25 @@ namespace SafeView.LLM;
 
 /// <summary>
 /// Factory <see cref="IEmbeddingsClient"/> — pattern 1:1 z <see cref="ChatClientFactory"/>.
+/// Single source of truth: <see cref="LlmProvider"/> z Mongo (<c>/admin/llm-providers</c>).
 /// Dedykowany <see cref="HttpClient"/> per providerId, cache invalidation po UpdateAsync providera.
+///
+/// Throws <see cref="InvalidOperationException"/> gdy brak skonfigurowanego providera.
 /// </summary>
 public sealed class EmbeddingsClientFactory : IEmbeddingsClientFactory, IDisposable
 {
     private readonly ILlmProviderRepository _repo;
     private readonly ILoggerFactory _loggerFactory;
-    private readonly IOptions<LlmOptions> _fallbackOpts;
     private readonly ConcurrentDictionary<string, IEmbeddingsClient> _cache = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, HttpClient> _httpClients = new(StringComparer.Ordinal);
     private const string DefaultKey = "__default__";
 
     public EmbeddingsClientFactory(
         ILlmProviderRepository repo,
-        ILoggerFactory loggerFactory,
-        IOptions<LlmOptions> fallbackOpts)
+        ILoggerFactory loggerFactory)
     {
         _repo = repo;
         _loggerFactory = loggerFactory;
-        _fallbackOpts = fallbackOpts;
     }
 
     public async Task<IEmbeddingsClient> GetForAsync(string? providerId, CancellationToken ct = default)
@@ -36,7 +36,7 @@ public sealed class EmbeddingsClientFactory : IEmbeddingsClientFactory, IDisposa
         var key = string.IsNullOrWhiteSpace(providerId) ? DefaultKey : providerId;
         if (_cache.TryGetValue(key, out var cached)) return cached;
 
-        LlmProvider? provider = null;
+        LlmProvider? provider;
         if (key != DefaultKey)
         {
             provider = await _repo.GetByIdAsync(key, ct).ConfigureAwait(false);
@@ -46,6 +46,12 @@ public sealed class EmbeddingsClientFactory : IEmbeddingsClientFactory, IDisposa
         else
         {
             provider = await _repo.GetDefaultAsync(ct).ConfigureAwait(false);
+        }
+
+        if (provider is null)
+        {
+            throw new InvalidOperationException(
+                "Brak skonfigurowanego dostawcy LLM dla embeddings. Dodaj providera na /admin/llm-providers (zaznacz IsDefault).");
         }
 
         var client = Build(provider);
@@ -60,27 +66,16 @@ public sealed class EmbeddingsClientFactory : IEmbeddingsClientFactory, IDisposa
         if (_httpClients.TryRemove(key, out var http)) http.Dispose();
     }
 
-    private OpenAiCompatibleEmbeddingsClient Build(LlmProvider? provider)
+    private OpenAiCompatibleEmbeddingsClient Build(LlmProvider provider)
     {
-        LlmOptions opts;
-        string cacheKey;
-        if (provider is not null)
+        var opts = new LlmOptions
         {
-            opts = new LlmOptions
-            {
-                Backend = KindToBackend(provider.Kind),
-                BaseUrl = provider.BaseUrl,
-                ApiKey = provider.ApiKey,
-                DefaultModel = provider.DefaultModel,
-                TimeoutSeconds = provider.TimeoutSeconds
-            };
-            cacheKey = provider.Id;
-        }
-        else
-        {
-            opts = _fallbackOpts.Value;
-            cacheKey = DefaultKey;
-        }
+            Backend = KindToBackend(provider.Kind),
+            BaseUrl = provider.BaseUrl,
+            ApiKey = provider.ApiKey,
+            DefaultModel = provider.DefaultModel,
+            TimeoutSeconds = provider.TimeoutSeconds
+        };
 
         var http = new HttpClient();
         if (!string.IsNullOrWhiteSpace(opts.BaseUrl))
@@ -88,7 +83,7 @@ public sealed class EmbeddingsClientFactory : IEmbeddingsClientFactory, IDisposa
         http.Timeout = TimeSpan.FromSeconds(Math.Max(5, opts.TimeoutSeconds));
         if (!string.IsNullOrWhiteSpace(opts.ApiKey))
             http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", opts.ApiKey);
-        _httpClients[cacheKey] = http;
+        _httpClients[provider.Id] = http;
 
         var logger = _loggerFactory.CreateLogger<OpenAiCompatibleEmbeddingsClient>();
         return new OpenAiCompatibleEmbeddingsClient(http, Options.Create(opts), logger);

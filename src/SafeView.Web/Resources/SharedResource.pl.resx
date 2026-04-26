@@ -478,7 +478,6 @@
   <data name="Settings.Hint.MLGpuDeviceId"><value>Device ID GPU dla systemów multi-GPU (domyślnie 0)</value></data>
   <data name="Settings.Hint.MLFallback"><value>Fallback provider gdy CUDA niedostępne: "directml" (Win AMD/Intel), "coreml" (macOS), pusto = CPU</value></data>
   <data name="Nav.ApiKeys"><value>Klucze API</value></data>
-  <data name="Nav.Llm"><value>LLM</value></data>
   <data name="Nav.MediaMtx"><value>MediaMTX</value></data>
 
   <!-- Auth -->
@@ -679,8 +678,6 @@
   <data name="Reports.AllCameras"><value>Wszystkie</value></data>
   <data name="Reports.Preview"><value>Podgląd</value></data>
 
-  <!-- Pages: LLM Admin -->
-  <data name="LlmAdmin.DefaultModel"><value>Domyślny model</value></data>
 
   <!-- Pages: MediaMTX Admin -->
   <data name="MediaMtx.ForceRestart"><value>Wymuś restart</value></data>

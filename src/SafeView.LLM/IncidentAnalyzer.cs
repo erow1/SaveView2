@@ -8,7 +8,7 @@ namespace SafeView.LLM;
 
 public sealed class IncidentAnalyzer : IIncidentAnalyzer
 {
-    private readonly IChatClient _chat;
+    private readonly IChatClientFactory _factory;
     private readonly ILogger<IncidentAnalyzer> _log;
 
     private const string SystemPrompt = """
@@ -43,14 +43,22 @@ public sealed class IncidentAnalyzer : IIncidentAnalyzer
     private static readonly JsonSerializerOptions SerializeOpts = new() { WriteIndented = false };
     private static readonly JsonSerializerOptions DeserializeOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
 
-    public IncidentAnalyzer(IChatClient chat, ILogger<IncidentAnalyzer> log)
+    public IncidentAnalyzer(IChatClientFactory factory, ILogger<IncidentAnalyzer> log)
     {
-        _chat = chat;
+        _factory = factory;
         _log = log;
     }
 
     public async Task<IncidentLlmAnalysis?> AnalyzeAsync(Incident incident, CancellationToken ct = default)
     {
+        IChatClient chat;
+        try { chat = await _factory.GetForAsync(null, ct).ConfigureAwait(false); }
+        catch (InvalidOperationException ex)
+        {
+            _log.LogWarning("IncidentAnalyzer: brak skonfigurowanego providera LLM ({Msg})", ex.Message);
+            return null;
+        }
+
         var userPayload = JsonSerializer.Serialize(new
         {
             id = incident.Id,
@@ -75,7 +83,7 @@ public sealed class IncidentAnalyzer : IIncidentAnalyzer
             new(ChatRole.User, userPayload)
         };
 
-        var resp = await _chat.ChatAsync(messages,
+        var resp = await chat.ChatAsync(messages,
             new ChatOptions(Temperature: 0.1, MaxTokens: 512, JsonSchema: ResponseSchema), ct)
             .ConfigureAwait(false);
 

@@ -87,8 +87,8 @@ try
     builder.Services.AddSafeViewML(builder.Configuration);
     builder.Services.AddSafeViewRoboflow();
 
-    // ─── LLM (vLLM / Ollama / LM Studio / OpenAI) ─────────────────────────────
-    builder.Services.AddSafeViewLLM(builder.Configuration);
+    // ─── LLM (single source of truth: LlmProvider w Mongo, /admin/llm-providers) ─
+    builder.Services.AddSafeViewLLM();
 
     // ─── Reports (QuestPDF + CSV) ─────────────────────────────────────────────
     builder.Services.AddSafeViewReports();

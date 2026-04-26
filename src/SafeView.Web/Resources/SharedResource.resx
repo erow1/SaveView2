@@ -476,7 +476,6 @@
   <data name="Settings.Hint.MLGpuDeviceId"><value>GPU device ID.</value></data>
   <data name="Settings.Hint.MLFallback"><value>Fallback: directml / coreml / empty=CPU.</value></data>
   <data name="Nav.ApiKeys"><value>API Keys</value></data>
-  <data name="Nav.Llm"><value>LLM</value></data>
   <data name="Nav.MediaMtx"><value>MediaMTX</value></data>
 
   <!-- Auth -->
@@ -677,8 +676,6 @@
   <data name="Reports.AllCameras"><value>All</value></data>
   <data name="Reports.Preview"><value>Preview</value></data>
 
-  <!-- Pages: LLM Admin -->
-  <data name="LlmAdmin.DefaultModel"><value>Default model</value></data>
 
   <!-- Pages: MediaMTX Admin -->
   <data name="MediaMtx.ForceRestart"><value>Force restart</value></data>
