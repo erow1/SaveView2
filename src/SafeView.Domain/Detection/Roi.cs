@@ -37,6 +37,14 @@ public sealed class Roi : Entity
     /// <summary>Kolor overlay w UI (hex, np. "#4DA6FF").</summary>
     public string Color { get; set; } = "#4DA6FF";
 
+    /// <summary>
+    /// Gdy <c>true</c>, ROI pokrywa całą klatkę kamery — geometria <see cref="Rectangle"/>
+    /// jest ignorowana / nie-edytowalna w UI. Używane głównie dla kamer typu
+    /// <c>CameraTransport.Api</c>, gdzie zewnętrzny system już zrobił swoje wycięcia
+    /// i pcha do nas pełen obraz + detekcje.
+    /// </summary>
+    public bool IsFullFrame { get; set; }
+
     // ─── Faza 5: Cascade mode ───────────────────────────────────────────────
     /// <summary>
     /// ID lekkiego modelu "proposer" (opcjonalny). Gdy ustawione, pipeline działa w trybie cascade:

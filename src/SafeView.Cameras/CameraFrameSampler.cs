@@ -95,7 +95,11 @@ public sealed class CameraFrameSampler : BackgroundService
         if (cameras.Count == 0) return TimeSpan.FromSeconds(5);
 
         var now = DateTime.UtcNow;
-        var dueCameras = cameras.Where(c => IsDue(c, now)).ToList();
+        // Skip kamery typu Api — to push-based, dane lecą przez /api/v1/cameras/{id}/ingest.
+        // Sampler nie ma czego pollować z RTSP/HTTP/File dla nich.
+        var dueCameras = cameras
+            .Where(c => c.Transport != SafeView.Domain.Cameras.CameraTransport.Api && IsDue(c, now))
+            .ToList();
 
         if (dueCameras.Count > 0)
         {

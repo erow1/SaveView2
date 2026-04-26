@@ -5,6 +5,7 @@
 @inject IStringLocalizer<SharedResource> L
 @inject IFileStore Files
 @inject ISnackbar Snackbar
+@inject NavigationManager Nav
 
 <MudDialog>
     <DialogContent>
@@ -24,7 +25,7 @@
                         <MudSelectItem Value="v">@VendorLabel(v)</MudSelectItem>
                     }
                 </MudSelect>
-                @if (Camera.Vendor is not CameraVendor.FileSource)
+                @if (Camera.Vendor is not CameraVendor.FileSource and not CameraVendor.ApiPush)
                 {
                     <MudSelect T="CameraStreamProfile" Value="Camera.StreamProfile" ValueChanged="OnProfileChanged"
                                Label="@L["CameraDialog.Stream"]" Variant="Variant.Outlined" Style="flex:1;"
@@ -35,7 +36,51 @@
                 }
             </MudStack>
 
-            @if (Camera.Vendor == CameraVendor.FileSource)
+            @if (Camera.Vendor == CameraVendor.ApiPush)
+            {
+                <!-- ApiPush: external system wysyła klatki + detekcje przez REST -->
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">
+                    @L["CameraDialog.ApiPushInfo"]
+                </MudAlert>
+
+                @if (!IsNew)
+                {
+                    <MudPaper Class="pa-3 sv-card" Elevation="0">
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">@L["CameraDialog.ApiPushIngest"]</MudText>
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["CameraDialog.ApiPushUrl"]</MudText>
+                        <MudText Class="mono sv-status-ok mb-2" Style="font-size:12px; word-break:break-all;">
+                            POST @_apiBaseUrl/api/v1/cameras/@Camera.Id/ingest
+                        </MudText>
+
+                        <MudExpansionPanels MultiExpansion="true" Elevation="0" Class="mt-2">
+                            <MudExpansionPanel Text="@L["CameraDialog.ApiPushExampleMultipart"]">
+                                <pre class="mono" style="font-size:11px; white-space:pre-wrap; background:var(--mud-palette-surface); padding:8px; border-radius:4px;">@_curlMultipart</pre>
+                            </MudExpansionPanel>
+                            <MudExpansionPanel Text="@L["CameraDialog.ApiPushExampleJson"]">
+                                <pre class="mono" style="font-size:11px; white-space:pre-wrap; background:var(--mud-palette-surface); padding:8px; border-radius:4px;">@_curlJson</pre>
+                            </MudExpansionPanel>
+                        </MudExpansionPanels>
+
+                        <MudTextField @bind-Value="Camera.IngestApiKeyId" Label="@L["CameraDialog.ApiPushPin"]"
+                                      Variant="Variant.Outlined" Class="mt-3" Margin="Margin.Dense"
+                                      HelperText="@L["CameraDialog.ApiPushPinHint"]" />
+
+                        @if (Camera.LastSnapshotAt is { } lastIngest)
+                        {
+                            <MudText Typo="Typo.caption" Class="sv-text-muted mt-2">
+                                @L["CameraDialog.ApiPushLastIngest"]: <span class="mono">@lastIngest.ToString("yyyy-MM-dd HH:mm:ss UTC")</span>
+                            </MudText>
+                        }
+                    </MudPaper>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true">
+                        @L["CameraDialog.ApiPushSaveFirst"]
+                    </MudAlert>
+                }
+            }
+            else if (Camera.Vendor == CameraVendor.FileSource)
             {
                 <!-- File / image upload -->
                 <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
@@ -97,19 +142,22 @@
                               Immediate="true" TextChanged="_ => RefreshPreview()" />
             }
 
-            <MudPaper Class="pa-2 sv-card" Elevation="0" Style="border-style:dashed;">
-                <MudText Typo="Typo.caption" Class="sv-text-muted">@L["CameraDialog.ComputedUrl"]</MudText>
-                <MudText Class="mono sv-status-ok" Style="font-size:12px; word-break:break-all;">
-                    @(string.IsNullOrEmpty(_previewUrl) ? L["CameraDialog.FillHostLogin"].Value : _previewUrl)
-                </MudText>
-            </MudPaper>
+            @if (Camera.Vendor != CameraVendor.ApiPush)
+            {
+                <MudPaper Class="pa-2 sv-card" Elevation="0" Style="border-style:dashed;">
+                    <MudText Typo="Typo.caption" Class="sv-text-muted">@L["CameraDialog.ComputedUrl"]</MudText>
+                    <MudText Class="mono sv-status-ok" Style="font-size:12px; word-break:break-all;">
+                        @(string.IsNullOrEmpty(_previewUrl) ? L["CameraDialog.FillHostLogin"].Value : _previewUrl)
+                    </MudText>
+                </MudPaper>
 
-            <MudDivider />
-            <MudText Typo="Typo.subtitle2">@L["CameraDialog.Sampling"]</MudText>
-            <MudStack Row="true" Spacing="4">
-                <MudNumericField @bind-Value="Camera.SnapshotIntervalSeconds" Label="@L["CameraDialog.SnapshotInterval"]" Min="1" Max="3600" Variant="Variant.Outlined" />
-                <MudNumericField @bind-Value="Camera.IncidentClipSeconds" Label="@L["CameraDialog.ClipDuration"]" Min="3" Max="120" Variant="Variant.Outlined" />
-            </MudStack>
+                <MudDivider />
+                <MudText Typo="Typo.subtitle2">@L["CameraDialog.Sampling"]</MudText>
+                <MudStack Row="true" Spacing="4">
+                    <MudNumericField @bind-Value="Camera.SnapshotIntervalSeconds" Label="@L["CameraDialog.SnapshotInterval"]" Min="1" Max="3600" Variant="Variant.Outlined" />
+                    <MudNumericField @bind-Value="Camera.IncidentClipSeconds" Label="@L["CameraDialog.ClipDuration"]" Min="3" Max="120" Variant="Variant.Outlined" />
+                </MudStack>
+            }
 
             <MudSwitch @bind-Value="Camera.Enabled" Color="Color.Success" Label="@L["CameraDialog.EnabledLabel"]" />
         </MudStack>
@@ -128,6 +176,9 @@
     private string _previewUrl = string.Empty;
     private string _uploadedFileName = string.Empty;
     private bool _uploading;
+    private string _apiBaseUrl = string.Empty;
+    private string _curlMultipart = string.Empty;
+    private string _curlJson = string.Empty;
     private const string _acceptedExtensions = ".mp4,.mkv,.avi,.mov,.webm,.jpg,.jpeg,.png,.bmp,.webp";
     private const long MaxFileSize = 2L * 1024 * 1024 * 1024; // 2 GB
 
@@ -139,6 +190,10 @@
         if (Camera.Vendor == CameraVendor.FileSource && !string.IsNullOrEmpty(Camera.SourceUrl))
             _uploadedFileName = Path.GetFileName(Camera.SourceUrl);
 
+        // Resolve base URL (origin) for ApiPush curl examples — without trailing slash
+        var baseUri = new Uri(Nav.BaseUri);
+        _apiBaseUrl = $"{baseUri.Scheme}://{baseUri.Authority}";
+        BuildCurlExamples();
         RefreshPreview();
     }
 
@@ -150,13 +205,49 @@
         {
             Camera.Transport = CameraTransport.File;
         }
+        else if (v == CameraVendor.ApiPush)
+        {
+            Camera.Transport = CameraTransport.Api;
+        }
         else
         {
             Camera.Transport = CameraTransport.Rtsp;
             Camera.Port = VendorRtspBuilder.DefaultPort(v);
         }
 
+        BuildCurlExamples();
         RefreshPreview();
+    }
+
+    private void BuildCurlExamples()
+    {
+        if (Camera.Vendor != CameraVendor.ApiPush || string.IsNullOrEmpty(Camera.Id)) return;
+        var url = $"{_apiBaseUrl}/api/v1/cameras/{Camera.Id}/ingest";
+        _curlMultipart = $@"curl -X POST '{url}' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -F 'frame=@frame.jpg;type=image/jpeg' \
+  -F 'metadata={{
+    ""schema_version"": ""1.0"",
+    ""frame"": {{ ""width"": 1920, ""height"": 1080, ""captured_at"": ""2026-04-26T12:00:00Z"" }},
+    ""detections"": [
+      {{ ""label"": ""person"", ""confidence"": 0.92,
+        ""bbox"": {{ ""x"": 100, ""y"": 200, ""width"": 50, ""height"": 100 }} }}
+    ],
+    ""source"": {{ ""name"": ""Frigate"", ""model"": ""yolov8n"" }}
+  }};type=application/json'";
+
+        _curlJson = $@"curl -X POST '{_apiBaseUrl}/api/v1/cameras/{Camera.Id}/ingest-json' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{{
+    ""schema_version"": ""1.0"",
+    ""image_base64"": ""<JPEG_BYTES_AS_BASE64>"",
+    ""frame"": {{ ""width"": 1920, ""height"": 1080, ""captured_at"": ""2026-04-26T12:00:00Z"" }},
+    ""detections"": [
+      {{ ""label"": ""person"", ""confidence"": 0.92,
+        ""bbox"": {{ ""x"": 100, ""y"": 200, ""width"": 50, ""height"": 100 }} }}
+    ]
+  }}'";
     }
 
     private void OnProfileChanged(CameraStreamProfile p)
@@ -181,6 +272,10 @@
     private bool Valid()
     {
         if (string.IsNullOrWhiteSpace(Camera.Name)) return false;
+
+        if (Camera.Vendor == CameraVendor.ApiPush)
+            return true; // tylko nazwa wymagana — sampler nie polluje, brak host/url
+
         if (Camera.SnapshotIntervalSeconds <= 0) return false;
 
         if (Camera.Vendor == CameraVendor.FileSource)
@@ -236,6 +331,14 @@
 
     private void Save()
     {
+        if (Camera.Vendor == CameraVendor.ApiPush)
+        {
+            Camera.Transport = CameraTransport.Api;
+            // Brak SourceUrl / MediaMtxPath — push-based, nie ma z czego ciągnąć
+            MudDialog.Close(DialogResult.Ok(Camera));
+            return;
+        }
+
         if (Camera.Vendor == CameraVendor.FileSource)
         {
             Camera.Transport = CameraTransport.File;
@@ -263,6 +366,7 @@
     {
         CameraVendor.Custom     => L["CameraDialog.CustomUrl"],
         CameraVendor.FileSource => L["CameraDialog.FileSource"],
+        CameraVendor.ApiPush    => L["CameraDialog.ApiPush"],
         CameraVendor.Dahua      => "Dahua",
         CameraVendor.Hikvision  => "Hikvision",
         CameraVendor.Axis       => "Axis",

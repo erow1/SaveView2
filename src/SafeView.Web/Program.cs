@@ -124,6 +124,8 @@ try
     builder.Services.AddCascadingAuthenticationState();
     builder.Services.AddScoped<SafeView.Web.Theme.ThemeState>();
     builder.Services.AddSingleton<SafeView.Web.Services.RuntimeConfigService>();
+    builder.Services.AddSingleton<SafeView.Web.Services.IngestIdempotencyStore>();
+    builder.Services.AddHttpClient(); // for ingest-json image_url fetching
 
     // ─── Rate limiting (MOD.API) ───────────────────────────────────────────────
     // Per-API-key sliding window: 120 req / min. Login: 10 req / min / IP.
@@ -152,6 +154,22 @@ try
             {
                 PermitLimit = 10,
                 Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            });
+        });
+
+        // Push-based ingest dla CameraTransport.Api — wyższy limit niż api-key (typowe 5-30 fps),
+        // partition per kamera (URL route value) żeby ruch z jednej kamery nie zabijał innym.
+        opt.AddPolicy("camera-ingest", ctx =>
+        {
+            var cameraId = ctx.Request.RouteValues.TryGetValue("cameraId", out var v)
+                ? v?.ToString() ?? "unknown"
+                : "unknown";
+            return RateLimitPartition.GetSlidingWindowLimiter(cameraId, _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 1800,                 // 30 fps × 60s
+                Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 6,
                 QueueLimit = 0
             });
         });
@@ -268,6 +286,7 @@ try
     app.MapAuthEndpoints();
     app.MapReportEndpoints();
     app.MapApiV1Endpoints();
+    app.MapIngestEndpoints();
     app.MapHealthEndpoints();
     app.MapCameraSnapshotEndpoint();
     app.MapPerformanceEndpoints();

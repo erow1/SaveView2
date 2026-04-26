@@ -380,4 +380,23 @@ api:incidents:read, api:cameras:read, api:zones:read  # API v1 scopes
 
 ---
 
+## ApiCamera (push-based ingest, 2026-04-26)
+
+**Motywacja**: nie tylko RTSP/HTTP/File-loop — niektóre wdrożenia mają zewnętrzny inference (edge appliance, Frigate, własny serwer ML) który robi detekcje lokalnie i chce pchać wyniki do SafeView. Dodaliśmy `CameraTransport.Api` + REST ingest endpoint.
+
+**Architektura — granica systemu vs reszta**:
+- **Granica (specjalna)**: `CameraVendor.ApiPush + CameraTransport.Api` w domain. `IngestEndpoints` (`POST /api/v1/cameras/{id}/ingest` multipart + `/ingest-json` z base64/URL fallback). `ApiCameraProvisioner` auto-tworzy pełnokadrową ROI (`IsFullFrame=true, Rectangle=(0,0,1,1)`) + Zone (4-punkt polygon `(0,0)-(1,0)-(1,1)-(0,1)`) przy save kamery.
+- **Pipeline (rozdzielenie)**: `IDetectionPipeline.ProcessExternalDetectionsAsync(camera, framePath, frameRelPath, externalDetections, capturedAt, ct)` — pomija stage inferencji, wpada do wspólnej `EvaluateAndDispatchAsync(...)` używanej też przez `ProcessFrameAsync`. Wspólna metoda robi: snapshot store update, batch load triggers/actions/classes, homography compute, eval + VLLM gate + actions + audit + flow events. **Downstream nie wie skąd są detekcje.**
+- **Reszta (bez zmian)**: `TriggerEvaluator`, `TriggerConditionMatcher`, `VllmChecker`, `ActionDispatcher`, `IncidentRepository`, `DetectionSnapshotStore`, `FlowHub`. Incident ma `OccurredAt = frame.captured_at` (czas sendera, nie server clock).
+
+**Format API**: schema `1.0` zbliżona do Roboflow Inference. Bbox w **pixel coords** (top-left origin) — server normalizuje do `[0..1]`. `ModelId="external"` constant — używaj DetectionClass-based conditions (nie ModelId+Labels). Idempotency po `frame_id` (in-memory LRU 1000 ostatnich per kamera). Pola opcjonalne: `track_id`, `polygon`, `keypoints`, `attributes` (forward-compat). Per-camera pin via `Camera.IngestApiKeyId` jako defense-in-depth ponad scope `api:cameras:write`.
+
+**Bezpieczeństwo**: rate-limit policy `camera-ingest` partycjonowany per `cameraId` (1800 req/min). Walidacja bbox-bounds, confidence, image size (max 20MB), JSON metadata (max 1MB). JSON-only `image_url` ograniczony do http(s) + 5s timeout + 10MB defense vs SSRF/DOS. Endpoint wymaga `api:cameras:write` scope; transport-check rzuca `BadRequest` gdy ktoś próbuje pisać do kamery RTSP.
+
+**UI**: `CameraVendor.ApiPush` w dropdownie Vendor → wymusza Transport.Api. Panel pokazuje URL endpointu + 2 expansion panels z curl examples (multipart + JSON-only) + pole `IngestApiKeyId` do pin-owania klucza. Hide Connection/Sampling sections (sampler nie polluje). Sampler ma guard `c.Transport != Api` żeby skip-nąć.
+
+**Pełna dokumentacja**: `documentation/API_INGEST.md` (curl examples, response codes, format spec, smoke test E2E).
+
+---
+
 **Gdy user pyta "co dalej" bez kontekstu** — przeczytaj `documentation/ROADMAP.md` i zaproponuj 3 najważniejsze tickety.

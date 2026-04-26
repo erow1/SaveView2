@@ -115,6 +115,10 @@ public static class DependencyInjection
         services.AddSingleton<ITriggerEvaluator, TriggerEvaluator>();
         services.AddSingleton<IActionDispatcher, ActionDispatcher>();
 
+        // ApiCamera — auto-provisioning pełnokadrowej ROI/Zone po utworzeniu kamery typu Api
+        services.AddSingleton<SafeView.Application.Abstractions.Detection.IApiCameraProvisioner,
+                              SafeView.Application.Detection.ApiCameraProvisioner>();
+
         // In-app notification broker — singleton fan-out do aktywnych sesji Blazor
         services.AddSingleton<SafeView.Application.Abstractions.Notifications.IInAppNotificationBroker,
                               SafeView.Application.Notifications.InAppNotificationBroker>();

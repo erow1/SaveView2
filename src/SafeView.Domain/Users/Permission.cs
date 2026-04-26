@@ -55,6 +55,14 @@ public static class Permission
     public const string ApiCamerasRead = "api:cameras:read";
     public const string ApiZonesRead = "api:zones:read";
 
+    /// <summary>
+    /// Push-based ingest: zewnętrzne oprogramowanie (kamera embedded, edge appliance, własny inference
+    /// server) wysyła klatki + detekcje do <c>POST /api/v1/cameras/{id}/ingest</c>. Kamera musi mieć
+    /// <c>CameraTransport.Api</c>; opcjonalny per-camera pin (<c>Camera.IngestApiKeyId</c>) zawęża który
+    /// konkretny ApiKey może pisać.
+    /// </summary>
+    public const string ApiCamerasWrite = "api:cameras:write";
+
     /// <summary>Wszystkie permissions zdefiniowane w systemie — do zasilenia UI wyboru przy edycji roli.</summary>
     public static readonly IReadOnlyList<string> All =
     [
@@ -68,6 +76,6 @@ public static class Permission
         IncidentsView, IncidentsResolve,
         ReportsView, ReportsGenerate,
         LlmChat, LlmConfigure,
-        ApiIncidentsRead, ApiCamerasRead, ApiZonesRead
+        ApiIncidentsRead, ApiCamerasRead, ApiZonesRead, ApiCamerasWrite
     ];
 }

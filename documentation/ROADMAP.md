@@ -85,6 +85,33 @@ Pełna implementacja: auto-detect dynamic/compiled, batch (SAHI), `IClipTextEnco
 
 ## Ukończone (2026-04-26)
 
+### ✅ TICKET #43-#49 — ApiCamera (push-based ingest)
+
+**Problem**: dotychczas SafeView pollował kamery przez RTSP/HTTP/File, ale wdrożenia z edge inference (Frigate, własny ML server, embedded camera z built-in detekcją) chciały pchać klatki + pre-computed detekcje, nie być pollowane.
+
+**Rozwiązanie**: nowy `CameraTransport.Api` + REST ingest endpoint. Zewnętrzny system POST-uje klatkę + JSON z detekcjami; pipeline pomija inferencję i wpada do tego samego trigger/VLLM/action flow co normalne kamery. Downstream nie wie że źródło zewnętrzne.
+
+**Dostarczone (#43-#49)**:
+- **#43 Domain**: `CameraTransport.Api`, `CameraVendor.ApiPush=100`, `Roi.IsFullFrame`, `Camera.IngestApiKeyId?`, `Permission.ApiCamerasWrite`.
+- **#44 Pipeline**: `IDetectionPipeline.ProcessExternalDetectionsAsync(...)` + extract wspólnej `EvaluateAndDispatchAsync` (snapshot+repos+homography+eval+VLLM+actions+audit).
+- **#45 Web ingest**: `IngestEndpoints` (multipart + JSON-only), `IngestDtos` (schema 1.0 zbliżona do Roboflow), `IngestIdempotencyStore` (LRU 1000/cam), DI + rate limit `camera-ingest` (1800 req/min/cam).
+- **#46 Auto-provisioning**: `IApiCameraProvisioner` + `ApiCameraProvisioner` — pełnokadrowa ROI `(0,0,1,1)` + Zone (4-punkt polygon) tworzone idempotentnie przy save kamery typu Api. Wywoływane z `Cameras.razor`. `CameraFrameSampler` skipuje `Transport.Api`.
+- **#47 UI**: CameraDialog Vendor=ApiPush → panel z URL endpointu + 2 expansion panels curl examples + `IngestApiKeyId` pin field + warning gdy IsNew. resx PL/EN/neutral.
+- **#48 Hardening**: rate limit per-camera done. Frame retention TTL → follow-up #50.
+- **#49 Doc**: `documentation/API_INGEST.md` — pełna spec, curl examples, error codes, smoke test E2E.
+
+**Tests**: 5 nowych `ApiCameraProvisionerTests` → łącznie 209/209 zielone, 0 warnings.
+
+**Format API** (kluczowe decyzje):
+- Bbox **pixel coords** (top-left origin) — server normalizuje do `[0..1]`. Pasuje do output YOLO.
+- `ModelId="external"` constant — używaj DetectionClass-based conditions w triggerach, nie ModelId+Labels.
+- Idempotency po `frame_id` (sender UUID) — retry safe.
+- `source.name/model/inference_ms` + `attributes` (wolny dict) dla audytu i forward-compat.
+- Schema versioned: URL `/api/v1/` + body `schema_version` field.
+- JSON-only fallback (`image_base64` lub `image_url`) dla cloud webhooków.
+
+---
+
 ### ✅ TICKET #42 — LLM config consolidation (single source of truth)
 
 **Problem**: trzy źródła konfiguracji LLM rozjeżdżały się: strona `/admin/llm` (read-only display z appsettings), strona `/admin/llm-providers` (DB-backed), sekcja `appsettings.Llm`. Edycja providera w UI pokazywała inne dane niż `/admin/llm`. Dwa codepathy konsumentów: bezpośredni `IChatClient` (z appsettings) vs `IChatClientFactory.GetForAsync` (z DB).
@@ -356,6 +383,38 @@ Obecnie `incidents` collection rośnie bezterminowo. Dodać configurable retenti
 **Uwaga architektoniczna**: Fazy 1-7 już zapewniają że ten ticket to "drop-in", nie refaktor — `DetectionClass`, `Trigger`, UI, pipeline bez zmian.
 
 **Est**: 8-10h (największy ze względu na nową inferencję ViT architecture)
+
+---
+
+## 🟡 TICKET #50 — Frame retention TTL (hosted service)
+
+**Kontekst**: po Ticketach #43-#49 mamy `CameraTransport.Api` które potrafi przyjmować 1800 req/min/cam. Bez retention dysk się zapełni: 30fps × 30 dni × 4K JPG ≈ 250GB/cam. Dla kamer RTSP też nie ma TTL.
+
+**Goal**: `FrameRetentionService` (IHostedService) skanuje `storage/frames/` co N godzin i usuwa pliki starsze niż `Storage:FrameRetentionDays` (configurable, default 30d).
+
+**Approach**:
+1. `StorageOptions.FrameRetentionDays` (int, default 30; 0 = disable).
+2. `FrameRetentionService : IHostedService` w SafeView.Infrastructure. `Timer` co 6h. Iteruje `runtime/storage/frames/` (przez `IFileStore.ResolveAbsolutePath(FileKind.Frame, "")`) → enumeruje pliki → `File.GetLastWriteTimeUtc < now - retention` → delete.
+3. Logging: ile usunięto + bytes freed (per run, do `system_events` Info).
+4. Test jednostkowy z `IFileStore` mock.
+
+**Est**: 2-3h
+
+---
+
+## 🟡 TICKET #51 — Persistent ingest idempotency (Mongo TTL)
+
+**Kontekst**: `IngestIdempotencyStore` (#45) jest in-memory LRU 1000 frame-ów per kamera. Restart aplikacji = utrata stanu, multi-instance deploy = niezsynchronizowane.
+
+**Goal**: Mongo collection `ingest_idempotency` z TTL index (24h), composite key `(cameraId, frameId)`.
+
+**Approach**:
+1. `IIngestIdempotencyStore` przeniesione do Application/Abstractions.
+2. `MongoIngestIdempotencyStore` w Infrastructure — `InsertOneAsync` z `unique` index na `(cameraId, frameId)`. `MongoWriteException` z duplicate key = "already_processed".
+3. TTL index na `CreatedAt` z `expireAfterSeconds: 86400`.
+4. Migration: w DI rejestrujemy nowy impl, drop in-memory.
+
+**Est**: 2-3h
 
 ---
 

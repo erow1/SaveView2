@@ -136,144 +136,9 @@ public sealed class DetectionPipeline : IDetectionPipeline, IFrameObserver
                 allDetections.AddRange(roiDetections);
             }
 
-            // Publikuj snapshot do podglądu /monitor (także gdy empty — user widzi że pipeline żyje).
-            // Zapisujemy ścieżkę klatki, żeby Monitor mógł pokazać obraz z TEGO momentu detekcji
-            // (bboxy się zgadzają z obrazem — bez "przesunięcia" obiektu względem ramki).
-            _snapshots?.Update(new DetectionSnapshot(camera.Id, _clock.UtcNow, allDetections, frameRelativePath));
-
-            if (allDetections.Count == 0) return;
-
-            // 4. Pobierz wszystkie triggery + akcje z jednym query per type
-            var allTriggerIds = cameraZones.SelectMany(z => z.TriggerIds).Distinct().ToList();
-            var triggers = (await _triggers.ListByIdsAsync(allTriggerIds, ct).ConfigureAwait(false))
-                .ToDictionary(t => t.Id);
-
-            var allActionIds = triggers.Values.SelectMany(t => t.ActionIds).Distinct().ToList();
-            var actions = (await _actions.ListByIdsAsync(allActionIds, ct).ConfigureAwait(false))
-                .ToDictionary(a => a.Id);
-
-            // 4b. Rezolucja DetectionClass — jedno batch query dla wszystkich unique class IDs.
-            // Słownik przekazywany do matcher-a (filter + evaluator). Null gdy repo nie zarejestrowane
-            // albo żaden trigger nie używa DetectionClass → evaluator leci legacy path.
-            IReadOnlyDictionary<string, SafeView.Domain.Detection.DetectionClass>? detectionClasses = null;
-            if (_detectionClasses is not null)
-            {
-                var classIds = triggers.Values
-                    .SelectMany(t => t.Conditions)
-                    .Select(c => c.DetectionClassId)
-                    .Where(id => !string.IsNullOrEmpty(id))
-                    .Select(id => id!)
-                    .Distinct()
-                    .ToList();
-                if (classIds.Count > 0)
-                {
-                    var classes = await _detectionClasses.ListByIdsAsync(classIds, ct).ConfigureAwait(false);
-                    detectionClasses = classes.ToDictionary(c => c.Id);
-                }
-            }
-
-            // Homografia kamery — liczona raz per-klatka. Null gdy kalibracja brak / niepoprawna.
-            var homography = camera.CalibrationPoints.Count >= 4
-                ? SafeView.Domain.Cameras.HomographyCalculator.Compute(camera.CalibrationPoints)
-                : null;
-
-            // 5. Dla każdej Zone × Trigger — ewaluuj, dispatcher akcji
-            foreach (var zone in cameraZones)
-            {
-                foreach (var triggerId in zone.TriggerIds)
-                {
-                    if (!triggers.TryGetValue(triggerId, out var trigger)) continue;
-
-                    var matchingDetections = FilterDetectionsForZone(allDetections, trigger, zone, detectionClasses);
-                    var result = _triggerEvaluator.Evaluate(trigger, zone.Id, matchingDetections, detectionClasses);
-                    if (!result.Fired) continue;
-
-                    // Filtry przestrzenne (dystans w metrach między parami) — gate po trigger fire,
-                    // przed VLLM. Wymagają homografii; bez niej trigger zostaje zablokowany.
-                    if (trigger.SpatialFilters.Count > 0)
-                    {
-                        var spatial = SpatialFilterEvaluator.Evaluate(trigger.SpatialFilters, allDetections, homography);
-                        if (!spatial.Passed)
-                        {
-                            _log.LogDebug("Spatial filter blocked trigger '{Trigger}' in zone '{Zone}': {Reason}",
-                                trigger.Name, zone.Name, spatial.FailReason);
-                            continue;
-                        }
-                    }
-
-                    var triggerActions = trigger.ActionIds
-                        .Select(id => actions.GetValueOrDefault(id))
-                        .Where(a => a is not null)
-                        .Cast<DetectionAction>()
-                        .ToList();
-
-                    if (triggerActions.Count == 0) continue;
-
-                    var context = new ActionContext
-                    {
-                        CameraId = camera.Id,
-                        CameraName = camera.Name,
-                        ZoneId = zone.Id,
-                        ZoneName = zone.Name,
-                        TriggerId = trigger.Id,
-                        TriggerName = trigger.Name,
-                        FrameSnapshotPath = framePath,
-                        Detections = matchingDetections,
-                        OccurredAt = _clock.UtcNow
-                    };
-
-                    // ── VLLM gating (Faza 3) ────────────────────────────────────
-                    // Jeśli trigger ma skonfigurowany VllmCheck i Enabled=true, zanim odpalimy
-                    // akcje pytamy VLLM czy to prawdziwy alert czy false-positive.
-                    VllmCheckResult? vllmResult = null;
-                    if (trigger.VllmCheck is { Enabled: true } vllmCfg && _vllmChecker is not null)
-                    {
-                        vllmResult = await _vllmChecker.CheckAsync(vllmCfg, context, ct).ConfigureAwait(false);
-
-                        // Fail-open / fail-closed decyzja
-                        if (vllmResult.IsError)
-                        {
-                            if (vllmCfg.RejectOnError)
-                            {
-                                _log.LogWarning("VLLM error for trigger '{Trigger}' + RejectOnError=true → skipping actions. Reason: {Reason}",
-                                    trigger.Name, vllmResult.Reason);
-                                await LogVllmSkipAsync(triggerActions, context, ActionSkipReason.VllmRejected,
-                                    $"VLLM error: {vllmResult.Reason}", ct).ConfigureAwait(false);
-                                continue;
-                            }
-                            // fail-open — lećmy z akcjami pomimo błędu
-                            _log.LogWarning("VLLM error for trigger '{Trigger}' + RejectOnError=false → firing actions anyway. Reason: {Reason}",
-                                trigger.Name, vllmResult.Reason);
-                        }
-                        else if (!vllmResult.Confirmed)
-                        {
-                            // VLLM powiedział że to false-positive — pomiń akcje, zaloguj do audit
-                            _log.LogInformation("VLLM rejected trigger '{Trigger}' in zone '{Zone}' (conf={Conf:F2}): {Reason}",
-                                trigger.Name, zone.Name, vllmResult.Confidence, vllmResult.Reason);
-                            await LogVllmSkipAsync(triggerActions, context, ActionSkipReason.VllmRejected,
-                                $"VLLM: {vllmResult.Reason} (conf={vllmResult.Confidence:F2})", ct).ConfigureAwait(false);
-                            if (_flow is not null) await _flow.VllmRejectedAsync(trigger.Id, zone.Id, camera.Id, ct).ConfigureAwait(false);
-                            continue;
-                        }
-                        else
-                        {
-                            _log.LogDebug("VLLM confirmed trigger '{Trigger}' (conf={Conf:F2}): {Reason}",
-                                trigger.Name, vllmResult.Confidence, vllmResult.Reason);
-                        }
-                    }
-
-                    // Zapisz Incident — trwała historia detekcji (kolekcja `incidents`),
-                    // niezależnie od logów systemowych i audit-log akcji.
-                    await CreateIncidentAsync(camera, zone, trigger, matchingDetections,
-                        rois, framePath, frameRelativePath, vllmResult, detectionClasses, ct).ConfigureAwait(false);
-
-                    // Push live do /flow przed dispatch (żeby animacja trigger→action była spójna czasowo)
-                    if (_flow is not null)
-                        await _flow.TriggerFiredAsync(trigger.Id, zone.Id, camera.Id, matchingDetections.Count, ct).ConfigureAwait(false);
-
-                    await _dispatcher.DispatchAsync(triggerActions, context, ct).ConfigureAwait(false);
-                }
-            }
+            // 4-5. Wspólna ścieżka post-detection: snapshot store, batch repo loads, eval, VLLM, dispatch.
+            await EvaluateAndDispatchAsync(camera, rois, cameraZones, allDetections,
+                framePath, frameRelativePath, _clock.UtcNow, ct).ConfigureAwait(false);
 
             pipelineSw.Stop();
 
@@ -314,6 +179,218 @@ public sealed class DetectionPipeline : IDetectionPipeline, IFrameObserver
                 Success: false,
                 ErrorType: ex.GetType().Name));
             _log.LogError(ex, "DetectionPipeline failed for camera {Camera}", camera.Name);
+        }
+    }
+
+    /// <summary>
+    /// Push-based wariant — kamery typu <see cref="CameraTransport.Api"/> dostarczają detekcje
+    /// z zewnątrz (zewnętrzny ML inference). Pomija stage inferencji i wpada od razu do shared
+    /// post-detection path. Downstream nie wie że źródło jest zewnętrzne.
+    /// </summary>
+    public async Task ProcessExternalDetectionsAsync(
+        Camera camera,
+        string framePath,
+        string? frameRelativePath,
+        IReadOnlyList<DetectionResult> externalDetections,
+        DateTime capturedAt,
+        CancellationToken ct = default)
+    {
+        var pipelineSw = Stopwatch.StartNew();
+        try
+        {
+            var rois = await _rois.ListEnabledByCameraAsync(camera.Id, ct).ConfigureAwait(false);
+            if (rois.Count == 0)
+            {
+                _log.LogDebug("ApiCamera ingest: kamera '{Camera}' nie ma ROI — pomijam", camera.Name);
+                return;
+            }
+
+            var cameraZones = (await _zones.ListByCameraAsync(camera.Id, ct).ConfigureAwait(false))
+                .Where(z => z.Enabled
+                            && z.Polygon.Count >= 3
+                            && !string.IsNullOrWhiteSpace(z.RoiId)
+                            && z.TriggerIds.Count > 0)
+                .ToList();
+            if (cameraZones.Count == 0)
+            {
+                _log.LogDebug("ApiCamera ingest: kamera '{Camera}' nie ma stref z triggerami — pomijam", camera.Name);
+                return;
+            }
+
+            await EvaluateAndDispatchAsync(camera, rois, cameraZones, externalDetections,
+                framePath, frameRelativePath, capturedAt, ct).ConfigureAwait(false);
+
+            pipelineSw.Stop();
+            _metrics?.Record(new PerformanceSample(
+                Timestamp: _clock.UtcNow,
+                Stage: "pipeline_external",
+                CameraId: camera.Id,
+                RoiId: null,
+                ModelId: null,
+                DurationMs: (int)pipelineSw.ElapsedMilliseconds,
+                DetectionCount: externalDetections.Count,
+                Success: true));
+
+            _log.LogDebug("ApiCamera ingest: {Camera} {Ms}ms, {Det} ext-detections",
+                camera.Name, pipelineSw.ElapsedMilliseconds, externalDetections.Count);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            pipelineSw.Stop();
+            _metrics?.Record(new PerformanceSample(
+                Timestamp: _clock.UtcNow,
+                Stage: "pipeline_external",
+                CameraId: camera.Id,
+                RoiId: null, ModelId: null,
+                DurationMs: (int)pipelineSw.ElapsedMilliseconds,
+                DetectionCount: 0,
+                Success: false,
+                ErrorType: ex.GetType().Name));
+            _log.LogError(ex, "DetectionPipeline (external) failed for camera {Camera}", camera.Name);
+        }
+    }
+
+    /// <summary>
+    /// Wspólna ścieżka post-detection — używana przez normalny flow (ProcessFrameAsync) i push-based
+    /// (ProcessExternalDetectionsAsync). Nie wie skąd pochodzą detekcje, robi te same rzeczy:
+    /// snapshot store update, batch load triggers/actions/classes, homography compute, eval+VLLM+dispatch.
+    /// </summary>
+    private async Task EvaluateAndDispatchAsync(
+        Camera camera,
+        IReadOnlyList<SafeView.Domain.Detection.Roi> rois,
+        IReadOnlyList<Zone> cameraZones,
+        IReadOnlyList<DetectionResult> allDetections,
+        string framePath,
+        string? frameRelativePath,
+        DateTime occurredAt,
+        CancellationToken ct)
+    {
+        // Publikuj snapshot do podglądu /monitor (także gdy empty — user widzi że pipeline żyje).
+        // Zapisujemy ścieżkę klatki, żeby Monitor mógł pokazać obraz z TEGO momentu detekcji
+        // (bboxy się zgadzają z obrazem — bez "przesunięcia" obiektu względem ramki).
+        _snapshots?.Update(new DetectionSnapshot(camera.Id, occurredAt, allDetections, frameRelativePath));
+
+        if (allDetections.Count == 0) return;
+
+        // Pobierz wszystkie triggery + akcje z jednym query per type
+        var allTriggerIds = cameraZones.SelectMany(z => z.TriggerIds).Distinct().ToList();
+        var triggers = (await _triggers.ListByIdsAsync(allTriggerIds, ct).ConfigureAwait(false))
+            .ToDictionary(t => t.Id);
+
+        var allActionIds = triggers.Values.SelectMany(t => t.ActionIds).Distinct().ToList();
+        var actions = (await _actions.ListByIdsAsync(allActionIds, ct).ConfigureAwait(false))
+            .ToDictionary(a => a.Id);
+
+        // Rezolucja DetectionClass — jedno batch query dla wszystkich unique class IDs.
+        IReadOnlyDictionary<string, SafeView.Domain.Detection.DetectionClass>? detectionClasses = null;
+        if (_detectionClasses is not null)
+        {
+            var classIds = triggers.Values
+                .SelectMany(t => t.Conditions)
+                .Select(c => c.DetectionClassId)
+                .Where(id => !string.IsNullOrEmpty(id))
+                .Select(id => id!)
+                .Distinct()
+                .ToList();
+            if (classIds.Count > 0)
+            {
+                var classes = await _detectionClasses.ListByIdsAsync(classIds, ct).ConfigureAwait(false);
+                detectionClasses = classes.ToDictionary(c => c.Id);
+            }
+        }
+
+        // Homografia kamery — liczona raz per-klatka. Null gdy kalibracja brak / niepoprawna.
+        // Dla kamer Api zwykle brak — spatial filters wtedy blokują (bezpieczniej).
+        var homography = camera.CalibrationPoints.Count >= 4
+            ? SafeView.Domain.Cameras.HomographyCalculator.Compute(camera.CalibrationPoints)
+            : null;
+
+        // Dla każdej Zone × Trigger — ewaluuj, dispatcher akcji
+        foreach (var zone in cameraZones)
+        {
+            foreach (var triggerId in zone.TriggerIds)
+            {
+                if (!triggers.TryGetValue(triggerId, out var trigger)) continue;
+
+                var matchingDetections = FilterDetectionsForZone(allDetections, trigger, zone, detectionClasses);
+                var result = _triggerEvaluator.Evaluate(trigger, zone.Id, matchingDetections, detectionClasses);
+                if (!result.Fired) continue;
+
+                if (trigger.SpatialFilters.Count > 0)
+                {
+                    var spatial = SpatialFilterEvaluator.Evaluate(trigger.SpatialFilters, allDetections, homography);
+                    if (!spatial.Passed)
+                    {
+                        _log.LogDebug("Spatial filter blocked trigger '{Trigger}' in zone '{Zone}': {Reason}",
+                            trigger.Name, zone.Name, spatial.FailReason);
+                        continue;
+                    }
+                }
+
+                var triggerActions = trigger.ActionIds
+                    .Select(id => actions.GetValueOrDefault(id))
+                    .Where(a => a is not null)
+                    .Cast<DetectionAction>()
+                    .ToList();
+
+                if (triggerActions.Count == 0) continue;
+
+                var context = new ActionContext
+                {
+                    CameraId = camera.Id,
+                    CameraName = camera.Name,
+                    ZoneId = zone.Id,
+                    ZoneName = zone.Name,
+                    TriggerId = trigger.Id,
+                    TriggerName = trigger.Name,
+                    FrameSnapshotPath = framePath,
+                    Detections = matchingDetections,
+                    OccurredAt = occurredAt
+                };
+
+                VllmCheckResult? vllmResult = null;
+                if (trigger.VllmCheck is { Enabled: true } vllmCfg && _vllmChecker is not null)
+                {
+                    vllmResult = await _vllmChecker.CheckAsync(vllmCfg, context, ct).ConfigureAwait(false);
+
+                    if (vllmResult.IsError)
+                    {
+                        if (vllmCfg.RejectOnError)
+                        {
+                            _log.LogWarning("VLLM error for trigger '{Trigger}' + RejectOnError=true → skipping actions. Reason: {Reason}",
+                                trigger.Name, vllmResult.Reason);
+                            await LogVllmSkipAsync(triggerActions, context, ActionSkipReason.VllmRejected,
+                                $"VLLM error: {vllmResult.Reason}", ct).ConfigureAwait(false);
+                            continue;
+                        }
+                        _log.LogWarning("VLLM error for trigger '{Trigger}' + RejectOnError=false → firing actions anyway. Reason: {Reason}",
+                            trigger.Name, vllmResult.Reason);
+                    }
+                    else if (!vllmResult.Confirmed)
+                    {
+                        _log.LogInformation("VLLM rejected trigger '{Trigger}' in zone '{Zone}' (conf={Conf:F2}): {Reason}",
+                            trigger.Name, zone.Name, vllmResult.Confidence, vllmResult.Reason);
+                        await LogVllmSkipAsync(triggerActions, context, ActionSkipReason.VllmRejected,
+                            $"VLLM: {vllmResult.Reason} (conf={vllmResult.Confidence:F2})", ct).ConfigureAwait(false);
+                        if (_flow is not null) await _flow.VllmRejectedAsync(trigger.Id, zone.Id, camera.Id, ct).ConfigureAwait(false);
+                        continue;
+                    }
+                    else
+                    {
+                        _log.LogDebug("VLLM confirmed trigger '{Trigger}' (conf={Conf:F2}): {Reason}",
+                            trigger.Name, vllmResult.Confidence, vllmResult.Reason);
+                    }
+                }
+
+                await CreateIncidentAsync(camera, zone, trigger, matchingDetections,
+                    rois, framePath, frameRelativePath, vllmResult, detectionClasses, occurredAt, ct).ConfigureAwait(false);
+
+                if (_flow is not null)
+                    await _flow.TriggerFiredAsync(trigger.Id, zone.Id, camera.Id, matchingDetections.Count, ct).ConfigureAwait(false);
+
+                await _dispatcher.DispatchAsync(triggerActions, context, ct).ConfigureAwait(false);
+            }
         }
     }
 
@@ -695,6 +772,7 @@ public sealed class DetectionPipeline : IDetectionPipeline, IFrameObserver
         string? frameRelativePath,
         VllmCheckResult? vllmResult,
         IReadOnlyDictionary<string, SafeView.Domain.Detection.DetectionClass>? detectionClasses,
+        DateTime occurredAt,
         CancellationToken ct)
     {
         if (_incidents is null) return;
@@ -726,7 +804,7 @@ public sealed class DetectionPipeline : IDetectionPipeline, IFrameObserver
                 ZoneName = zone.Name,
                 Category = trigger.Name,
                 Summary = $"{detections.Count} detekcji w strefie '{zone.Name}' (trigger '{trigger.Name}')",
-                OccurredAt = _clock.UtcNow,
+                OccurredAt = occurredAt,
                 FrameRelativePath = frameRelativePath,
                 Detections = detections.Select(d => new SafeView.Domain.Incidents.IncidentDetection
                 {

@@ -1,17 +1,17 @@
 # SafeView — Mapa stanu implementacji
 
 **Ostatnia aktualizacja**: 2026-04-26
-**Status**: Fazy 1-5 (pipeline) + Dashboard + Batch + Secrets + GPU + Homografia + SpatialFilters + VLLM szablony/playground/quality-loop + Multi-provider LLM + Monitor wall + Flow topology + Open-vocabulary detection (7 faz: DetectionClass library, YOLO-World Apache 2.0, compiled prompt packs, YOLOE swap-ready visual prompts, quality loop per klasa) + **LLM config consolidation (single source of truth = `/admin/llm-providers`, drop appsettings.Llm + LlmAdmin + LlmProviderSeeder)**. **204/204 testów zielone**.
+**Status**: Fazy 1-5 (pipeline) + Dashboard + Batch + Secrets + GPU + Homografia + SpatialFilters + VLLM szablony/playground/quality-loop + Multi-provider LLM + Monitor wall + Flow topology + Open-vocabulary detection (7 faz: DetectionClass library, YOLO-World Apache 2.0, compiled prompt packs, YOLOE swap-ready visual prompts, quality loop per klasa) + LLM config consolidation (single source of truth = `/admin/llm-providers`) + **ApiCamera push-based ingest (CameraTransport.Api + IngestEndpoints + auto-provisioned full-frame ROI/Zone)**. **209/209 testów zielone**.
 
 ## Stan testów
 
 | Projekt | Liczba testów | Czas |
 |---------|--------------|------|
 | SafeView.Domain.Tests | **105** | ~60ms |
-| SafeView.Application.Tests | **84** | ~140ms |
+| SafeView.Application.Tests | **89** | ~140ms |
 | SafeView.ML.Tests | **15** | ~85ms |
 | SafeView.Web.Tests | 0 (stub) | — |
-| **Razem** | **204** | <300ms |
+| **Razem** | **209** | <300ms |
 
 **Build status**: 0 errors, 0 warnings (cały solution).
 
@@ -145,6 +145,38 @@ Single source of truth: encja `LlmProvider` w Mongo, edytowana wyłącznie przez
 ### Sampler: adaptacyjny sleep
 Usunięto globalny `CameraRefreshSeconds` — sampler budzi się zgodnie z najbliższym `nextDue` per-kamera (na podstawie `SnapshotIntervalSeconds`), ograniczony dołem przez `MinTickMilliseconds` (default 250ms). Każda kamera działa w swojej własnej kadencji.
 
+### ApiCamera — push-based ingest (2026-04-26)
+
+Nowy typ kamery `CameraTransport.Api` — zewnętrzny system (edge appliance, Frigate, własny inference server) wysyła klatki + pre-computed detekcje przez REST. SafeView nie polluje, tylko czeka na push.
+
+**Domain** (`SafeView.Domain`):
+- `CameraTransport.Api` — nowa wartość enum
+- `CameraVendor.ApiPush = 100` — analog `FileSource = 99`, wymusza `Transport.Api`
+- `Camera.IngestApiKeyId?` — opcjonalny per-camera pin (defense-in-depth ponad scope)
+- `Roi.IsFullFrame` — flaga że ROI pokrywa cały kadr (geometria nie-edytowalna w UI)
+- `Permission.ApiCamerasWrite = "api:cameras:write"` — scope dla ingest endpoint
+
+**Application**:
+- `IDetectionPipeline.ProcessExternalDetectionsAsync(camera, framePath, frameRelPath, externalDetections, capturedAt, ct)` — push-based entry point. Pomija stage inferencji, wpada do wspólnej `EvaluateAndDispatchAsync` używanej też przez `ProcessFrameAsync`. Downstream nie wie że źródło zewnętrzne.
+- `IApiCameraProvisioner` + `ApiCameraProvisioner` — auto-tworzy pełnokadrową ROI (`Rectangle=(0,0,1,1)`) + Zone (4-punkt polygon) przy save kamery typu Api. Idempotentne.
+
+**Web**:
+- `IngestEndpoints` (`POST /api/v1/cameras/{id}/ingest` multipart + `/ingest-json` z base64/URL fallback). Auth scope `api:cameras:write`. Walidacja bbox-bounds, confidence, image size 20MB, JSON 1MB. Per-camera pin gate. Idempotency po `frame_id`.
+- `IngestIdempotencyStore` — in-memory LRU 1000 frame-ów per kamera (reset przy restarcie; production-grade Mongo TTL collection w follow-up #51).
+- `IngestDtos` — schema `1.0` zbliżona do Roboflow Inference: `frame{width,height,captured_at,frame_id?}, detections[]{label,confidence,bbox{x,y,w,h pixel coords},track_id?,polygon?,keypoints?,attributes?}, source?, image_base64?, image_url?`. Bbox w pixel coords — server normalizuje do `[0..1]`. `ModelId="external"` constant.
+- Rate-limit policy `camera-ingest` partycjonowany per `cameraId` (1800 req/min).
+
+**UI**:
+- `CameraDialog`: Vendor=ApiPush → ukrywa pola RTSP/HTTP/File-source, pokazuje panel z URL endpointu + 2 expansion panels (curl multipart + JSON-only) + pole `IngestApiKeyId` pin. Hide Sampling section (sampler nie polluje).
+- `Cameras.razor` save handler: po `Insert/Update` z `Transport=Api` woła `ApiProvisioner.EnsureFullFrameRoiAndZoneAsync(cam.Id)` — pełnokadrowa ROI + Zone tworzona automatycznie.
+- `CameraFrameSampler` — guard `c.Transport != Api` żeby skip-nąć (push-based).
+
+**Format**: pixel coords w bbox (sender ma je z YOLO output), pomocniczy `frame_id` dla idempotency, `source.name/model/inference_ms` dla audytu, `attributes` wolny słownik dla sender-specific danych. Schema versioned przez URL `/api/v1/` + body `schema_version` field.
+
+**Tests**: 5 testów `ApiCameraProvisionerTests` (idempotency, partial state, full state, ROI bez Zone, walidacja).
+
+**Pełna dokumentacja**: `documentation/API_INGEST.md` (curl examples, error codes, smoke test E2E).
+
 ### Open-vocabulary detection (2026-04-23, 7 faz)
 
 **Motywacja**: tradycyjne closed-set YOLO wymaga retreningu dla każdej nowej klasy BHP. Otwarto ścieżkę "type and compile" — operator opisuje klasę tekstem albo pokazuje przykładami, bez ML-dev-loop.
@@ -220,6 +252,10 @@ Usunięto globalny `CameraRefreshSeconds` — sampler budzi się zgodnie z najbl
 - `POST /auth/login`, `/auth/setup`, `/auth/logout`
 - `GET /health/live`, `/health/ready`
 - `GET /culture/set?culture=pl|en&redirect=/...`
+
+### Push-based ingest (scope `api:cameras:write`, rate `camera-ingest`)
+- `POST /api/v1/cameras/{cameraId}/ingest` — multipart (frame binary + JSON metadata)
+- `POST /api/v1/cameras/{cameraId}/ingest-json` — JSON-only z `image_base64` lub `image_url`
 
 ### Open-vocabulary detection (permisja `admin:detection-classes`)
 - `GET /api/detection-classes/{classId}/refs/{refName}` — serwuje crop referencyjny (thumbnail)

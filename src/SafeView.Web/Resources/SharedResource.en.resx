@@ -798,6 +798,16 @@
   <data name="CameraDialog.FileUploaded"><value>Uploaded: {0}</value></data>
   <data name="CameraDialog.FileUploadError"><value>Upload error: {0}</value></data>
   <data name="CameraDialog.FileTooLarge"><value>File too large ({0} MB, max 2 GB)</value></data>
+  <data name="CameraDialog.ApiPush"><value>API (push) — external sender</value></data>
+  <data name="CameraDialog.ApiPushInfo"><value>Push-based camera: an external system (edge appliance, your inference server) sends frames + pre-computed detections via REST. The sampler does NOT poll this camera. ROI/Zone are auto-provisioned to cover the whole frame — the sender decides what is relevant.</value></data>
+  <data name="CameraDialog.ApiPushIngest"><value>Ingest endpoint</value></data>
+  <data name="CameraDialog.ApiPushUrl"><value>Endpoint URL (multipart):</value></data>
+  <data name="CameraDialog.ApiPushExampleMultipart"><value>curl example — multipart (recommended)</value></data>
+  <data name="CameraDialog.ApiPushExampleJson"><value>curl example — JSON-only (image as base64)</value></data>
+  <data name="CameraDialog.ApiPushPin"><value>Pin to API key (optional)</value></data>
+  <data name="CameraDialog.ApiPushPinHint"><value>If set, only this API key may write to this camera (defense-in-depth on top of the api:cameras:write scope). Empty = any key with the scope.</value></data>
+  <data name="CameraDialog.ApiPushLastIngest"><value>Last ingest</value></data>
+  <data name="CameraDialog.ApiPushSaveFirst"><value>Save the camera first to obtain its ID, then re-open this dialog to see the curl examples and ingest endpoint URL.</value></data>
   <data name="CameraDialog.SourceUrlHint"><value>e.g. rtsp://user:pass@192.168.1.10:554/Streaming/Channels/101</value></data>
 
   <!-- Dialog: Zone -->

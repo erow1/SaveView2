@@ -71,6 +71,13 @@ public sealed class Camera : Entity
     /// Puste = brak kalibracji, filtry przestrzenne dla tej kamery nie zadziałają.
     /// </summary>
     public List<CalibrationPoint> CalibrationPoints { get; set; } = [];
+
+    /// <summary>
+    /// Dla <see cref="CameraTransport.Api"/> — opcjonalny pin: tylko ten <c>ApiKey.Id</c> może
+    /// pisać do tej kamery przez ingest endpoint. Null = każdy klucz ze scope <c>api:cameras:write</c>
+    /// może pchać. Dodatkowy gate ponad samym scope (defense-in-depth).
+    /// </summary>
+    public string? IngestApiKeyId { get; set; }
 }
 
 public enum CameraTransport
@@ -78,7 +85,14 @@ public enum CameraTransport
     Rtsp,
     Http,
     Rtmp,
-    File
+    File,
+    /// <summary>
+    /// Push-based: zewnętrzne oprogramowanie (kamera embedded, edge appliance, własny inference server)
+    /// wysyła klatki + pre-computed detekcje przez REST API (<c>POST /api/v1/cameras/{id}/ingest</c>).
+    /// Sampler nie pollu-je tej kamery; ROI/Strefa są auto-provisioned jako pełna klatka
+    /// (provider sam decyduje co przesyła).
+    /// </summary>
+    Api
 }
 
 public enum CameraVendor
@@ -94,7 +108,10 @@ public enum CameraVendor
     /// <summary>reCamera od Seeed Studio (open-source AI camera).</summary>
     ReCamera = 6,
     /// <summary>Plik lokalny (MP4/MKV/AVI w pętli) lub obraz (JPG/PNG) jako źródło sygnału.</summary>
-    FileSource = 99
+    FileSource = 99,
+    /// <summary>Push-based API source — zewnętrzny system wysyła klatki + detekcje przez REST
+    /// (<c>POST /api/v1/cameras/{id}/ingest</c>). Wymusza <c>CameraTransport.Api</c>.</summary>
+    ApiPush = 100
 }
 
 public enum CameraStreamProfile

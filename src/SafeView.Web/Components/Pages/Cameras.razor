@@ -1,6 +1,7 @@
 @page "/cameras"
 @attribute [Authorize(Policy = "perm:cameras:view")]
 @inject SafeView.Application.Abstractions.Persistence.ICameraRepository CameraRepo
+@inject SafeView.Application.Abstractions.Detection.IApiCameraProvisioner ApiProvisioner
 @inject IDialogService Dialog
 @inject ISnackbar Snackbar
 @inject IStringLocalizer<SharedResource> L
@@ -96,7 +97,15 @@
         var res = await dialog.Result;
         if (res is { Canceled: false, Data: SafeView.Domain.Cameras.Camera cam })
         {
-            try { await CameraRepo.InsertAsync(cam); Snackbar.Add("Dodano kamerę.", Severity.Success); await Reload(); }
+            try
+            {
+                await CameraRepo.InsertAsync(cam);
+                // Auto-provisioning pełnokadrowej ROI + Strefy dla kamer typu Api (push-based).
+                if (cam.Transport == SafeView.Domain.Cameras.CameraTransport.Api)
+                    await ApiProvisioner.EnsureFullFrameRoiAndZoneAsync(cam.Id);
+                Snackbar.Add("Dodano kamerę.", Severity.Success);
+                await Reload();
+            }
             catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
         }
     }
@@ -110,6 +119,9 @@
         if (res is { Canceled: false, Data: SafeView.Domain.Cameras.Camera updated })
         {
             await CameraRepo.UpdateAsync(updated);
+            // Idempotent — chroni przed brakiem ROI/Strefy gdy user przełączył vendor → ApiPush w edycji.
+            if (updated.Transport == SafeView.Domain.Cameras.CameraTransport.Api)
+                await ApiProvisioner.EnsureFullFrameRoiAndZoneAsync(updated.Id);
             Snackbar.Add("Zapisano.", Severity.Success);
             await Reload();
         }
