@@ -721,10 +721,6 @@
   <data name="Settings.Hint.FfBinary"><value>Path to ffmpeg binary. Empty = 'ffmpeg' from PATH.</value></data>
   <data name="Settings.Hint.FfTimeout"><value>Timeout for a single snapshot</value></data>
   <data name="Settings.Hint.FfTransport"><value>tcp (default, more stable) or udp</value></data>
-  <data name="Settings.Hint.LlmBackend"><value>openai, vllm, ollama, lmstudio</value></data>
-  <data name="Settings.Hint.LlmBaseUrl"><value>HTTP endpoint (e.g. http://localhost:11434 for Ollama, http://localhost:8000/v1 for vLLM)</value></data>
-  <data name="Settings.Hint.LlmApiKey"><value>API key (openai) — leave empty for local backends</value></data>
-  <data name="Settings.Hint.LlmModel"><value>Model name (e.g. gpt-4o-mini, llama3.1:8b)</value></data>
   <data name="Settings.Hint.SmtpEnabled"><value>Whether to send e-mail notifications</value></data>
   <data name="Settings.Hint.SmtpFrom"><value>Sender address</value></data>
   <data name="Settings.Hint.SmtpSubject"><value>Subject template — placeholders: {severity}, {category}, {camera}</value></data>

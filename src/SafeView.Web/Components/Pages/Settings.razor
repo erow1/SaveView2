@@ -45,9 +45,6 @@
         <MudTabPanel Text="FFmpeg" Icon="@Icons.Material.Filled.Movie">
             @RenderGroup(_ffmpeg)
         </MudTabPanel>
-        <MudTabPanel Text="LLM" Icon="@Icons.Material.Filled.AutoAwesome">
-            @RenderGroup(_llm)
-        </MudTabPanel>
         <MudTabPanel Text="@L["Settings.Tab.SmtpEmail"]" Icon="@Icons.Material.Filled.Email">
             @RenderGroup(_smtp)
         </MudTabPanel>
@@ -144,19 +141,6 @@
         ]
     };
 
-    private readonly Group _llm = new()
-    {
-        Title = "LLM",
-        Fields =
-        [
-            new("Llm:Backend", "Backend", "Settings.Hint.LlmBackend"),
-            new("Llm:BaseUrl", "BaseUrl", "Settings.Hint.LlmBaseUrl"),
-            new("Llm:ApiKey", "ApiKey", "Settings.Hint.LlmApiKey", FieldKind.Password, Secret: true),
-            new("Llm:DefaultModel", "DefaultModel", "Settings.Hint.LlmModel"),
-            new("Llm:TimeoutSeconds", "TimeoutSeconds", null, FieldKind.Int),
-        ]
-    };
-
     private readonly Group _smtp = new()
     {
         Title = "SMTP / e-mail",
@@ -241,7 +225,6 @@
         yield return _mongo;
         yield return _mediaMtx;
         yield return _ffmpeg;
-        yield return _llm;
         yield return _smtp;
         yield return _storage;
         yield return _license;
