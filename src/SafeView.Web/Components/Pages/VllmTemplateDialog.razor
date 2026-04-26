@@ -1,0 +1,81 @@
+@namespace SafeView.Web.Components.Pages
+@using SafeView.Domain.Vllm
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3" Style="max-height:75vh; overflow-y:auto;">
+            <MudAlert Severity="Severity.Info" Dense="true" NoIcon="false" Variant="Variant.Outlined"
+                      Icon="@Icons.Material.Filled.Lightbulb">
+                @L["VllmTemplates.Hint"]
+            </MudAlert>
+
+            <MudStack Row="true" Spacing="2">
+                <MudTextField @bind-Value="Template.Name" Label="@L["Table.Name"]" Required="true"
+                              Variant="Variant.Outlined" Disabled="@Template.IsBuiltIn" />
+                <MudTextField @bind-Value="Template.Category" Label="@L["VllmTemplates.Category"]"
+                              Variant="Variant.Outlined" Disabled="@Template.IsBuiltIn" />
+            </MudStack>
+
+            <MudTextField @bind-Value="Template.Description" Label="@L["VllmTemplates.DescriptionLabel"]"
+                          Lines="2" Variant="Variant.Outlined" Disabled="@Template.IsBuiltIn" />
+
+            <MudTextField @bind-Value="Template.SystemPrompt" Label="@L["VllmTemplates.SystemPrompt"]"
+                          HelperText="@L["VllmTemplates.SystemPromptHelp"]"
+                          Lines="10" Variant="Variant.Outlined" Class="mono" Disabled="@Template.IsBuiltIn" />
+
+            <MudTextField @bind-Value="Template.UserTemplate" Label="@L["VllmTemplates.UserTemplate"]"
+                          HelperText="@L["VllmTemplates.UserTemplateHelp"]"
+                          Lines="5" Variant="Variant.Outlined" Class="mono" Disabled="@Template.IsBuiltIn" />
+
+            <MudExpansionPanels Elevation="0">
+                <MudExpansionPanel Text="@L["VllmTemplates.SchemaJson"]">
+                    <MudTextField @bind-Value="Template.SchemaJson" Label="JSON Schema"
+                                  HelperText="@L["VllmTemplates.SchemaJsonHelp"]"
+                                  Lines="14" Variant="Variant.Outlined" Class="mono" Disabled="@Template.IsBuiltIn" />
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+
+            <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
+                <div style="min-width:260px;">
+                    <MudText Typo="Typo.caption" Class="sv-text-muted">
+                        @L["VllmTemplates.MinConfidence"]: <b>@($"{Template.RecommendedMinConfidence * 100:F0}%")</b>
+                    </MudText>
+                    <MudSlider T="double" Value="@Template.RecommendedMinConfidence"
+                               ValueChanged="@((double v) => Template.RecommendedMinConfidence = Math.Round(v, 2))"
+                               Min="0.3" Max="0.95" Step="0.05" Disabled="@Template.IsBuiltIn" />
+                </div>
+                <MudSelect T="ResponseSeverity" @bind-Value="Template.DefaultMinSeverity"
+                           Label="@L["VllmTemplates.MinSeverity"]"
+                           HelperText="@L["VllmTemplates.MinSeverityHelp"]"
+                           Variant="Variant.Outlined" Style="min-width:180px;" Disabled="@Template.IsBuiltIn">
+                    @foreach (var s in Enum.GetValues<ResponseSeverity>())
+                    {
+                        <MudSelectItem Value="@s">@s</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSwitch T="bool" @bind-Value="Template.RequireGoodImageQuality"
+                           Color="Color.Primary" Label="@L["VllmTemplates.RequireGoodImage"]"
+                           Disabled="@Template.IsBuiltIn" />
+            </MudStack>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">@L["Common.Cancel"]</MudButton>
+        <MudButton OnClick="Save" Color="Color.Primary" Variant="Variant.Filled"
+                   Disabled="@(!Valid() || Template.IsBuiltIn)">@L["Common.Save"]</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public PromptTemplate Template { get; set; } = new();
+    [Parameter] public bool IsNew { get; set; }
+
+    private bool Valid()
+        => !string.IsNullOrWhiteSpace(Template.Name)
+           && !string.IsNullOrWhiteSpace(Template.SystemPrompt)
+           && !string.IsNullOrWhiteSpace(Template.UserTemplate);
+
+    private void Save() => MudDialog.Close(DialogResult.Ok(Template));
+}

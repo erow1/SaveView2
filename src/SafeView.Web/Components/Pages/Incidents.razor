@@ -1,0 +1,140 @@
+@page "/incidents"
+@attribute [Authorize(Policy = "perm:incidents:view")]
+@inject SafeView.Application.Abstractions.Persistence.IIncidentRepository IncidentRepo
+@inject NavigationManager Nav
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@L["Incidents.Title"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudText Typo="Typo.h4">@L["Incidents.Title"]</MudText>
+        <MudSpacer />
+        <MudSelect T="string" @bind-Value="_statusFilter" Label="@L["Incidents.FilterStatus"]" Variant="Variant.Outlined"
+                   Margin="Margin.Dense" Style="min-width:180px;">
+            <MudSelectItem Value="@("all")">@L["Incidents.All"]</MudSelectItem>
+            <MudSelectItem Value="@("open")">@L["Incidents.Open"]</MudSelectItem>
+            <MudSelectItem Value="@("ack")">@L["Incidents.Confirmed"]</MudSelectItem>
+            <MudSelectItem Value="@("resolved")">@L["Incidents.Resolved"]</MudSelectItem>
+            <MudSelectItem Value="@("fp")">@L["Incidents.FalsePositive"]</MudSelectItem>
+        </MudSelect>
+        <MudButton StartIcon="@Icons.Material.Filled.Refresh" OnClick="Reload" Variant="Variant.Outlined">@L["Common.Refresh"]</MudButton>
+    </MudStack>
+
+    <MudTable Items="_filtered" Dense="true" Hover="true" Loading="_loading" Elevation="0"
+              Class="sv-card" OnRowClick="OnRowClick" T="SafeView.Domain.Incidents.Incident">
+        <HeaderContent>
+            <MudTh>@L["Table.When"]</MudTh>
+            <MudTh>@L["Table.Camera"]</MudTh>
+            <MudTh>@L["Table.Category"]</MudTh>
+            <MudTh>@L["Table.Model"]</MudTh>
+            <MudTh>@L["Table.Severity"]</MudTh>
+            <MudTh>@L["Table.Status"]</MudTh>
+            <MudTh>@L["Table.Summary"]</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd class="mono" style="font-size:12px;">@context.OccurredAt.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+            <MudTd>@context.CameraName</MudTd>
+            <MudTd><span class="mono">@context.Category</span></MudTd>
+            <MudTd Class="sv-text-secondary">@(context.ModelName ?? "—")</MudTd>
+            <MudTd>
+                <MudChip T="string" Size="Size.Small"
+                         Variant="@SeverityVariant(context.Severity)"
+                         Color="@SeverityColor(context.Severity)">@context.Severity</MudChip>
+            </MudTd>
+            <MudTd>
+                <MudStack Row="true" Spacing="1">
+                    <MudChip T="string" Size="Size.Small"
+                             Variant="Variant.Outlined"
+                             Color="@StatusColor(context.Status)">@context.Status</MudChip>
+                    @if (context.WasFalsePositive)
+                    {
+                        <MudTooltip Text="@L["Incidents.FalsePositiveTooltip"]">
+                            <MudChip T="string" Size="Size.Small"
+                                     Variant="Variant.Outlined" Color="Color.Warning"
+                                     Icon="@Icons.Material.Filled.ThumbDown">
+                                @L["Incidents.FalsePositiveFlag"]
+                            </MudChip>
+                        </MudTooltip>
+                    }
+                </MudStack>
+            </MudTd>
+            <MudTd style="max-width:360px; overflow:hidden; text-overflow:ellipsis;">
+                @context.Summary
+                @if (context.LlmAnalysis is { } a)
+                {
+                    <div class="mt-1 sv-text-info" style="font-size:11px;">
+                        <span class="mono">LLM:</span> @a.RecommendedAction (FP @($"{a.FalsePositiveProbability:P0}"))
+                        <MudTooltip Text="@a.Rationale">
+                            <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" Class="sv-text-info" Style="vertical-align:middle;" />
+                        </MudTooltip>
+                    </div>
+                }
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudStack>
+
+@code {
+    private List<SafeView.Domain.Incidents.Incident> _all = new();
+    private List<SafeView.Domain.Incidents.Incident> _filtered = new();
+    private bool _loading = true;
+    private string _statusFilter = "all";
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    protected override void OnParametersSet() => ApplyFilter();
+
+    private async Task Reload()
+    {
+        _loading = true;
+        _all = (await IncidentRepo.ListRecentAsync(500)).ToList();
+        ApplyFilter();
+        _loading = false;
+    }
+
+    private void ApplyFilter()
+    {
+        _filtered = _statusFilter switch
+        {
+            "open"     => _all.Where(i => i.Status == SafeView.Domain.Incidents.IncidentStatus.Open).ToList(),
+            "ack"      => _all.Where(i => i.Status == SafeView.Domain.Incidents.IncidentStatus.Acknowledged).ToList(),
+            "resolved" => _all.Where(i => i.Status == SafeView.Domain.Incidents.IncidentStatus.Resolved).ToList(),
+            "fp"       => _all.Where(i => i.Status == SafeView.Domain.Incidents.IncidentStatus.FalsePositive || i.WasFalsePositive).ToList(),
+            _          => _all
+        };
+    }
+
+    private void OnRowClick(TableRowClickEventArgs<SafeView.Domain.Incidents.Incident> args)
+    {
+        if (args.Item is null) return;
+        Nav.NavigateTo($"/incidents/{args.Item.Id}");
+    }
+
+    // Handlery Acknowledge/Resolve/Analyze przeniesione do IncidentDetail.razor
+    // (user najpierw widzi kontekst — obraz, detekcje, reason — a potem decyduje).
+
+    // Używamy natywnych palet MudBlazor (Color) żeby chipy wyglądały dobrze w obu motywach.
+    // Hardcoded style background/color (np. #3A1515) nie respektuje theme — zamieniamy.
+    private static Color SeverityColor(SafeView.Domain.Incidents.IncidentSeverity s) => s switch
+    {
+        SafeView.Domain.Incidents.IncidentSeverity.Low      => Color.Info,
+        SafeView.Domain.Incidents.IncidentSeverity.Medium   => Color.Warning,
+        SafeView.Domain.Incidents.IncidentSeverity.High     => Color.Error,
+        SafeView.Domain.Incidents.IncidentSeverity.Critical => Color.Error,
+        _ => Color.Default
+    };
+
+    private static Variant SeverityVariant(SafeView.Domain.Incidents.IncidentSeverity s)
+        => s == SafeView.Domain.Incidents.IncidentSeverity.Critical ? Variant.Filled : Variant.Outlined;
+
+    private static Color StatusColor(SafeView.Domain.Incidents.IncidentStatus s) => s switch
+    {
+        SafeView.Domain.Incidents.IncidentStatus.Open          => Color.Error,
+        SafeView.Domain.Incidents.IncidentStatus.Acknowledged  => Color.Warning,
+        SafeView.Domain.Incidents.IncidentStatus.Resolved      => Color.Success,
+        SafeView.Domain.Incidents.IncidentStatus.FalsePositive => Color.Default,
+        _ => Color.Default
+    };
+}

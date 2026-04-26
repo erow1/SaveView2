@@ -1,0 +1,621 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   theme-light.css — reguły aktywne gdy <body class="theme-light">.
+   Paleta:
+     tła     #FAFAFA / #FFFFFF / #F5F5F5 / #F0F0F0
+     akcent  #F5B800 (ciemniejszy żółty — kontrast na białym)
+     tekst   #111111 / #555555 / #888888
+     success #1F9D58, warn #D98B00, err #D4333F, info #1A73E8
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+body.theme-light {
+    background-color: #FAFAFA;
+    color: #111111;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────────── */
+body.theme-light ::-webkit-scrollbar-track { background: #F0F0F0; }
+body.theme-light ::-webkit-scrollbar-thumb { background: #00000022; border-radius: 4px; }
+body.theme-light ::-webkit-scrollbar-thumb:hover { background: #F5B80066; }
+
+/* ── Reconnect modal ──────────────────────────────────────────────────── */
+body.theme-light #components-reconnect-modal {
+    background-color: rgba(255, 255, 255, 0.92) !important;
+    color: #111111 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CORE SURFACES
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* AppBar & Drawer — białe tło + subtelny border */
+body.theme-light .mud-appbar {
+    background-color: #FFFFFF !important;
+    color: #111111 !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+body.theme-light .mud-appbar .mud-icon-button { color: #333333 !important; }
+body.theme-light .mud-drawer {
+    background-color: #FFFFFF !important;
+    color: #111111 !important;
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* Nav links */
+body.theme-light .mud-nav-link { color: #333333; }
+body.theme-light .mud-nav-link:hover {
+    background-color: rgba(245, 184, 0, 0.12) !important;
+}
+body.theme-light .mud-nav-link.active {
+    background-color: rgba(245, 184, 0, 0.16) !important;
+    color: #111111 !important;
+    border-left-color: #F5B800 !important;
+}
+body.theme-light .mud-nav-link.active .mud-nav-link-icon {
+    color: #F5B800 !important;
+}
+
+/* Paper — delikatny border żeby karty nie znikały na białym tle */
+body.theme-light .mud-paper {
+    background-color: #FFFFFF;
+    color: #111111;
+}
+body.theme-light .mud-paper.mud-elevation-0:not([style*="background"]) {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DIALOG / POPOVER / TOOLTIP / SNACKBAR
+   ══════════════════════════════════════════════════════════════════════════ */
+
+body.theme-light .mud-overlay-dialog,
+body.theme-light .mud-overlay.mud-overlay-dialog {
+    background-color: rgba(17, 17, 17, 0.45) !important;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+body.theme-light .mud-dialog {
+    background-color: #FFFFFF !important;
+    color: #111111 !important;
+    border-color: #F5B80055 !important;
+    box-shadow:
+        0 20px 48px rgba(0, 0, 0, 0.18),
+        0 0 0 1px rgba(0, 0, 0, 0.04) !important;
+}
+body.theme-light .mud-dialog .mud-dialog-title {
+    background: linear-gradient(180deg, #FAFAFA 0%, #FFFFFF 100%);
+    color: #111111;
+    border-bottom-color: #F5B80033;
+}
+body.theme-light .mud-dialog .mud-dialog-content {
+    background-color: #FFFFFF !important;
+    color: #111111;
+}
+body.theme-light .mud-dialog .mud-dialog-actions {
+    background-color: #F7F7F7;
+    border-top-color: #00000014;
+}
+
+body.theme-light .mud-popover.mud-popover-open {
+    background-color: #FFFFFF !important;
+    color: #111111 !important;
+    border-color: #00000014 !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12) !important;
+}
+
+body.theme-light .mud-list-item:hover,
+body.theme-light .mud-menu-item:hover {
+    background-color: rgba(245, 184, 0, 0.12) !important;
+}
+body.theme-light .mud-list-item-selected,
+body.theme-light .mud-list-item.mud-selected-item {
+    background-color: rgba(245, 184, 0, 0.18) !important;
+    color: #111111 !important;
+}
+
+body.theme-light .mud-tooltip {
+    background-color: #222222 !important;
+    border: 1px solid #000000 !important;
+    color: #FFFFFF !important;
+    font-size: 12px !important;
+}
+
+body.theme-light .mud-snackbar {
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   INPUTS — MudTextField / MudSelect / MudNumericField / MudAutocomplete
+   W dark mode etykiety i bordery są prawie niewidoczne na białym — wzmacniamy.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+body.theme-light .mud-input-label,
+body.theme-light .mud-input-label-animated {
+    color: #555555 !important;
+}
+body.theme-light .mud-input-label.mud-input-label-inputcontrol.mud-focused {
+    color: #B88700 !important;
+}
+
+/* Outlined input — widoczny border */
+body.theme-light .mud-input.mud-input-outlined .mud-input-outlined-border {
+    border-color: rgba(0, 0, 0, 0.23) !important;
+}
+body.theme-light .mud-input.mud-input-outlined:hover .mud-input-outlined-border {
+    border-color: rgba(0, 0, 0, 0.45) !important;
+}
+body.theme-light .mud-input.mud-input-outlined.mud-focused .mud-input-outlined-border {
+    border-color: #B88700 !important;
+    border-width: 2px !important;
+}
+
+/* Filled/standard underline */
+body.theme-light .mud-input.mud-input-underline::before {
+    border-bottom-color: rgba(0, 0, 0, 0.23) !important;
+}
+body.theme-light .mud-input.mud-input-underline:hover::before {
+    border-bottom-color: rgba(0, 0, 0, 0.55) !important;
+}
+body.theme-light .mud-input.mud-input-underline.mud-focused::after {
+    border-bottom-color: #B88700 !important;
+}
+
+/* Tekst w polu + placeholder */
+body.theme-light .mud-input-slot,
+body.theme-light .mud-input input,
+body.theme-light .mud-input textarea,
+body.theme-light .mud-input-root-outlined input,
+body.theme-light .mud-input-root-outlined textarea {
+    color: #111111 !important;
+}
+body.theme-light .mud-input input::placeholder,
+body.theme-light .mud-input textarea::placeholder {
+    color: #999999 !important;
+    opacity: 1;
+}
+
+/* Select: widoczny dropdown arrow + wartość */
+body.theme-light .mud-select .mud-select-input,
+body.theme-light .mud-select .mud-input-slot { color: #111111 !important; }
+
+/* Helper text / error */
+body.theme-light .mud-input-helper-text { color: #666666 !important; }
+body.theme-light .mud-input-helper-text.mud-input-error { color: #D4333F !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BUTTONS
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Primary filled — żółty jest jasny, tekst musi być ciemny */
+body.theme-light .mud-button-filled.mud-button-filled-primary {
+    background-color: #F5B800 !important;
+    color: #111111 !important;
+}
+body.theme-light .mud-button-filled.mud-button-filled-primary:hover {
+    background-color: #E0A800 !important;
+}
+
+/* Outlined primary */
+body.theme-light .mud-button-outlined.mud-button-outlined-primary {
+    color: #B88700 !important;
+    border-color: #F5B800 !important;
+}
+body.theme-light .mud-button-outlined.mud-button-outlined-primary:hover {
+    background-color: rgba(245, 184, 0, 0.10) !important;
+}
+
+/* Text buttons — domyślne muszą mieć kontrast */
+body.theme-light .mud-button-text.mud-button-text-default,
+body.theme-light .mud-button-text.mud-button-text-inherit { color: #333333 !important; }
+body.theme-light .mud-button-text:hover { background-color: rgba(0, 0, 0, 0.04) !important; }
+
+/* IconButton domyślny */
+body.theme-light .mud-icon-button:not([class*="color-"]) { color: #444444 !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   TABS
+   ══════════════════════════════════════════════════════════════════════════ */
+
+body.theme-light .mud-tabs {
+    background-color: transparent;
+}
+body.theme-light .mud-tabs-toolbar {
+    background-color: #FFFFFF !important;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+}
+body.theme-light .mud-tab { color: #555555 !important; }
+body.theme-light .mud-tab.mud-tab-active {
+    color: #111111 !important;
+    font-weight: 600;
+}
+body.theme-light .mud-tabs-tabbar-slider,
+body.theme-light .mud-tab-slider {
+    background-color: #F5B800 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CHIPS / BADGES / SWITCHES / CHECKBOXES
+   ══════════════════════════════════════════════════════════════════════════ */
+
+body.theme-light .mud-chip.mud-chip-default {
+    background-color: #F0F0F0 !important;
+    color: #222222 !important;
+}
+body.theme-light .mud-chip.mud-chip-outlined {
+    border-color: rgba(0, 0, 0, 0.18) !important;
+    color: #222222 !important;
+}
+body.theme-light .mud-chip.mud-chip-color-primary.mud-chip-outlined {
+    border-color: #F5B800 !important;
+    color: #B88700 !important;
+}
+body.theme-light .mud-chip.mud-chip-color-primary.mud-chip-filled {
+    background-color: #F5B800 !important;
+    color: #111111 !important;
+}
+
+/* Semantyczne kolory chipów (outlined) — Severity / Status / FP-flag.
+   Używamy palety light-mode: success #1F9D58, warn #D98B00, err #D4333F, info #1A73E8. */
+body.theme-light .mud-chip.mud-chip-color-info.mud-chip-outlined {
+    border-color: #1A73E8 !important;
+    color: #1A73E8 !important;
+    background-color: rgba(26, 115, 232, 0.08) !important;
+}
+body.theme-light .mud-chip.mud-chip-color-success.mud-chip-outlined {
+    border-color: #1F9D58 !important;
+    color: #1F9D58 !important;
+    background-color: rgba(31, 157, 88, 0.08) !important;
+}
+body.theme-light .mud-chip.mud-chip-color-warning.mud-chip-outlined {
+    border-color: #D98B00 !important;
+    color: #D98B00 !important;
+    background-color: rgba(217, 139, 0, 0.08) !important;
+}
+body.theme-light .mud-chip.mud-chip-color-error.mud-chip-outlined {
+    border-color: #D4333F !important;
+    color: #D4333F !important;
+    background-color: rgba(212, 51, 63, 0.08) !important;
+}
+
+/* Critical: chip filled w kolorze error — już działa z default MudBlazor, ale wzmocnijmy żeby
+   był wyraźny w jasnym motywie (biały tekst na czerwonym tle). */
+body.theme-light .mud-chip.mud-chip-color-error.mud-chip-filled {
+    background-color: #D4333F !important;
+    color: #FFFFFF !important;
+}
+
+/* ── Switch ─────────────────────────────────────────────────────────────
+   MudBlazor 8 renderuje switch jako <label><span class="mud-switch-base"><input type=checkbox/></span>
+   <span class="mud-switch-track"/></label>. Klasa .mud-checked pojawia się na różnych
+   poziomach zależnie od wersji. Używamy :has(input:checked) — działa niezależnie od
+   dokładnej struktury DOM, pod warunkiem że jest przynajmniej jeden zaznaczony checkbox
+   wewnątrz .mud-switch. */
+
+/* Stan OFF (default) — ciemny track + biały thumb */
+body.theme-light .mud-switch .mud-switch-track {
+    background-color: rgba(0, 0, 0, 0.38) !important;
+    opacity: 1 !important;
+}
+body.theme-light .mud-switch .mud-switch-thumb {
+    color: #FFFFFF !important;
+    background-color: #FFFFFF !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Stan ON — primary (żółty) domyślnie */
+body.theme-light .mud-switch:has(input:checked) .mud-switch-track,
+body.theme-light .mud-switch.mud-checked .mud-switch-track {
+    background-color: rgba(245, 184, 0, 0.55) !important;
+}
+body.theme-light .mud-switch:has(input:checked) .mud-switch-thumb,
+body.theme-light .mud-switch.mud-checked .mud-switch-thumb {
+    color: #F5B800 !important;
+    background-color: #F5B800 !important;
+}
+
+/* Stan ON — Success (zielony) */
+body.theme-light .mud-switch.mud-success:has(input:checked) .mud-switch-track,
+body.theme-light .mud-switch.mud-switch-success:has(input:checked) .mud-switch-track,
+body.theme-light .mud-switch:has(.mud-success input:checked) .mud-switch-track {
+    background-color: rgba(31, 157, 88, 0.55) !important;
+}
+body.theme-light .mud-switch.mud-success:has(input:checked) .mud-switch-thumb,
+body.theme-light .mud-switch.mud-switch-success:has(input:checked) .mud-switch-thumb,
+body.theme-light .mud-switch:has(.mud-success input:checked) .mud-switch-thumb {
+    color: #1F9D58 !important;
+    background-color: #1F9D58 !important;
+}
+
+/* Stan ON — Error (czerwony) */
+body.theme-light .mud-switch.mud-error:has(input:checked) .mud-switch-track,
+body.theme-light .mud-switch.mud-switch-error:has(input:checked) .mud-switch-track {
+    background-color: rgba(212, 51, 63, 0.55) !important;
+}
+body.theme-light .mud-switch.mud-error:has(input:checked) .mud-switch-thumb,
+body.theme-light .mud-switch.mud-switch-error:has(input:checked) .mud-switch-thumb {
+    color: #D4333F !important;
+    background-color: #D4333F !important;
+}
+
+/* Stan ON — Warning (pomarańczowy) */
+body.theme-light .mud-switch.mud-warning:has(input:checked) .mud-switch-track,
+body.theme-light .mud-switch.mud-switch-warning:has(input:checked) .mud-switch-track {
+    background-color: rgba(217, 139, 0, 0.55) !important;
+}
+body.theme-light .mud-switch.mud-warning:has(input:checked) .mud-switch-thumb,
+body.theme-light .mud-switch.mud-switch-warning:has(input:checked) .mud-switch-thumb {
+    color: #D98B00 !important;
+    background-color: #D98B00 !important;
+}
+
+/* Stan ON — Info (niebieski) */
+body.theme-light .mud-switch.mud-info:has(input:checked) .mud-switch-track,
+body.theme-light .mud-switch.mud-switch-info:has(input:checked) .mud-switch-track {
+    background-color: rgba(26, 115, 232, 0.55) !important;
+}
+body.theme-light .mud-switch.mud-info:has(input:checked) .mud-switch-thumb,
+body.theme-light .mud-switch.mud-switch-info:has(input:checked) .mud-switch-thumb {
+    color: #1A73E8 !important;
+    background-color: #1A73E8 !important;
+}
+
+/* Checkbox */
+body.theme-light .mud-checkbox-true,
+body.theme-light .mud-checkbox-false { color: rgba(0, 0, 0, 0.55) !important; }
+body.theme-light .mud-checkbox.mud-checked .mud-checkbox-true { color: #F5B800 !important; }
+
+/* Radio */
+body.theme-light .mud-radio .mud-icon-root { color: rgba(0, 0, 0, 0.55) !important; }
+body.theme-light .mud-radio.mud-checked .mud-icon-root { color: #F5B800 !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   TABLES
+   ══════════════════════════════════════════════════════════════════════════ */
+
+body.theme-light .mud-table {
+    background-color: #FFFFFF;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+    overflow: hidden;
+}
+body.theme-light .mud-table-head {
+    background-color: #F5F5F5 !important;
+}
+body.theme-light .mud-table-head .mud-table-cell {
+    color: #333333 !important;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12) !important;
+}
+body.theme-light .mud-table-cell { color: #222222 !important; border-bottom-color: rgba(0, 0, 0, 0.06) !important; }
+body.theme-light .mud-table-row:hover .mud-table-cell {
+    background-color: rgba(245, 184, 0, 0.08) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ALERTS
+   ══════════════════════════════════════════════════════════════════════════ */
+
+body.theme-light .mud-alert.mud-alert-outlined-info {
+    background-color: #EFF6FF !important;
+    color: #0B3F87 !important;
+    border-color: #1A73E8 !important;
+}
+body.theme-light .mud-alert.mud-alert-outlined-warning {
+    background-color: #FFF8E1 !important;
+    color: #7A4B00 !important;
+    border-color: #D98B00 !important;
+}
+body.theme-light .mud-alert.mud-alert-outlined-error {
+    background-color: #FFEBEE !important;
+    color: #8A1F28 !important;
+    border-color: #D4333F !important;
+}
+body.theme-light .mud-alert.mud-alert-outlined-success {
+    background-color: #EAF7EF !important;
+    color: #134F2C !important;
+    border-color: #1F9D58 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DIVIDERS / PROGRESS / BADGES
+   ══════════════════════════════════════════════════════════════════════════ */
+
+body.theme-light .mud-divider { border-color: rgba(0, 0, 0, 0.08) !important; }
+body.theme-light .mud-progress-linear .mud-progress-linear-bar { background-color: #F5B800 !important; }
+body.theme-light .mud-progress-circular-circle { color: #F5B800 !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   STAT CARD — kolorystyka per-tryb
+   ══════════════════════════════════════════════════════════════════════════ */
+body.theme-light {
+    --safeview-stat-accent: #B88700;
+    --safeview-stat-info:   #1A73E8;
+    --safeview-stat-muted:  #555555;
+}
+
+/* ── .sv-* utility colors ─────────────────────────────────────────────── */
+body.theme-light .sv-text-primary   { color: #111111; }
+body.theme-light .sv-text-secondary { color: #555555; }
+body.theme-light .sv-text-muted     { color: #777777; }
+body.theme-light .sv-text-accent    { color: #B88700; }
+body.theme-light .sv-text-info      { color: #1A73E8; }
+
+body.theme-light .sv-card {
+    background: #FFFFFF;
+    border: 1px solid rgba(0, 0, 0, 0.10);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+body.theme-light .sv-card-alt {
+    background: #F7F7F7;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+body.theme-light .sv-field-label { color: #666666; }
+body.theme-light .sv-field-value { color: #111111; }
+
+body.theme-light .sv-chip-accent {
+    background: #FFF3CC;
+    color: #8A6500;
+    border: 1px solid #E8C84A;
+}
+body.theme-light .sv-chip-muted {
+    background: #F0F0F0;
+    color: #555555;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+}
+body.theme-light .sv-chip-info {
+    background: #E3F0FF;
+    color: #0B4F9E;
+    border: 1px solid #7BB8F5;
+}
+
+body.theme-light .sv-status-ok  { color: #1F9D58; }
+body.theme-light .sv-status-err { color: #D4333F; }
+
+body.theme-light .sv-pre {
+    background: #FAFAFA;
+    color: #222222;
+    border: 1px solid rgba(0, 0, 0, 0.10);
+}
+
+body.theme-light .sv-table-muted  { color: #555555; }
+body.theme-light .sv-table-accent { color: #B88700; }
+
+body.theme-light .sv-chip-ok   { background: #E8F8EF; color: #146B37; border: 1px solid #1F9D58; }
+body.theme-light .sv-chip-warn { background: #FFF3E0; color: #8A5600; border: 1px solid #D98B00; }
+body.theme-light .sv-chip-err  { background: #FFEBEE; color: #8A1F28; border: 1px solid #D4333F; }
+
+body.theme-light .sv-chip-success { background: #E8F8EF; color: #146B37; border: 1px solid #1F9D5877; }
+
+body.theme-light .sv-snapshot-container { background: #F0F0F0; }
+body.theme-light .sv-bar-track { background: #E5E5E5; }
+
+body.theme-light .safeview-stat {
+    background-color: #FFFFFF !important;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+body.theme-light .safeview-stat-label { color: #666666 !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   RETROFIT: inline styles z .razor (hardcoded #0A0A0A, #888, #FFD600, …)
+   Ten blok był w app.css — tu ma sens tylko w trybie jasnym.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Ciemne tła kart → biała karta */
+body.theme-light [style*="background:#0A0A0A"],
+body.theme-light [style*="background: #0A0A0A"],
+body.theme-light [style*="background:#0a0a0a"],
+body.theme-light [style*="background:#111111"],
+body.theme-light [style*="background: #111111"],
+body.theme-light [style*="background:#111;"],
+body.theme-light [style*="background: #111;"],
+body.theme-light [style*="background:#000000"],
+body.theme-light [style*="background: #000000"],
+body.theme-light [style*="background:#000;"],
+body.theme-light [style*="background: #000;"],
+body.theme-light [style*="background:#1A1A1A"],
+body.theme-light [style*="background: #1A1A1A"],
+body.theme-light [style*="background:#050505"],
+body.theme-light [style*="background: linear-gradient"] {
+    background: #FFFFFF !important;
+    background-image: none !important;
+}
+
+/* Ciemne bordery #FFFFFFxx → jasne */
+body.theme-light [style*="1px solid #FFFFFF"],
+body.theme-light [style*="1px solid #ffffff"] {
+    border-color: rgba(0, 0, 0, 0.10) !important;
+}
+body.theme-light [style*="1px dashed #FFFFFF"],
+body.theme-light [style*="1px dashed #ffffff"] {
+    border-color: rgba(0, 0, 0, 0.18) !important;
+}
+
+/* Jasne teksty na jasnym tle → ciemny (wyłączamy gdy element ma własne tło) */
+body.theme-light [style*="color:#FFFFFF"]:not([style*="background"]),
+body.theme-light [style*="color: #FFFFFF"]:not([style*="background"]),
+body.theme-light [style*="color:#FFF"]:not([style*="background"]),
+body.theme-light [style*="color: #FFF"]:not([style*="background"]),
+body.theme-light [style*="color:#EEE"]:not([style*="background"]),
+body.theme-light [style*="color:#DDD"]:not([style*="background"]),
+body.theme-light [style*="color:#CCC"]:not([style*="background"]),
+body.theme-light [style*="color:#AAAAAA"]:not([style*="background"]),
+body.theme-light [style*="color: #AAAAAA"]:not([style*="background"]),
+body.theme-light [style*="color:#AAA"]:not([style*="background"]),
+body.theme-light [style*="color: #AAA"]:not([style*="background"]),
+body.theme-light [style*="color:#888888"]:not([style*="background"]),
+body.theme-light [style*="color: #888888"]:not([style*="background"]),
+body.theme-light [style*="color:#888"]:not([style*="background"]),
+body.theme-light [style*="color: #888"]:not([style*="background"]),
+body.theme-light [style*="color:#666"]:not([style*="background"]),
+body.theme-light [style*="color: #666"]:not([style*="background"]) {
+    color: #555555 !important;
+}
+
+/* Akcenty słabo widoczne na białym */
+body.theme-light [style*="color:#FFD600"]:not([style*="background"]),
+body.theme-light [style*="color: #FFD600"]:not([style*="background"]) {
+    color: #B88700 !important;
+}
+body.theme-light [style*="color:#7EB6FF"]:not([style*="background"]),
+body.theme-light [style*="color: #7EB6FF"]:not([style*="background"]) {
+    color: #1A73E8 !important;
+}
+
+/* Kod inline */
+/* ══════════════════════════════════════════════════════════════════════════
+   LOGIN / SETUP (auth pages)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+body.theme-light .sv-auth-page { background: #F0F0F0; }
+body.theme-light .sv-auth-card {
+    background: #FFFFFF;
+    border: 1px solid rgba(0, 0, 0, 0.10);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10);
+}
+body.theme-light .sv-auth-logo { color: #B88700; }
+body.theme-light .sv-auth-logo span { color: #111111; }
+body.theme-light .sv-auth-title { color: #111111; }
+body.theme-light .sv-auth-subtitle { color: #555555; }
+body.theme-light .sv-auth-label { color: #444444; }
+body.theme-light .sv-auth-input {
+    background: #FAFAFA;
+    border: 1px solid rgba(0, 0, 0, 0.20);
+    color: #111111;
+}
+body.theme-light .sv-auth-input:focus {
+    border-color: #F5B800;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(245, 184, 0, 0.20);
+}
+body.theme-light .sv-auth-input::placeholder { color: #999999; }
+body.theme-light .sv-auth-button {
+    background: #F5B800;
+    color: #111111;
+}
+body.theme-light .sv-auth-button:hover { background: #E0A800; }
+body.theme-light .sv-auth-error {
+    background: #FFF0F0;
+    border: 1px solid #D4333F;
+    color: #8A1F28;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   INLINE CODE / PRE
+   ══════════════════════════════════════════════════════════════════════════ */
+
+body.theme-light code {
+    background-color: #F3F3F3;
+    color: #B8430B;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+}
+body.theme-light pre.mono {
+    background-color: #FAFAFA !important;
+    color: #222222 !important;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 6px;
+    padding: 12px;
+}

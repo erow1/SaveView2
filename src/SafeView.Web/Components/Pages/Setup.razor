@@ -1,0 +1,75 @@
+@page "/setup"
+@layout EmptyLayout
+@attribute [AllowAnonymous]
+@inject SafeView.Application.Abstractions.Persistence.IUserRepository UserRepo
+@inject NavigationManager Nav
+@inject IStringLocalizer<SharedResource> L
+
+<PageTitle>@L["Setup.Title"] — @L["AppName"]</PageTitle>
+
+<div class="sv-auth-page">
+    <div class="sv-auth-card" style="width:460px;">
+        <div class="sv-auth-header">
+            <div class="sv-auth-logo">SAFE<span>VIEW</span></div>
+            <div class="sv-auth-title">@L["Setup.Title"]</div>
+            <div class="sv-auth-subtitle">
+                @L["Setup.Description"]
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Error))
+        {
+            <div class="sv-auth-error">
+                @ErrorMessage(Error)
+            </div>
+        }
+
+        <form method="post" action="/auth/setup">
+            <label class="sv-auth-label">@L["Table.Login"]</label>
+            <input name="username" type="text" required minlength="3" autocomplete="off" autofocus class="sv-auth-input" />
+
+            <label class="sv-auth-label">@L["Table.Email"]</label>
+            <input name="email" type="email" required autocomplete="off" class="sv-auth-input" />
+
+            <label class="sv-auth-label">@L["Setup.DisplayName"]</label>
+            <input name="displayName" type="text" required autocomplete="off" class="sv-auth-input" />
+
+            <label class="sv-auth-label">@L["Setup.PasswordHint"]</label>
+            <input name="password" type="password" required minlength="8" autocomplete="new-password" class="sv-auth-input" />
+
+            <label class="sv-auth-label">@L["Setup.PasswordConfirm"]</label>
+            <input name="passwordConfirm" type="password" required minlength="8" autocomplete="new-password" class="sv-auth-input sv-auth-input-last" />
+
+            <button type="submit" class="sv-auth-button">@L["Setup.Submit"]</button>
+        </form>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Jeśli admin już istnieje — odbij na /login
+        try
+        {
+            var count = await UserRepo.CountAsync();
+            if (count > 0) Nav.NavigateTo("/login", forceLoad: true);
+        }
+        catch
+        {
+            // Mongo może być jeszcze niedostępne — zostaw formularz
+        }
+    }
+
+    private static string ErrorMessage(string code) => code switch
+    {
+        "bad_username" => "Login musi mieć co najmniej 3 znaki.",
+        "bad_email" => "Podaj poprawny adres e-mail.",
+        "bad_display_name" => "Podaj nazwę wyświetlaną.",
+        "weak_password" => "Hasło musi mieć co najmniej 8 znaków.",
+        "password_mismatch" => "Hasła nie są identyczne.",
+        "insert_failed" => "Nie udało się zapisać użytkownika (być może login/e-mail jest już zajęty).",
+        _ => "Wystąpił błąd."
+    };
+}

@@ -1,0 +1,151 @@
+@page "/admin/llm-providers"
+@attribute [Authorize(Policy = "perm:llm:configure")]
+@using SafeView.Domain.Llm
+@inject SafeView.Application.Abstractions.Persistence.ILlmProviderRepository Repo
+@inject SafeView.Application.Abstractions.LLM.IChatClientFactory Factory
+@inject SafeView.Application.Abstractions.LLM.IChatClient DefaultChat
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@L["LlmProviders.Title"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@Icons.Material.Filled.Hub" Size="Size.Large" Style="color:var(--mud-palette-primary);" />
+        <div>
+            <MudText Typo="Typo.h4">@L["LlmProviders.Title"]</MudText>
+            <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                @L["LlmProviders.Description"]
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary" OnClick="Add">
+            @L["LlmProviders.Add"]
+        </MudButton>
+    </MudStack>
+
+    <MudTable Items="_providers" Dense="true" Hover="true" Loading="_loading" Elevation="0" Class="sv-card">
+        <HeaderContent>
+            <MudTh>@L["Table.Name"]</MudTh>
+            <MudTh>@L["LlmProviders.Kind"]</MudTh>
+            <MudTh>@L["LlmProviders.BaseUrl"]</MudTh>
+            <MudTh>@L["LlmProviders.DefaultModel"]</MudTh>
+            <MudTh>@L["Table.Active"]</MudTh>
+            <MudTh>@L["LlmProviders.IsDefault"]</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                <strong>@context.Name</strong>
+                @if (!string.IsNullOrEmpty(context.Description))
+                {
+                    <div class="sv-text-muted" style="font-size:11px;">@context.Description</div>
+                }
+            </MudTd>
+            <MudTd class="mono">@context.Kind</MudTd>
+            <MudTd class="mono sv-text-muted" style="font-size:11px; max-width:300px; overflow:hidden; text-overflow:ellipsis;">
+                @context.BaseUrl
+            </MudTd>
+            <MudTd class="mono">@context.DefaultModel</MudTd>
+            <MudTd>
+                @if (context.Enabled) {<MudChip T="string" Size="Size.Small" Style="background:#0E2A1E; color:#2EC27E;">ON</MudChip>}
+                else {<MudChip T="string" Size="Size.Small" Class="sv-chip-muted">OFF</MudChip>}
+            </MudTd>
+            <MudTd>
+                @if (context.IsDefault)
+                {
+                    <MudChip T="string" Size="Size.Small" Style="background:#3A2F14; color:#F5A524;">@L["LlmProviders.DefaultBadge"]</MudChip>
+                }
+            </MudTd>
+            <MudTd>
+                <MudTooltip Text="@L["LlmProviders.TestConnection"]">
+                    <MudIconButton Icon="@Icons.Material.Filled.NetworkCheck" Size="Size.Small" OnClick="() => TestAsync(context)" />
+                </MudTooltip>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => Edit(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => Delete(context)"
+                               Disabled="context.IsDefault" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudStack>
+
+@code {
+    private List<LlmProvider> _providers = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        _loading = true;
+        _providers = (await Repo.ListAsync()).OrderByDescending(p => p.IsDefault).ThenBy(p => p.Name, StringComparer.Ordinal).ToList();
+        _loading = false;
+    }
+
+    private async Task Add()
+    {
+        var p = new LlmProvider { Kind = LlmProviderKind.Ollama, BaseUrl = "http://localhost:11434/v1", DefaultModel = "qwen2.5-vl:7b" };
+        await OpenDialog(p, isNew: true);
+    }
+
+    private async Task Edit(LlmProvider p) => await OpenDialog(p, isNew: false);
+
+    private async Task OpenDialog(LlmProvider p, bool isNew)
+    {
+        var parameters = new DialogParameters { ["Provider"] = p, ["IsNew"] = isNew };
+        var dlg = await Dialog.ShowAsync<LlmProviderDialog>(
+            isNew ? L["LlmProviders.AddTitle"] : L["LlmProviders.EditTitle"],
+            parameters, new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: LlmProvider saved })
+        {
+            try
+            {
+                // Tylko jeden IsDefault — jeśli user ustawił ten jako default, wyłącz pozostałe.
+                if (saved.IsDefault)
+                {
+                    foreach (var other in _providers.Where(x => x.Id != saved.Id && x.IsDefault))
+                    {
+                        other.IsDefault = false;
+                        await Repo.UpdateAsync(other);
+                        Factory.Invalidate(other.Id);
+                    }
+                }
+
+                if (isNew) await Repo.InsertAsync(saved);
+                else await Repo.UpdateAsync(saved);
+                Factory.Invalidate(saved.Id);
+                Snackbar.Add(L["LlmProviders.Saved"], Severity.Success);
+                await Reload();
+            }
+            catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        }
+    }
+
+    private async Task Delete(LlmProvider p)
+    {
+        if (p.IsDefault) return;
+        var ok = await Dialog.ShowMessageBox(L["LlmProviders.DeleteTitle"],
+            string.Format(L["LlmProviders.DeleteMessage"], p.Name),
+            yesText: L["Common.Delete"], cancelText: L["Common.Cancel"]);
+        if (ok != true) return;
+        await Repo.DeleteAsync(p.Id);
+        Factory.Invalidate(p.Id);
+        Snackbar.Add(L["LlmProviders.Deleted"], Severity.Success);
+        await Reload();
+    }
+
+    private async Task TestAsync(LlmProvider p)
+    {
+        try
+        {
+            var client = await Factory.GetForAsync(p.Id);
+            var ok = await client.PingAsync();
+            if (ok) Snackbar.Add(string.Format(L["LlmProviders.PingOk"], p.Name), Severity.Success);
+            else Snackbar.Add(string.Format(L["LlmProviders.PingFailed"], p.Name), Severity.Warning);
+        }
+        catch (Exception ex) { Snackbar.Add(string.Format(L["LlmProviders.PingError"], ex.Message), Severity.Error); }
+    }
+}

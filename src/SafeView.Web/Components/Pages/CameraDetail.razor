@@ -1,0 +1,295 @@
+@page "/cameras/{Id}/detail"
+@attribute [Authorize(Policy = "perm:cameras:view")]
+@inject SafeView.Application.Abstractions.Persistence.ICameraRepository CameraRepo
+@inject SafeView.Application.Abstractions.Persistence.IIncidentRepository IncidentRepo
+@inject SafeView.Application.Abstractions.Media.ISnapshotService Snapshots
+@inject SafeView.Application.Abstractions.Storage.IFileStore Files
+@inject SafeView.Application.Abstractions.LLM.IChatClient Chat
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@(_camera?.Name ?? "Kamera") — szczegóły</PageTitle>
+
+@if (_camera is null)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else
+{
+    <MudStack Spacing="3">
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" OnClick="@(() => Nav.NavigateTo("/cameras"))" />
+            <MudText Typo="Typo.h5">@_camera.Name</MudText>
+            <MudText Typo="Typo.caption" Class="mono ms-3 sv-text-muted">@_camera.Location</MudText>
+            <MudSpacer />
+            <MudButton StartIcon="@Icons.Material.Filled.Videocam" Variant="Variant.Outlined"
+                       OnClick="@(() => Nav.NavigateTo($"/cameras/{Id}/live"))">@L["CameraDetail.LivePreview"]</MudButton>
+            <MudButton StartIcon="@Icons.Material.Filled.Refresh" OnClick="Reload" Variant="Variant.Outlined">@L["Common.Refresh"]</MudButton>
+        </MudStack>
+
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-3 sv-card" Elevation="0">
+                    <MudText Typo="Typo.overline" Class="sv-text-muted">@L["CameraDetail.Last24h"]</MudText>
+                    <MudText Typo="Typo.h4" Class="sv-status-err">@_count24h</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-3 sv-card" Elevation="0">
+                    <MudText Typo="Typo.overline" Class="sv-text-muted">@L["CameraDetail.Last7d"]</MudText>
+                    <MudText Typo="Typo.h4" Class="sv-text-accent">@_count7d</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-3 sv-card" Elevation="0">
+                    <MudText Typo="Typo.overline" Class="sv-text-muted">@L["CameraDetail.FpRate"]</MudText>
+                    <MudText Typo="Typo.h4" Class="sv-text-info">@($"{_fpRate:P0}")</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudGrid>
+            <MudItem xs="12" md="7">
+                <MudPaper Class="pa-3 sv-card" Elevation="0">
+                    <MudText Typo="Typo.subtitle2" Class="sv-text-muted">@L["CameraDetail.SnapshotHeatmap"]</MudText>
+                    <div class="sv-snapshot-container" style="position:relative; width:100%; aspect-ratio:16/9; margin-top:8px;">
+                        @if (_imageDataUrl is not null)
+                        {
+                            <img src="@_imageDataUrl" alt="snapshot"
+                                 style="position:absolute; inset:0; width:100%; height:100%; object-fit:contain; display:block;" />
+                        }
+                        else
+                        {
+                            <div class="sv-text-muted" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center;">
+                                @L["CameraDetail.NoFrame"]
+                            </div>
+                        }
+                        <svg viewBox="0 0 1 1" preserveAspectRatio="none"
+                             style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
+                            @foreach (var p in _heatPoints)
+                            {
+                                <circle cx="@p.X.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                        cy="@p.Y.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                        r="0.012" fill="#FF2D2D" fill-opacity="0.35" stroke="#FF5964" stroke-width="0.002" />
+                            }
+                        </svg>
+                    </div>
+                    <MudStack Row="true" Class="mt-2" AlignItems="AlignItems.Center">
+                        <MudButton StartIcon="@Icons.Material.Filled.CameraAlt" Size="Size.Small"
+                                   OnClick="CaptureSnapshot" Disabled="_busySnap">
+                            @(_busySnap ? L["CameraDetail.Capturing"] : L["CameraDetail.CaptureFrame"])
+                        </MudButton>
+                        <MudSpacer />
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">
+                            Punktów: @_heatPoints.Count · współrzędne znormalizowane (min/max po incydentach)
+                        </MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="5">
+                <MudPaper Class="pa-3 sv-card" Elevation="0">
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.subtitle2" Class="sv-text-secondary">@L["CameraDetail.LlmSummary"]</MudText>
+                        <MudSpacer />
+                        <AuthorizeView Policy="perm:llm:chat">
+                            <MudButton StartIcon="@Icons.Material.Filled.AutoAwesome" Size="Size.Small"
+                                       OnClick="SummarizeAsync" Disabled="_busyLlm">
+                                @(_busyLlm ? L["CameraDetail.Analyzing"] : L["CameraDetail.Analyze7d"])
+                            </MudButton>
+                        </AuthorizeView>
+                    </MudStack>
+                    <MudDivider Class="my-2" />
+                    @if (_llmSummary is null)
+                    {
+                        <MudText Typo="Typo.body2" Class="sv-text-muted">
+                            @L["CameraDetail.LlmHint"]
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Class="sv-text-primary" Style="white-space:pre-wrap;">@_llmSummary</MudText>
+                    }
+                </MudPaper>
+
+                <MudPaper Class="pa-3 mt-3 sv-card" Elevation="0">
+                    <MudText Typo="Typo.subtitle2" Class="sv-text-secondary">@L["CameraDetail.CategoryBreakdown"]</MudText>
+                    <MudDivider Class="my-2" />
+                    @if (_byCategory.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="sv-text-muted">@L["CameraDetail.NoIncidents7d"]</MudText>
+                    }
+                    else
+                    {
+                        @foreach (var kv in _byCategory.OrderByDescending(k => k.Value))
+                        {
+                            <div class="mt-1" style="display:flex; align-items:center; gap:8px;">
+                                <span class="mono sv-text-info" style="font-size:12px; min-width:140px;">@kv.Key</span>
+                                <div class="sv-bar-track" style="flex:1; height:8px; border-radius:4px; overflow:hidden;">
+                                    <div style="width:@(((double)kv.Value / Math.Max(1, _byCategory.Values.Max()) * 100).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))%; height:100%; background:#FF5964;"></div>
+                                </div>
+                                <span class="mono sv-text-secondary" style="font-size:12px; min-width:32px; text-align:right;">@kv.Value</span>
+                            </div>
+                        }
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudPaper Class="pa-3 sv-card" Elevation="0">
+            <MudText Typo="Typo.subtitle2" Class="sv-text-secondary">@L["CameraDetail.RecentIncidents"]</MudText>
+            <MudTable Items="_recent" Dense="true" Hover="true" Elevation="0" Style="background:transparent;">
+                <HeaderContent>
+                    <MudTh>@L["Table.When"]</MudTh>
+                    <MudTh>@L["Table.Category"]</MudTh>
+                    <MudTh>@L["Table.Severity"]</MudTh>
+                    <MudTh>@L["Table.Status"]</MudTh>
+                    <MudTh>@L["Table.Summary"]</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd class="mono" style="font-size:12px;">@context.OccurredAt.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+                    <MudTd><span class="mono">@context.Category</span></MudTd>
+                    <MudTd>@context.Severity</MudTd>
+                    <MudTd>@context.Status</MudTd>
+                    <MudTd style="max-width:380px; overflow:hidden; text-overflow:ellipsis;">@context.Summary</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    </MudStack>
+}
+
+@code {
+    [Parameter] public string Id { get; set; } = string.Empty;
+
+    private SafeView.Domain.Cameras.Camera? _camera;
+    private List<SafeView.Domain.Incidents.Incident> _recent7d = new();
+    private List<SafeView.Domain.Incidents.Incident> _recent = new();
+    private readonly List<(double X, double Y)> _heatPoints = new();
+    private Dictionary<string, int> _byCategory = new();
+    private string? _imageDataUrl;
+    private string? _llmSummary;
+    private int _count24h;
+    private int _count7d;
+    private double _fpRate;
+    private bool _busySnap;
+    private bool _busyLlm;
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        _camera = await CameraRepo.GetByIdAsync(Id);
+        if (_camera is null) { Nav.NavigateTo("/cameras"); return; }
+
+        var now = DateTime.UtcNow;
+        _recent7d = (await IncidentRepo.ListByCameraAndDateRangeAsync(Id, now.AddDays(-7), now)).ToList();
+        _recent = _recent7d.Take(50).ToList();
+        _count7d = _recent7d.Count;
+        _count24h = _recent7d.Count(i => i.OccurredAt >= now.AddHours(-24));
+        _fpRate = _recent7d.Count == 0 ? 0
+            : (double)_recent7d.Count(i => i.Status == SafeView.Domain.Incidents.IncidentStatus.FalsePositive) / _recent7d.Count;
+
+        _byCategory = _recent7d
+            .GroupBy(i => string.IsNullOrWhiteSpace(i.Category) ? "?" : i.Category)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        BuildHeatPoints();
+        await LoadFrameAsync();
+    }
+
+    private void BuildHeatPoints()
+    {
+        _heatPoints.Clear();
+        var centers = _recent7d
+            .SelectMany(i => i.Detections.Select(d => (X: d.X + d.Width / 2.0, Y: d.Y + d.Height / 2.0)))
+            .Where(p => p.X > 0 && p.Y > 0)
+            .ToList();
+        if (centers.Count == 0) return;
+
+        var maxX = centers.Max(p => p.X);
+        var maxY = centers.Max(p => p.Y);
+        if (maxX <= 1.0 && maxY <= 1.0)
+        {
+            _heatPoints.AddRange(centers);
+            return;
+        }
+        foreach (var p in centers)
+            _heatPoints.Add((p.X / maxX, p.Y / maxY));
+    }
+
+    private async Task LoadFrameAsync()
+    {
+        _imageDataUrl = null;
+        var latestWithFrame = _recent7d.FirstOrDefault(i => !string.IsNullOrEmpty(i.FrameRelativePath));
+        if (latestWithFrame is null) return;
+        try
+        {
+            var path = latestWithFrame.FrameRelativePath!;
+            if (!Files.Exists(SafeView.Application.Abstractions.Storage.FileKind.Frame, path)) return;
+            await using var stream = await Files.OpenReadAsync(SafeView.Application.Abstractions.Storage.FileKind.Frame, path);
+            if (stream is null) return;
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            _imageDataUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(ms.ToArray())}";
+        }
+        catch { /* ignore */ }
+    }
+
+    private async Task CaptureSnapshot()
+    {
+        if (_camera is null) return;
+        _busySnap = true;
+        try
+        {
+            var res = await Snapshots.CaptureAsync(_camera);
+            if (res.Success && res.AbsolutePath is not null)
+            {
+                var bytes = await File.ReadAllBytesAsync(res.AbsolutePath);
+                _imageDataUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(bytes)}";
+                Snackbar.Add("Pobrano nową klatkę.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add($"Snapshot nieudany: {res.ErrorMessage}", Severity.Warning);
+            }
+        }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        finally { _busySnap = false; }
+    }
+
+    private async Task SummarizeAsync()
+    {
+        if (_busyLlm) return;
+        _busyLlm = true;
+        try
+        {
+            var lines = _recent7d.Take(80).Select(i =>
+                $"- {i.OccurredAt:yyyy-MM-dd HH:mm} | {i.Category} | sev={i.Severity} | status={i.Status} | {i.Summary}");
+            var prompt = $"""
+                Kamera: {_camera!.Name} ({_camera.Location})
+                Okres: ostatnie 7 dni · incydentów: {_count7d} · 24h: {_count24h} · FP: {_fpRate:P0}
+                Najczęstsze kategorie: {string.Join(", ", _byCategory.OrderByDescending(k => k.Value).Take(5).Select(k => $"{k.Key}({k.Value})"))}
+
+                Lista (max 80 najnowszych):
+                {string.Join("\n", lines)}
+
+                Zadanie: napisz krótką (4–6 zdań) analizę dla operatora BHP.
+                Wskaż dominujące wzorce, potencjalne false-positives, rekomendowane działania.
+                Bez markdown, czysty tekst.
+                """;
+            var resp = await Chat.ChatAsync(
+                new List<SafeView.Application.Abstractions.LLM.ChatMessage>
+                {
+                    new(SafeView.Application.Abstractions.LLM.ChatRole.System, "Jesteś asystentem BHP. Odpowiadaj zwięźle, po polsku."),
+                    new(SafeView.Application.Abstractions.LLM.ChatRole.User, prompt)
+                },
+                new SafeView.Application.Abstractions.LLM.ChatOptions(Temperature: 0.2, MaxTokens: 400));
+
+            _llmSummary = resp.Success ? resp.Content : $"Błąd LLM: {resp.ErrorMessage}";
+        }
+        catch (Exception ex) { _llmSummary = $"Błąd: {ex.Message}"; }
+        finally { _busyLlm = false; }
+    }
+}

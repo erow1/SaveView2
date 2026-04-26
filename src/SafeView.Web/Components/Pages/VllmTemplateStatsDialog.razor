@@ -1,0 +1,140 @@
+@namespace SafeView.Web.Components.Pages
+@using SafeView.Domain.Vllm
+@using SafeView.Application.Abstractions.Persistence
+@inject IIncidentRepository IncidentRepo
+@inject IPromptTemplateVersionRepository VersionRepo
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3" Style="min-width:640px;">
+            <MudText Typo="Typo.subtitle1">@Template.Name</MudText>
+            <MudText Typo="Typo.caption" Class="sv-text-muted">@Template.Description</MudText>
+
+            @if (_stats is null)
+            {
+                <MudProgressLinear Indeterminate="true" />
+            }
+            else
+            {
+                <MudStack Row="true" Spacing="2">
+                    <MudPaper Class="pa-3 sv-card-alt" Elevation="0" Style="flex:1;">
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["VllmStats.FireCount"]</MudText>
+                        <MudText Typo="Typo.h5" Class="mono">@_stats.FireCount</MudText>
+                    </MudPaper>
+                    <MudPaper Class="pa-3 sv-card-alt" Elevation="0" Style="flex:1;">
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["VllmStats.FpRate"]</MudText>
+                        <MudText Typo="Typo.h5" Class="mono" Style="@($"color:{FpColor(_stats.FalsePositiveRate)};")">
+                            @($"{_stats.FalsePositiveRate * 100:F0}%")
+                        </MudText>
+                    </MudPaper>
+                    <MudPaper Class="pa-3 sv-card-alt" Elevation="0" Style="flex:1;">
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["VllmStats.AvgConf"]</MudText>
+                        <MudText Typo="Typo.h5" Class="mono">
+                            @(_stats.AvgConfidence is { } ac ? $"{ac * 100:F0}%" : "—")
+                        </MudText>
+                    </MudPaper>
+                </MudStack>
+
+                @if (_stats.FireCount > 0)
+                {
+                    <div>
+                        <MudText Typo="Typo.subtitle2" Class="mb-1">@L["VllmStats.Histogram"]</MudText>
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["VllmStats.HistogramHint"]</MudText>
+                        <MudChart ChartType="ChartType.Bar" ChartSeries="@_series" XAxisLabels="@_labels"
+                                  Width="100%" Height="220px" />
+                    </div>
+                }
+            }
+
+            <MudDivider />
+
+            <MudText Typo="Typo.subtitle2">@L["VllmStats.History"]</MudText>
+            @if (_versions is null)
+            {
+                <MudProgressLinear Indeterminate="true" />
+            }
+            else if (_versions.Count == 0)
+            {
+                <MudText Typo="Typo.caption" Class="sv-text-muted">@L["VllmStats.HistoryEmpty"]</MudText>
+            }
+            else
+            {
+                <MudTable Items="_versions" Dense="true" Elevation="0">
+                    <HeaderContent>
+                        <MudTh>@L["VllmStats.When"]</MudTh>
+                        <MudTh>@L["VllmStats.Conf"]</MudTh>
+                        <MudTh>@L["VllmStats.Sev"]</MudTh>
+                        <MudTh></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd class="mono" style="font-size:11px;">
+                            @context.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+                        </MudTd>
+                        <MudTd class="mono">@($"{context.RecommendedMinConfidence * 100:F0}%")</MudTd>
+                        <MudTd class="mono">@context.DefaultMinSeverity</MudTd>
+                        <MudTd>
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Filled.Restore"
+                                       OnClick="@(() => RestoreVersion(context))"
+                                       Disabled="@Template.IsBuiltIn">
+                                @L["VllmStats.Restore"]
+                            </MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Close(DialogResult.Ok<object?>(null))">@L["Common.Close"]</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public PromptTemplate Template { get; set; } = new();
+
+    private VllmTemplateStats? _stats;
+    private List<PromptTemplateVersion>? _versions;
+    private List<ChartSeries> _series = new();
+    private string[] _labels = Array.Empty<string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var from = DateTime.UtcNow.AddDays(-30);
+        _stats = await IncidentRepo.GetStatsByVllmTemplateAsync(Template.Id, from);
+        _versions = (await VersionRepo.ListByTemplateAsync(Template.Id)).ToList();
+
+        if (_stats.FireCount > 0)
+        {
+            _labels = new[] { "0-10%", "10-20%", "20-30%", "30-40%", "40-50%", "50-60%", "60-70%", "70-80%", "80-90%", "90-100%" };
+            _series = new List<ChartSeries>
+            {
+                new() { Name = L["VllmStats.Count"], Data = _stats.ConfidenceHistogram.Select(c => (double)c).ToArray() }
+            };
+        }
+    }
+
+    private void RestoreVersion(PromptTemplateVersion v)
+    {
+        Template.Name = v.Name;
+        Template.Description = v.Description;
+        Template.Category = v.Category;
+        Template.SystemPrompt = v.SystemPrompt;
+        Template.UserTemplate = v.UserTemplate;
+        Template.SchemaJson = v.SchemaJson;
+        Template.RecommendedMinConfidence = v.RecommendedMinConfidence;
+        Template.DefaultMinSeverity = v.DefaultMinSeverity;
+        Template.RequireGoodImageQuality = v.RequireGoodImageQuality;
+        // Dialog zamyka się z modified Template — caller zapisze przez UpdateAsync
+        MudDialog.Close(DialogResult.Ok(Template));
+    }
+
+    private static string FpColor(double rate)
+    {
+        if (rate < 0.10) return "#2EC27E";
+        if (rate < 0.30) return "#F5A524";
+        return "#FF5964";
+    }
+}

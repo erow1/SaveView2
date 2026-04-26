@@ -1,0 +1,285 @@
+@namespace SafeView.Web.Components.Pages
+@using SafeView.Domain.Detection
+@using SafeView.Domain.ML
+@inject IStringLocalizer<SharedResource> L
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3" Style="max-height:75vh; overflow-y:auto;">
+            <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined"
+                      Icon="@Icons.Material.Filled.Lightbulb">
+                @L["DetectionClasses.Hint"]
+            </MudAlert>
+
+            <MudStack Row="true" Spacing="2">
+                <MudTextField @bind-Value="Class.Name" Label="@L["Table.Name"]" Required="true"
+                              Variant="Variant.Outlined" Disabled="@Class.IsBuiltIn" />
+                <MudTextField @bind-Value="Class.Category" Label="@L["DetectionClasses.Category"]"
+                              Variant="Variant.Outlined" Disabled="@Class.IsBuiltIn" />
+            </MudStack>
+
+            <MudTextField @bind-Value="Class.Description" Label="@L["DetectionClasses.DescriptionLabel"]"
+                          Lines="2" Variant="Variant.Outlined" Disabled="@Class.IsBuiltIn" />
+
+            @* Kind selector — determinuje które pola są dostępne *@
+            <MudSelect T="DetectionClassKind" @bind-Value="Class.Kind"
+                       Label="@L["DetectionClasses.KindSelect"]"
+                       HelperText="@L["DetectionClasses.KindHelp"]"
+                       Variant="Variant.Outlined" Disabled="@Class.IsBuiltIn">
+                <MudSelectItem Value="DetectionClassKind.Text">@L["DetectionClasses.Kind.Text"]</MudSelectItem>
+                <MudSelectItem Value="DetectionClassKind.ClosedSetBinding">@L["DetectionClasses.Kind.ClosedSet"]</MudSelectItem>
+                <MudSelectItem Value="DetectionClassKind.Visual">@L["DetectionClasses.Kind.Visual"]</MudSelectItem>
+                <MudSelectItem Value="DetectionClassKind.TextAndVisual">@L["DetectionClasses.Kind.TextAndVisual"]</MudSelectItem>
+            </MudSelect>
+
+            @* Per-kind fields *@
+            @if (Class.Kind is DetectionClassKind.Text or DetectionClassKind.TextAndVisual)
+            {
+                <MudTextField @bind-Value="Class.TextPrompt" Label="@L["DetectionClasses.TextPrompt"]"
+                              HelperText="@L["DetectionClasses.TextPromptHelp"]"
+                              Variant="Variant.Outlined" Disabled="@Class.IsBuiltIn" />
+                <MudTextField @bind-Value="Class.TextPromptPl" Label="@L["DetectionClasses.TextPromptPl"]"
+                              HelperText="@L["DetectionClasses.TextPromptPlHelp"]"
+                              Variant="Variant.Outlined" Disabled="@Class.IsBuiltIn" />
+            }
+
+            @if (Class.Kind is DetectionClassKind.ClosedSetBinding)
+            {
+                <MudStack Row="true" Spacing="2">
+                    <MudSelect T="string" @bind-Value="Class.ClosedSetModelId"
+                               Label="@L["DetectionClasses.ClosedSetModel"]"
+                               HelperText="@L["DetectionClasses.ClosedSetModelHelp"]"
+                               Variant="Variant.Outlined" Disabled="@Class.IsBuiltIn" Style="min-width:240px;">
+                        @foreach (var m in Models.Where(m => m.Capabilities.HasFlag(ModelCapabilities.ClosedSet)))
+                        {
+                            <MudSelectItem Value="@m.Id">@m.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudTextField @bind-Value="Class.ClosedSetLabel" Label="@L["DetectionClasses.ClosedSetLabel"]"
+                                  HelperText="@L["DetectionClasses.ClosedSetLabelHelp"]"
+                                  Variant="Variant.Outlined" Disabled="@Class.IsBuiltIn" />
+                </MudStack>
+                @if (!string.IsNullOrEmpty(Class.ClosedSetModelId))
+                {
+                    var model = Models.FirstOrDefault(m => m.Id == Class.ClosedSetModelId);
+                    if (model is not null && model.Labels.Count > 0)
+                    {
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">
+                            @L["DetectionClasses.AvailableLabels"]:
+                        </MudText>
+                        <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                            @foreach (var lab in model.Labels.Take(40))
+                            {
+                                <MudChip T="string" Size="Size.Small"
+                                         Color="@(Class.ClosedSetLabel == lab ? Color.Primary : Color.Default)"
+                                         Variant="@(Class.ClosedSetLabel == lab ? Variant.Filled : Variant.Outlined)"
+                                         OnClick="@(() => Class.ClosedSetLabel = lab)">
+                                    @lab
+                                </MudChip>
+                            }
+                            @if (model.Labels.Count > 40)
+                            {
+                                <MudText Typo="Typo.caption" Class="sv-text-muted">
+                                    (+@(model.Labels.Count - 40))
+                                </MudText>
+                            }
+                        </div>
+                    }
+                }
+            }
+
+            @if (Class.Kind is DetectionClassKind.Visual or DetectionClassKind.TextAndVisual)
+            {
+                <MudDivider />
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.h6">@L["DetectionClasses.VisualRefsSection"]</MudText>
+                    <MudText Typo="Typo.caption" Class="sv-text-muted">
+                        @string.Format(L["DetectionClasses.VisualRefsCountV2"], Class.VisualReferences.Count)
+                    </MudText>
+                    <MudSpacer />
+                    @if (!IsNew && !Class.IsBuiltIn)
+                    {
+                        <MudFileUpload T="IBrowserFile" FilesChanged="UploadRef" Accept=".jpg,.jpeg,.png" MaximumFileCount="1">
+                            <ActivatorContent>
+                                <MudButton HtmlTag="label" StartIcon="@Icons.Material.Filled.AddPhotoAlternate"
+                                           Variant="Variant.Outlined" Size="Size.Small"
+                                           Disabled="@_uploading">
+                                    @L["DetectionClasses.UploadRef"]
+                                </MudButton>
+                            </ActivatorContent>
+                        </MudFileUpload>
+                    }
+                </MudStack>
+
+                @if (IsNew)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined"
+                              Icon="@Icons.Material.Filled.Info">
+                        @L["DetectionClasses.VisualRefsSaveFirst"]
+                    </MudAlert>
+                }
+                else if (Class.VisualReferences.Count == 0)
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true" Variant="Variant.Outlined"
+                              Icon="@Icons.Material.Filled.ImageNotSupported">
+                        @L["DetectionClasses.VisualRefsEmpty"]
+                    </MudAlert>
+                }
+                else
+                {
+                    <div style="display:flex; flex-wrap:wrap; gap:12px;">
+                        @foreach (var r in Class.VisualReferences.ToList())
+                        {
+                            var fileName = System.IO.Path.GetFileName(r.RelativePath);
+                            <div style="position:relative; width:120px; height:120px; border:1px solid var(--mud-palette-lines-default); border-radius:4px; overflow:hidden;">
+                                <img src="@($"/api/detection-classes/{Class.Id}/refs/{fileName}")"
+                                     style="width:100%; height:100%; object-fit:cover;" alt="ref" />
+                                @if (!Class.IsBuiltIn)
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                                   Color="Color.Error"
+                                                   Style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.6);"
+                                                   OnClick="() => DeleteRef(fileName)" />
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            }
+
+            <MudDivider />
+
+            <div style="min-width:260px;">
+                <MudText Typo="Typo.caption" Class="sv-text-muted">
+                    @L["DetectionClasses.MinConfidence"]: <b>@($"{Class.RecommendedMinConfidence * 100:F0}%")</b>
+                </MudText>
+                <MudSlider T="double" Value="@Class.RecommendedMinConfidence"
+                           ValueChanged="@((double v) => Class.RecommendedMinConfidence = Math.Round(v, 2))"
+                           Min="0.05" Max="0.95" Step="0.05" Disabled="@Class.IsBuiltIn" />
+            </div>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">@L["Common.Cancel"]</MudButton>
+        <MudButton OnClick="Save" Color="Color.Primary" Variant="Variant.Filled"
+                   Disabled="@(!Valid() || Class.IsBuiltIn)">@L["Common.Save"]</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public DetectionClass Class { get; set; } = new();
+    [Parameter] public bool IsNew { get; set; }
+    [Parameter] public List<MLModel> Models { get; set; } = new();
+
+    private bool _uploading;
+
+    private async Task UploadRef(IBrowserFile? file)
+    {
+        if (file is null || IsNew || Class.IsBuiltIn) return;
+        const long MaxSize = 5 * 1024 * 1024;
+        if (file.Size > MaxSize)
+        {
+            Snackbar.Add(L["DetectionClasses.RefTooLarge"], Severity.Warning);
+            return;
+        }
+        _uploading = true;
+        try
+        {
+            // Odczyt do base64 po stronie serwera → JS tworzy Blob + FormData + fetch.
+            // Dzięki temu request idzie z przeglądarki user-a (auth cookies + anti-forgery
+            // automatycznie forwardowane).
+            await using var stream = file.OpenReadStream(MaxSize);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var base64 = Convert.ToBase64String(ms.ToArray());
+
+            var result = await JS.InvokeAsync<string>("eval", $@"
+                (async () => {{
+                    try {{
+                        const binary = atob('{base64}');
+                        const bytes = new Uint8Array(binary.length);
+                        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                        const blob = new Blob([bytes], {{ type: '{file.ContentType}' }});
+                        const fd = new FormData();
+                        fd.append('file', blob, {System.Text.Json.JsonSerializer.Serialize(file.Name)});
+                        const resp = await fetch('/api/detection-classes/{Class.Id}/refs', {{
+                            method: 'POST', credentials: 'same-origin', body: fd
+                        }});
+                        const text = await resp.text();
+                        return resp.ok ? ('ok:' + text) : ('err:' + resp.status + ':' + text);
+                    }} catch (e) {{ return 'err:' + e.message; }}
+                }})()
+            ");
+            if (result.StartsWith("ok:", StringComparison.Ordinal))
+            {
+                // Payload: { fileName, relativePath, count }
+                using var doc = System.Text.Json.JsonDocument.Parse(result[3..]);
+                var relPath = doc.RootElement.TryGetProperty("relativePath", out var p) ? p.GetString() : null;
+                if (!string.IsNullOrEmpty(relPath))
+                {
+                    Class.VisualReferences.Add(new VisualReference
+                    {
+                        RelativePath = relPath,
+                        UploadedAt = DateTime.UtcNow
+                    });
+                }
+                Snackbar.Add(L["DetectionClasses.RefUploaded"], Severity.Success);
+                StateHasChanged();
+            }
+            else
+            {
+                Snackbar.Add($"{L["DetectionClasses.UploadFailed"]} {result[4..]}", Severity.Error);
+            }
+        }
+        catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        finally { _uploading = false; }
+    }
+
+    private async Task DeleteRef(string fileName)
+    {
+        if (Class.IsBuiltIn) return;
+        try
+        {
+            var result = await JS.InvokeAsync<string>("eval", $@"
+                (async () => {{
+                    try {{
+                        const resp = await fetch('/api/detection-classes/{Class.Id}/refs/{fileName}', {{
+                            method: 'DELETE', credentials: 'same-origin'
+                        }});
+                        return resp.ok ? 'ok' : ('err:' + resp.status);
+                    }} catch (e) {{ return 'err:' + e.message; }}
+                }})()
+            ");
+            if (result.StartsWith("ok", StringComparison.Ordinal))
+            {
+                Class.VisualReferences.RemoveAll(r =>
+                    System.IO.Path.GetFileName(r.RelativePath).Equals(fileName, StringComparison.OrdinalIgnoreCase));
+                StateHasChanged();
+            }
+            else
+            {
+                Snackbar.Add(L["DetectionClasses.DeleteRefFailed"], Severity.Error);
+            }
+        }
+        catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+    }
+
+    private bool Valid()
+    {
+        if (string.IsNullOrWhiteSpace(Class.Name)) return false;
+        return Class.Kind switch
+        {
+            DetectionClassKind.Text => !string.IsNullOrWhiteSpace(Class.TextPrompt),
+            DetectionClassKind.ClosedSetBinding => !string.IsNullOrWhiteSpace(Class.ClosedSetModelId)
+                && !string.IsNullOrWhiteSpace(Class.ClosedSetLabel),
+            DetectionClassKind.Visual => Class.VisualReferences.Count > 0,
+            DetectionClassKind.TextAndVisual => !string.IsNullOrWhiteSpace(Class.TextPrompt),
+            _ => false
+        };
+    }
+
+    private void Save() => MudDialog.Close(DialogResult.Ok(Class));
+}

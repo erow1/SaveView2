@@ -1,0 +1,148 @@
+using SafeView.Application.Abstractions.ML;
+using SafeView.Application.Abstractions.Persistence;
+
+namespace SafeView.Web.Endpoints;
+
+/// <summary>
+/// <c>POST /api/models/{id}/test-detect</c> — quick-test endpoint dla strony <c>/models</c>.
+/// User uploaduje zdjęcie, endpoint puszcza przez aktywny detektor (per MLModel.Backend)
+/// i zwraca detekcje + meta. UI renderuje bbox overlay + raw JSON — bez tworzenia kamer,
+/// ROI, triggerów. Pozwala sprawdzić "czy ten model faktycznie coś wykrywa na mojej klatce"
+/// zanim zainwestujesz w pełną konfigurację.
+///
+/// <para>Obsługiwane backendy: Onnx (classical YOLO), YoloWorld, YoloE. Dla open-vocab bez
+/// dostarczonych promptów używa <see cref="SafeView.Domain.ML.MLModel.Labels"/> jako vocab —
+/// tak samo jak pipeline inference fallback.</para>
+/// </summary>
+public static class ModelTestDetectEndpoint
+{
+    public static IEndpointRouteBuilder MapModelTestDetectEndpoint(this IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapPost("/api/models/{id}/test-detect", async (
+                string id,
+                HttpRequest request,
+                IMLModelRepository modelRepo,
+                IDetectorFactory detectorFactory,
+                ILogger<ModelTestMarker> log,
+                CancellationToken ct) =>
+            {
+                if (!request.HasFormContentType) return Results.BadRequest("multipart/form-data required");
+                var model = await modelRepo.GetByIdAsync(id, ct);
+                if (model is null) return Results.NotFound();
+
+                var form = await request.ReadFormAsync(ct);
+                if (form.Files.Count == 0) return Results.BadRequest("no image");
+                var file = form.Files[0];
+                if (file.Length == 0 || file.Length > 20 * 1024 * 1024)
+                    return Results.BadRequest("image missing or > 20MB");
+
+                // Zapisujemy do systemowego temp — ad-hoc test, nie pamiętamy między requestami.
+                var ext = Path.GetExtension(file.FileName).ToLowerInvariant() switch
+                {
+                    ".jpg" or ".jpeg" => ".jpg",
+                    ".png" => ".png",
+                    _ => ".jpg"
+                };
+                var tempPath = Path.Combine(Path.GetTempPath(), $"sv-test-{Guid.NewGuid():N}{ext}");
+                try
+                {
+                    await using (var src = file.OpenReadStream())
+                    await using (var fs = File.Create(tempPath))
+                        await src.CopyToAsync(fs, ct);
+
+                    // Opcjonalne custom prompty — text field "prompts" w multipart, JSON array albo CSV.
+                    // Gdy podane i model wspiera TextPrompts → używamy ITextPromptDetector.DetectWithPromptsAsync.
+                    // Inaczej → standardowy DetectAsync z model.Labels jako fallback (backward-compat).
+                    var rawPrompts = form["prompts"].ToString();
+                    List<string>? customPrompts = null;
+                    if (!string.IsNullOrWhiteSpace(rawPrompts))
+                    {
+                        try
+                        {
+                            // Spróbuj JSON array najpierw, fallback do CSV.
+                            if (rawPrompts.TrimStart().StartsWith('['))
+                            {
+                                customPrompts = System.Text.Json.JsonSerializer.Deserialize<List<string>>(rawPrompts)
+                                    ?.Where(s => !string.IsNullOrWhiteSpace(s))
+                                    .Select(s => s.Trim())
+                                    .ToList();
+                            }
+                            else
+                            {
+                                customPrompts = rawPrompts
+                                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                    .ToList();
+                            }
+                        }
+                        catch
+                        {
+                            customPrompts = null;
+                        }
+                    }
+
+                    DetectionResult result;
+                    string usedFlow; // info dla UI co faktycznie użyto
+                    try
+                    {
+                        if (customPrompts is { Count: > 0 }
+                            && model.Capabilities.HasFlag(SafeView.Domain.ML.ModelCapabilities.TextPrompts))
+                        {
+                            var textDetector = detectorFactory.GetTextPromptDetector(model);
+                            result = await textDetector.DetectWithPromptsAsync(model, tempPath, customPrompts, ct);
+                            usedFlow = "text-prompts";
+                        }
+                        else
+                        {
+                            var detector = detectorFactory.GetFor(model);
+                            result = await detector.DetectAsync(model, tempPath, ct);
+                            usedFlow = "default";
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        log.LogWarning(ex, "Test-detect failed for model {Id}", id);
+                        return Results.Problem($"inference failed: {ex.Message}");
+                    }
+
+                    if (!result.Success)
+                        return Results.Problem($"detection failed: {result.ErrorMessage}");
+
+                    return Results.Ok(new
+                    {
+                        modelId = model.Id,
+                        modelName = model.Name,
+                        backend = model.Backend.ToString(),
+                        capabilities = model.Capabilities.ToString(),
+                        sourceWidth = result.SourceWidth,
+                        sourceHeight = result.SourceHeight,
+                        latencyMs = (int)result.Latency.TotalMilliseconds,
+                        confidenceThreshold = model.ConfidenceThreshold,
+                        iouThreshold = model.IouThreshold,
+                        usedFlow,                                         // "text-prompts" | "default"
+                        usedPrompts = customPrompts ?? model.Labels,      // dokładnie co poszło do modelu
+                        detections = result.Detections.Select(d => new
+                        {
+                            classId = d.ClassId,
+                            label = d.Label,
+                            confidence = d.Confidence,
+                            x = d.Box.X,
+                            y = d.Box.Y,
+                            width = d.Box.Width,
+                            height = d.Box.Height
+                        })
+                    });
+                }
+                finally
+                {
+                    try { File.Delete(tempPath); } catch { }
+                }
+            })
+            .DisableAntiforgery()
+            .RequireAuthorization("perm:models:view")
+            .WithTags("Models");
+
+        return endpoints;
+    }
+
+    internal sealed class ModelTestMarker { }
+}

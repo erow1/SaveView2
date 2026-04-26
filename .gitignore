@@ -1,0 +1,85 @@
+# Build outputs
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]uilds/
+[Ll]ogs/
+
+# Bundled runtime binaries (ffmpeg, mediamtx) — pobierane przez scripts/download-binaries.sh
+runtime/binaries/*/ffmpeg
+runtime/binaries/*/ffmpeg.exe
+runtime/binaries/*/mediamtx
+runtime/binaries/*/mediamtx.exe
+
+# Bundled ML models (YOLO ONNX) — pobierane przez scripts/download-models.sh
+runtime/models/*/model.onnx
+runtime/models/*/*.onnx
+runtime/models/*/*.pt
+runtime/models/.venv/
+
+# Rider / VS / VSCode
+.idea/
+.vs/
+.vscode/
+*.user
+*.suo
+*.userprefs
+*.sln.docstates
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+
+# dotnet tools
+.config/dotnet-tools.json
+
+# Secrets (NEVER commit)
+appsettings.Secrets.json
+appsettings.Development.json
+*.lic
+secrets.json
+
+# Local storage (SafeView runtime)
+storage/
+mediamtx-data/
+logs/
+
+# Publish
+publish/
+out/
+*.pubxml.user
+
+# Webpage marketing media (large videos/photos kept outside repo)
+documentation/webpage/media/

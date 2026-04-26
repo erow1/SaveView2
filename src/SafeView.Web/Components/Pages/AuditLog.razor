@@ -1,0 +1,67 @@
+@page "/audit"
+@attribute [Authorize(Policy = "perm:admin:audit")]
+@inject SafeView.Application.Abstractions.Persistence.IAuditQuery AuditQuery
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@L["Nav.AuditLog"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudText Typo="Typo.h4">@L["Nav.AuditLog"]</MudText>
+
+    <MudPaper Class="pa-3 sv-card" Elevation="0">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End">
+            <MudTextField @bind-Value="_user" Label="@L["Table.User"]" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" />
+            <MudTextField @bind-Value="_action" Label="Akcja (regex)" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" />
+            <MudButton OnClick="Reload" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Search">
+                @L["Common.Search"]
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    <MudTable Items="_rows" Dense="true" Elevation="0" Hover="true"
+              Class="sv-card">
+        <HeaderContent>
+            <MudTh>@L["Table.Time"]</MudTh>
+            <MudTh>@L["Table.User"]</MudTh>
+            <MudTh>@L["Table.Action"]</MudTh>
+            <MudTh>@L["Table.Object"]</MudTh>
+            <MudTh>@L["Table.Status"]</MudTh>
+            <MudTh>@L["Table.IP"]</MudTh>
+            <MudTh>@L["Table.Details"]</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd class="mono">@context.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</MudTd>
+            <MudTd>@(context.Username ?? "—")</MudTd>
+            <MudTd class="mono">@context.Action</MudTd>
+            <MudTd>@(context.TargetType is null ? "—" : $"{context.TargetType}:{context.TargetId}")</MudTd>
+            <MudTd>
+                @{ var c = context.Outcome switch {
+                    SafeView.Domain.Audit.AuditOutcome.Success => "#2EC27E",
+                    SafeView.Domain.Audit.AuditOutcome.Failure => "#FF5964",
+                    _ => "#F5A524" }; }
+                <span style="color:@c;">@context.Outcome</span>
+            </MudTd>
+            <MudTd class="mono">@(context.IpAddress ?? "—")</MudTd>
+            <MudTd class="sv-text-muted" style="font-size:12px;">@(context.Details ?? "")</MudTd>
+        </RowTemplate>
+    </MudTable>
+    <MudText Typo="Typo.caption" Class="mono sv-text-muted">@string.Format(L["AuditLog.TotalLabel"], _total)</MudText>
+</MudStack>
+
+@code {
+    private IReadOnlyList<SafeView.Domain.Audit.AuditEntry> _rows = [];
+    private long _total;
+    private string _user = string.Empty;
+    private string _action = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        var u = string.IsNullOrWhiteSpace(_user) ? null : _user;
+        var a = string.IsNullOrWhiteSpace(_action) ? null : _action;
+        _rows = await AuditQuery.QueryAsync(0, 200, u, a);
+        _total = await AuditQuery.CountAsync(u, a);
+    }
+}

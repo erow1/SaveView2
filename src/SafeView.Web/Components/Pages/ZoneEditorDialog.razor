@@ -1,0 +1,308 @@
+@namespace SafeView.Web.Components.Pages
+@implements IAsyncDisposable
+@inject SafeView.Application.Abstractions.Media.ISnapshotService Snap
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudStack Row="true" Spacing="2">
+                <MudTextField @bind-Value="Zone.Name" Label="@L["ZoneDialog.Name"]" Required="true" Variant="Variant.Outlined" />
+                <MudSelect T="string" Value="Zone.CameraId" ValueChanged="OnCameraChanged"
+                           Label="@L["ZoneDialog.Camera"]" Variant="Variant.Outlined">
+                    @foreach (var c in Cameras)
+                    {
+                        <MudSelectItem Value="@c.Id">@c.Name</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSelect T="string" Value="Zone.RoiId" ValueChanged="OnRoiChanged"
+                           Label="@L["ZoneDialog.Roi"]" Variant="Variant.Outlined"
+                           Disabled="@(string.IsNullOrEmpty(Zone.CameraId) || AvailableRois.Count == 0)">
+                    @foreach (var roi in AvailableRois)
+                    {
+                        <MudSelectItem Value="@roi.Id">@roi.Name</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudTextField @bind-Value="Zone.Color" Label="@L["ZoneDialog.Color"]" Variant="Variant.Outlined" Style="max-width:120px;" />
+                <MudSwitch @bind-Value="Zone.Enabled" Color="Color.Success" Label="@L["ZoneDialog.Active"]" />
+            </MudStack>
+            <MudTextField @bind-Value="Zone.Description" Label="@L["ZoneDialog.Description"]" Variant="Variant.Outlined" Lines="1" />
+
+            @if (AvailableRois.Count == 0 && !string.IsNullOrEmpty(Zone.CameraId))
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true">
+                    @L["ZoneDialog.NoRoisForCamera"]
+                </MudAlert>
+            }
+
+            <MudText Typo="Typo.subtitle2" Class="sv-text-secondary">
+                @L["ZoneDialog.ClickHint"]
+            </MudText>
+
+            <div id="@_canvasId" class="sv-card-alt" style="position:relative; overflow:hidden; aspect-ratio: 16/9;">
+                @if (_frameDataUrl is not null)
+                {
+                    <img src="@_frameDataUrl" style="position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none; user-select:none;" />
+                }
+                else
+                {
+                    <div class="sv-text-muted" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center;">
+                        @if (_loadingFrame) { <text>@L["ZoneDialog.LoadingFrame"]</text> } else { <text>@L["ZoneDialog.NoPreview"]</text> }
+                    </div>
+                }
+                <svg class="sv-zone-canvas" viewBox="0 0 1000 562" preserveAspectRatio="none"
+                     style="position:absolute; inset:0; width:100%; height:100%; cursor:crosshair;">
+                    @* Prostokąt ROI — pokazujemy jako linia przerywana, user widzi że Zone musi być w nim *@
+                    @if (SelectedRoi is not null)
+                    {
+                        <rect x="@Fmt(SelectedRoi.Rectangle.X * 1000)"
+                              y="@Fmt(SelectedRoi.Rectangle.Y * 562)"
+                              width="@Fmt(SelectedRoi.Rectangle.Width * 1000)"
+                              height="@Fmt(SelectedRoi.Rectangle.Height * 562)"
+                              fill="none"
+                              stroke="@SelectedRoi.Color"
+                              stroke-width="2"
+                              stroke-dasharray="8 4"
+                              opacity="0.6" />
+                    }
+                    @* Wielokąt strefy *@
+                    @if (Zone.Polygon.Count >= 2)
+                    {
+                        <polygon points="@PolyPoints()" fill="@Zone.Color" fill-opacity="0.25"
+                                 stroke="@Zone.Color" stroke-width="2" />
+                    }
+                    @for (var i = 0; i < Zone.Polygon.Count; i++)
+                    {
+                        var p = Zone.Polygon[i];
+                        <circle cx="@Fmt(p.X * 1000)" cy="@Fmt(p.Y * 562)" r="5" fill="@Zone.Color" stroke="#fff" stroke-width="1" />
+                    }
+                </svg>
+            </div>
+
+            @if (_geometryWarning is not null)
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Outlined">@_geometryWarning</MudAlert>
+            }
+
+            <MudStack Row="true" Spacing="2">
+                <MudButton StartIcon="@Icons.Material.Filled.Refresh" OnClick="CaptureFrame" Variant="Variant.Outlined" Disabled="_loadingFrame">
+                    @(_loadingFrame ? L["ZoneDialog.Capturing"] : L["ZoneDialog.CaptureFrame"])
+                </MudButton>
+                <MudButton StartIcon="@Icons.Material.Filled.Undo" OnClick="UndoPoint" Variant="Variant.Outlined" Disabled="Zone.Polygon.Count == 0">
+                    @L["ZoneDialog.UndoPoint"]
+                </MudButton>
+                <MudButton StartIcon="@Icons.Material.Filled.Clear" OnClick="ClearPolygon" Variant="Variant.Outlined" Disabled="Zone.Polygon.Count == 0">
+                    @L["ZoneDialog.ClearPolygon"]
+                </MudButton>
+                <MudSpacer />
+                <MudText Typo="Typo.caption" Class="sv-text-muted">@string.Format(L["ZoneDialog.PointCount"], Zone.Polygon.Count)</MudText>
+            </MudStack>
+
+            <MudDivider />
+
+            @* ── Triggery (zamiast dawnych Rules) ────────────────────────────── *@
+            <MudStack Row="true" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.h6">@L["ZoneDialog.Triggers"]</MudText>
+                <MudSpacer />
+            </MudStack>
+
+            @if (AvailableTriggers.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined">
+                    @L["ZoneDialog.NoTriggersAvailable"]
+                </MudAlert>
+            }
+            else
+            {
+                <MudText Typo="Typo.caption" Class="sv-text-muted">@L["ZoneDialog.TriggersHint"]</MudText>
+                <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                    @foreach (var t in AvailableTriggers)
+                    {
+                        var picked = Zone.TriggerIds.Contains(t.Id);
+                        <MudChip T="string"
+                                 Color="@(picked ? Color.Primary : Color.Default)"
+                                 Variant="@(picked ? Variant.Filled : Variant.Outlined)"
+                                 OnClick="@(() => ToggleTrigger(t.Id))">
+                            @t.Name
+                            @if (!t.Enabled)
+                            {
+                                <MudText Typo="Typo.caption" Style="margin-left:6px; opacity:0.6;">(off)</MudText>
+                            }
+                        </MudChip>
+                    }
+                </div>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">@L["Common.Cancel"]</MudButton>
+        <MudButton OnClick="Save" Color="Color.Primary" Variant="Variant.Filled" Disabled="!Valid()">@L["Common.Save"]</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public SafeView.Domain.Zones.Zone Zone { get; set; } = new();
+    [Parameter] public bool IsNew { get; set; }
+    [Parameter] public List<SafeView.Domain.Cameras.Camera> Cameras { get; set; } = new();
+    [Parameter] public List<SafeView.Domain.Detection.Roi> Rois { get; set; } = new();
+    [Parameter] public List<SafeView.Domain.Detection.Trigger> AvailableTriggers { get; set; } = new();
+
+    private readonly string _canvasId = "sv-zone-" + Guid.NewGuid().ToString("N");
+    private string? _frameDataUrl;
+    private bool _loadingFrame;
+    private bool _autoCaptureTriggered;
+    private DotNetObjectReference<ZoneEditorDialog>? _selfRef;
+    private string? _geometryWarning;
+
+    private List<SafeView.Domain.Detection.Roi> AvailableRois =>
+        string.IsNullOrEmpty(Zone.CameraId)
+            ? []
+            : Rois.Where(r => r.CameraId == Zone.CameraId && r.Enabled).ToList();
+
+    private SafeView.Domain.Detection.Roi? SelectedRoi =>
+        AvailableRois.FirstOrDefault(r => r.Id == Zone.RoiId);
+
+    private static string Fmt(double v) => v.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+
+    private bool Valid()
+        => !string.IsNullOrWhiteSpace(Zone.Name)
+           && !string.IsNullOrWhiteSpace(Zone.CameraId)
+           && !string.IsNullOrWhiteSpace(Zone.RoiId)
+           && Zone.Polygon.Count >= 3
+           && _geometryWarning is null;
+
+    private string PolyPoints()
+        => string.Join(" ", Zone.Polygon.Select(p => $"{Fmt(p.X * 1000)},{Fmt(p.Y * 562)}"));
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _selfRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("safeviewZoneEditor.attach", _canvasId, _selfRef);
+        }
+
+        // Auto-capture klatki — jak w poprzedniej wersji
+        if (!_autoCaptureTriggered && Cameras.Count > 0)
+        {
+            _autoCaptureTriggered = true;
+            if (string.IsNullOrWhiteSpace(Zone.CameraId) && Cameras.Count == 1)
+                Zone.CameraId = Cameras[0].Id;
+            if (string.IsNullOrWhiteSpace(Zone.RoiId) && AvailableRois.Count == 1)
+                Zone.RoiId = AvailableRois[0].Id;
+
+            if (!string.IsNullOrWhiteSpace(Zone.CameraId) && _frameDataUrl is null)
+            {
+                await CaptureFrame();
+                StateHasChanged();
+            }
+        }
+
+        ValidateGeometry();
+    }
+
+    private async Task OnCameraChanged(string cameraId)
+    {
+        Zone.CameraId = cameraId;
+        Zone.RoiId = ""; // reset ROI — user musi wybrać nowe dla nowej kamery
+        _frameDataUrl = null;
+        StateHasChanged();
+
+        // Auto-wybór ROI gdy jest tylko jeden
+        if (AvailableRois.Count == 1)
+            Zone.RoiId = AvailableRois[0].Id;
+
+        if (!string.IsNullOrWhiteSpace(cameraId))
+            await CaptureFrame();
+    }
+
+    private void OnRoiChanged(string roiId)
+    {
+        Zone.RoiId = roiId;
+        ValidateGeometry();
+    }
+
+    private void ToggleTrigger(string triggerId)
+    {
+        if (Zone.TriggerIds.Remove(triggerId)) return;
+        Zone.TriggerIds.Add(triggerId);
+    }
+
+    [JSInvokable]
+    public void AddPoint(double nx, double ny)
+    {
+        nx = Math.Clamp(nx, 0, 1);
+        ny = Math.Clamp(ny, 0, 1);
+        Zone.Polygon.Add(new SafeView.Domain.Zones.ZonePoint { X = nx, Y = ny });
+        ValidateGeometry();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void UndoPoint()
+    {
+        if (Zone.Polygon.Count > 0) Zone.Polygon.RemoveAt(Zone.Polygon.Count - 1);
+        ValidateGeometry();
+    }
+
+    private void ClearPolygon()
+    {
+        Zone.Polygon.Clear();
+        ValidateGeometry();
+    }
+
+    /// <summary>
+    /// Walidacja geometryczna (B z planu): wszystkie punkty Zone.Polygon muszą leżeć
+    /// wewnątrz prostokąta ROI. Blokuje Save gdy nie spełnione.
+    /// </summary>
+    private void ValidateGeometry()
+    {
+        _geometryWarning = null;
+        if (SelectedRoi is null || Zone.Polygon.Count == 0) return;
+
+        var rect = SelectedRoi.Rectangle;
+        var outside = Zone.Polygon
+            .Where(p => !rect.Contains(p.X, p.Y))
+            .ToList();
+
+        if (outside.Count > 0)
+            _geometryWarning = string.Format(
+                L["ZoneDialog.GeometryOutsideRoi"],
+                outside.Count, SelectedRoi.Name);
+    }
+
+    private async Task CaptureFrame()
+    {
+        var cam = Cameras.FirstOrDefault(c => c.Id == Zone.CameraId);
+        if (cam is null) { Snackbar.Add(L["ZoneDialog.SelectCamera"], Severity.Warning); return; }
+        _loadingFrame = true;
+        StateHasChanged();
+        try
+        {
+            var r = await Snap.CaptureAsync(cam);
+            if (!r.Success || string.IsNullOrEmpty(r.AbsolutePath))
+            {
+                Snackbar.Add(string.Format(L["ZoneDialog.FrameError"], r.ErrorMessage ?? "—"), Severity.Error);
+                return;
+            }
+            var bytes = await File.ReadAllBytesAsync(r.AbsolutePath);
+            _frameDataUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(bytes)}";
+        }
+        catch (Exception ex) { Snackbar.Add(string.Format(L["ZoneDialog.FrameError"], ex.Message), Severity.Error); }
+        finally
+        {
+            _loadingFrame = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Save() => MudDialog.Close(DialogResult.Ok(Zone));
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("safeviewZoneEditor.detach", _canvasId); } catch { }
+        _selfRef?.Dispose();
+    }
+}

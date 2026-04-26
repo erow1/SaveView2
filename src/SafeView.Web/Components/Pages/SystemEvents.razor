@@ -1,0 +1,308 @@
+@page "/admin/system-events"
+@attribute [Authorize(Policy = "perm:admin:system-events")]
+@using SafeView.Application.Abstractions.Diagnostics
+@using SafeView.Domain.SystemEvents
+@inject ISystemEventQuery Query
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@inject IDialogService Dialog
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>@L["Nav.SystemEvents"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@Icons.Material.Filled.BugReport" Size="Size.Large" Style="color:var(--mud-palette-primary);" />
+        <div>
+            <MudText Typo="Typo.h4">@L["Nav.SystemEvents"]</MudText>
+            <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                @L["SystemEvents.Description"]
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudSwitch T="bool" Value="_autoRefresh" ValueChanged="@((bool v) => ToggleAutoRefresh(v))"
+                   Color="Color.Primary" Label="@L["SystemEvents.AutoRefresh"]" />
+        <MudButton StartIcon="@Icons.Material.Filled.Refresh" OnClick="Reload" Variant="Variant.Outlined">
+            @L["Common.Refresh"]
+        </MudButton>
+    </MudStack>
+
+    <MudPaper Class="pa-3 sv-card" Elevation="0">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End" Wrap="Wrap.Wrap">
+            <MudSelect T="SystemEventSeverity?" Value="_minSeverity" ValueChanged="@((SystemEventSeverity? v) => { _minSeverity = v; _ = Reload(); })"
+                       Label="@L["SystemEvents.MinSeverity"]" Variant="Variant.Outlined" Margin="Margin.Dense"
+                       Clearable="true" Style="min-width:180px;">
+                <MudSelectItem T="SystemEventSeverity?" Value="@((SystemEventSeverity?)SystemEventSeverity.Info)">Info+</MudSelectItem>
+                <MudSelectItem T="SystemEventSeverity?" Value="@((SystemEventSeverity?)SystemEventSeverity.Warning)">Warning+</MudSelectItem>
+                <MudSelectItem T="SystemEventSeverity?" Value="@((SystemEventSeverity?)SystemEventSeverity.Error)">Error+</MudSelectItem>
+                <MudSelectItem T="SystemEventSeverity?" Value="@((SystemEventSeverity?)SystemEventSeverity.Critical)">Critical</MudSelectItem>
+            </MudSelect>
+            <MudTextField @bind-Value="_source" Label="@L["SystemEvents.Source"]"
+                          Placeholder="MediaMtxManager" Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Clearable="true" Style="min-width:200px;" />
+            <MudTextField @bind-Value="_category" Label="@L["SystemEvents.Category"]"
+                          Placeholder="Camera / Database / …" Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Clearable="true" Style="min-width:180px;" />
+            <MudTextField @bind-Value="_search" Label="@L["SystemEvents.Search"]"
+                          Placeholder="@L["SystemEvents.SearchPlaceholder"]" Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Clearable="true" Style="min-width:260px; flex:1;" />
+            <MudButton OnClick="Reload" Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Search">@L["Common.Search"]</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (_rows.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+            @L["SystemEvents.NoEvents"]
+        </MudAlert>
+    }
+    else
+    {
+        <MudTable T="SystemEvent" Items="_rows" Dense="true" Elevation="0" Hover="true" Class="sv-card">
+            <HeaderContent>
+                <MudTh Style="width:140px;">@L["Table.Time"]</MudTh>
+                <MudTh Style="width:100px;">@L["SystemEvents.SeverityCol"]</MudTh>
+                <MudTh Style="width:140px;">@L["SystemEvents.Source"]</MudTh>
+                <MudTh Style="width:110px;">@L["SystemEvents.Category"]</MudTh>
+                <MudTh>@L["SystemEvents.Message"]</MudTh>
+                <MudTh Style="width:56px;"></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd class="mono" Style="font-size:11px;">
+                    @context.CreatedAt.ToLocalTime().ToString("MM-dd HH:mm:ss")
+                </MudTd>
+                <MudTd>
+                    <span style="padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600;
+                                 background:@SeverityBg(context.Severity); color:@SeverityFg(context.Severity);">
+                        @context.Severity.ToString().ToUpper()
+                    </span>
+                </MudTd>
+                <MudTd class="mono" Style="font-size:12px;">@context.Source</MudTd>
+                <MudTd class="mono" Style="font-size:12px; color:var(--mud-palette-text-secondary);">@context.Category</MudTd>
+                <MudTd>
+                    <MudText Typo="Typo.body2" Style="white-space:normal; word-break:break-word;">@context.Message</MudText>
+                    @if (!string.IsNullOrEmpty(context.ExceptionMessage))
+                    {
+                        <MudText Typo="Typo.caption" Style="color:#FF5964; font-family:'JetBrains Mono',monospace;">
+                            @context.ExceptionType: @context.ExceptionMessage
+                        </MudText>
+                    }
+                </MudTd>
+                <MudTd>
+                    <MudTooltip Text="@L["SystemEvents.CopyTooltip"]">
+                        <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                                       OnClick="@(() => CopyEvent(context))" />
+                    </MudTooltip>
+                </MudTd>
+            </RowTemplate>
+            <ChildRowContent>
+                @if (!string.IsNullOrEmpty(context.StackTrace) || context.Context.Count > 0)
+                {
+                    <MudTr>
+                        <td colspan="6" style="background:rgba(0,0,0,0.2); padding:12px;">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                                <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                                    @L["SystemEvents.Details"]
+                                </MudText>
+                                <MudSpacer />
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                           StartIcon="@Icons.Material.Filled.ContentCopy"
+                                           OnClick="@(() => CopyEvent(context))">
+                                    @L["SystemEvents.CopyFull"]
+                                </MudButton>
+                            </MudStack>
+                            @if (context.Context.Count > 0)
+                            {
+                                <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary); font-weight:600;">Context:</MudText>
+                                <div class="mono" style="font-size:11px; margin:4px 0 12px 0;">
+                                    @foreach (var (k, v) in context.Context)
+                                    {
+                                        <div><span style="color:#F5A524;">@k</span>=<span>@v</span></div>
+                                    }
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(context.StackTrace))
+                            {
+                                <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary); font-weight:600;">Stack trace:</MudText>
+                                <pre class="mono" style="font-size:11px; white-space:pre-wrap; margin:4px 0 0 0; max-height:300px; overflow:auto;">@context.StackTrace</pre>
+                            }
+                        </td>
+                    </MudTr>
+                }
+            </ChildRowContent>
+            <PagerContent>
+                <MudTablePager HideRowsPerPage="true" />
+            </PagerContent>
+        </MudTable>
+
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.caption" Class="mono sv-text-muted">
+                @string.Format(L["SystemEvents.TotalLabel"], _total, _rows.Count)
+            </MudText>
+            <MudSpacer />
+            @if (_total > _rows.Count)
+            {
+                <MudButton OnClick="LoadMore" Variant="Variant.Text" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.ExpandMore">@L["Common.LoadMore"]</MudButton>
+            }
+        </MudStack>
+    }
+</MudStack>
+
+@code {
+    private List<SystemEvent> _rows = [];
+    private long _total;
+    private SystemEventSeverity? _minSeverity = SystemEventSeverity.Warning;
+    private string _source = "";
+    private string _category = "";
+    private string _search = "";
+    private int _take = 100;
+    private bool _autoRefresh;
+    private System.Timers.Timer? _timer;
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        _take = 100;
+        await LoadAsync(reset: true);
+    }
+
+    private async Task LoadMore()
+    {
+        _take += 100;
+        await LoadAsync(reset: false);
+    }
+
+    private async Task LoadAsync(bool reset)
+    {
+        var filter = new SystemEventFilter
+        {
+            MinSeverity = _minSeverity,
+            Source = string.IsNullOrWhiteSpace(_source) ? null : _source.Trim(),
+            Category = string.IsNullOrWhiteSpace(_category) ? null : _category.Trim(),
+            SearchText = string.IsNullOrWhiteSpace(_search) ? null : _search.Trim(),
+        };
+        var rows = await Query.QueryAsync(filter, skip: 0, take: _take);
+        _total = await Query.CountAsync(filter);
+        _rows = [..rows];
+        if (reset) StateHasChanged();
+        else await InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleAutoRefresh(bool enabled)
+    {
+        _autoRefresh = enabled;
+        _timer?.Dispose();
+        if (enabled)
+        {
+            _timer = new System.Timers.Timer(10_000);
+            _timer.Elapsed += async (_, _) => await InvokeAsync(async () => await LoadAsync(reset: false));
+            _timer.AutoReset = true;
+            _timer.Start();
+        }
+    }
+
+    public void Dispose() => _timer?.Dispose();
+
+    /// <summary>
+    /// Kopiuje pełny event (header + message + exception + context + stack) do clipboardu
+    /// jako plain-text blok — gotowy do wklejenia w ticket / chat.
+    /// Format jest deterministyczny żeby developer widząc tekst wiedział gdzie szukać.
+    /// </summary>
+    private async Task CopyEvent(SystemEvent ev)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("=== SafeView System Event ===");
+        sb.Append("Time:     ").AppendLine(ev.CreatedAt.ToString("u"));
+        sb.Append("Severity: ").AppendLine(ev.Severity.ToString());
+        sb.Append("Source:   ").AppendLine(ev.Source);
+        sb.Append("Category: ").AppendLine(ev.Category);
+        if (!string.IsNullOrEmpty(ev.Message))
+        {
+            sb.AppendLine("Message:");
+            sb.AppendLine(ev.Message);
+        }
+        if (!string.IsNullOrEmpty(ev.ExceptionType) || !string.IsNullOrEmpty(ev.ExceptionMessage))
+        {
+            sb.Append("Exception: ").Append(ev.ExceptionType ?? "").Append(": ").AppendLine(ev.ExceptionMessage ?? "");
+        }
+        if (ev.Context.Count > 0)
+        {
+            sb.AppendLine("Context:");
+            foreach (var (k, v) in ev.Context) sb.Append("  ").Append(k).Append(" = ").AppendLine(v);
+        }
+        if (!string.IsNullOrEmpty(ev.StackTrace))
+        {
+            sb.AppendLine("Stack trace:");
+            sb.AppendLine(ev.StackTrace);
+        }
+        var text = sb.ToString();
+
+        // 3-warstwowy fallback clipboard:
+        //  1. navigator.clipboard.writeText — preferred (Chrome/Firefox na localhost)
+        //  2. document.execCommand('copy') via hidden textarea — Safari, insecure contexts
+        //  3. Dialog z visible textarea — user ręcznie Cmd+C (zawsze działa)
+        bool copied = false;
+        try
+        {
+            copied = await JS.InvokeAsync<bool>("eval", @"
+                (async (t) => {
+                    try {
+                        if (navigator.clipboard && window.isSecureContext) {
+                            await navigator.clipboard.writeText(t);
+                            return true;
+                        }
+                    } catch (_) {}
+                    try {
+                        const ta = document.createElement('textarea');
+                        ta.value = t;
+                        ta.style.position = 'fixed';
+                        ta.style.top = '-9999px';
+                        document.body.appendChild(ta);
+                        ta.focus();
+                        ta.select();
+                        const ok = document.execCommand('copy');
+                        document.body.removeChild(ta);
+                        return ok;
+                    } catch (_) { return false; }
+                })(" + System.Text.Json.JsonSerializer.Serialize(text) + ")");
+        }
+        catch
+        {
+            copied = false;
+        }
+
+        if (copied)
+        {
+            Snackbar.Add(L["SystemEvents.Copied"], Severity.Success);
+            return;
+        }
+
+        // Ostatni fallback: pokaż modal z textarea — user robi Cmd+C ręcznie.
+        var parameters = new DialogParameters { ["Text"] = text };
+        await Dialog.ShowAsync<SystemEventCopyDialog>(L["SystemEvents.CopyFull"], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true });
+    }
+
+    private static string SeverityBg(SystemEventSeverity s) => s switch
+    {
+        SystemEventSeverity.Critical => "#7C1020",
+        SystemEventSeverity.Error => "#B9265C",
+        SystemEventSeverity.Warning => "#8B6B1A",
+        SystemEventSeverity.Info => "#1B4D6B",
+        _ => "#3A3A3A"
+    };
+
+    private static string SeverityFg(SystemEventSeverity s) => s switch
+    {
+        SystemEventSeverity.Critical => "#FFD7E0",
+        SystemEventSeverity.Error => "#FFD7E8",
+        SystemEventSeverity.Warning => "#FFE9B3",
+        SystemEventSeverity.Info => "#CBE4F0",
+        _ => "#CCCCCC"
+    };
+}

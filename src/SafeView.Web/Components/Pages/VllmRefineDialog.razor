@@ -1,0 +1,52 @@
+@namespace SafeView.Web.Components.Pages
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined"
+                      Icon="@Icons.Material.Filled.AutoFixHigh">
+                @L["VllmRefine.Hint"]
+            </MudAlert>
+
+            <MudTextField @bind-Value="_feedback" Label="@L["VllmRefine.FeedbackLabel"]"
+                          HelperText="@L["VllmRefine.FeedbackHint"]"
+                          Lines="5" Variant="Variant.Outlined" AutoFocus="true" />
+
+            <MudText Typo="Typo.caption" Class="sv-text-muted">@L["VllmRefine.Examples"]:</MudText>
+            <MudStack Spacing="1">
+                @foreach (var ex in _examples)
+                {
+                    var text = ex;
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                             OnClick="@(() => _feedback = text)">@text</MudChip>
+                }
+            </MudStack>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">@L["Common.Cancel"]</MudButton>
+        <MudButton OnClick="Submit" Color="Color.Primary" Variant="Variant.Filled"
+                   StartIcon="@Icons.Material.Filled.AutoFixHigh"
+                   Disabled="@(string.IsNullOrWhiteSpace(_feedback))">
+            @L["VllmRefine.Submit"]
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _feedback = string.Empty;
+
+    private readonly string[] _examples = new[]
+    {
+        "Zmniejsz czułość — za dużo false-positive na parze wodnej przy pożarze",
+        "Dodaj że sama otwarta osłona bez pracy maszyny NIE jest alertem",
+        "Podkreśl że nie oceniamy na podstawie koloru ubrania",
+        "Bądź bardziej rygorystyczny z confidence — minimum 0.85 żeby confirmed",
+        "Rozpoznaj rękawice robocze jako alternatywę dla kasku przy konserwacji"
+    };
+
+    private void Submit() => MudDialog.Close(DialogResult.Ok(_feedback));
+}

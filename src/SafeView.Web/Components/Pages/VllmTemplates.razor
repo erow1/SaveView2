@@ -1,0 +1,313 @@
+@page "/admin/vllm-templates"
+@attribute [Authorize(Policy = "perm:llm:configure")]
+@using SafeView.Domain.Vllm
+@inject SafeView.Application.Abstractions.Persistence.IPromptTemplateRepository TemplateRepo
+@inject SafeView.Application.Abstractions.Persistence.IIncidentRepository IncidentRepo
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@L["VllmTemplates.Title"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Size="Size.Large" Style="color:var(--mud-palette-primary);" />
+        <div>
+            <MudText Typo="Typo.h4">@L["VllmTemplates.Title"]</MudText>
+            <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                @L["VllmTemplates.Description"]
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudFileUpload T="IBrowserFile" FilesChanged="ImportFile" Accept=".json" MaximumFileCount="1">
+            <ActivatorContent>
+                <MudButton HtmlTag="label" StartIcon="@Icons.Material.Filled.FileUpload" Variant="Variant.Outlined">
+                    @L["VllmTemplates.Import"]
+                </MudButton>
+            </ActivatorContent>
+        </MudFileUpload>
+        <MudButton StartIcon="@Icons.Material.Filled.FileDownload" Variant="Variant.Outlined"
+                   OnClick="ExportAll">@L["VllmTemplates.ExportAll"]</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="Add">@L["VllmTemplates.Add"]</MudButton>
+    </MudStack>
+
+    <MudTable Items="_templates" Dense="true" Hover="true" Loading="_loading" Elevation="0"
+              Class="sv-card" GroupBy="@_groupDefinition">
+        <GroupHeaderTemplate>
+            <MudTh Class="mud-table-cell-custom-group" colspan="6">
+                <MudText Typo="Typo.subtitle2" Class="mono">@context.Key</MudText>
+            </MudTh>
+        </GroupHeaderTemplate>
+        <HeaderContent>
+            <MudTh>@L["Table.Name"]</MudTh>
+            <MudTh>@L["VllmTemplates.Description.Col"]</MudTh>
+            <MudTh>@L["VllmTemplates.MinConfidence"]</MudTh>
+            <MudTh>@L["VllmTemplates.MinSeverity"]</MudTh>
+            <MudTh>@L["VllmTemplates.Source"]</MudTh>
+            <MudTh>@L["VllmTemplates.Stats30d"]</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                <strong>@context.Name</strong>
+            </MudTd>
+            <MudTd class="sv-text-muted" Style="max-width:380px; font-size:12px;">
+                @context.Description
+            </MudTd>
+            <MudTd class="mono">@($"{context.RecommendedMinConfidence * 100:F0}%")</MudTd>
+            <MudTd>
+                <MudChip T="string" Size="Size.Small" Style="@SeverityStyle(context.DefaultMinSeverity)">
+                    @context.DefaultMinSeverity
+                </MudChip>
+            </MudTd>
+            <MudTd>
+                @if (context.IsBuiltIn)
+                {
+                    <MudChip T="string" Size="Size.Small" Class="sv-chip-muted">@L["VllmTemplates.BuiltIn"]</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Style="background:#1B2A3A; color:#7EB6FF;">@L["VllmTemplates.Custom"]</MudChip>
+                }
+            </MudTd>
+            <MudTd>
+                @if (_stats.TryGetValue(context.Id, out var st) && st.FireCount > 0)
+                {
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <MudChip T="string" Size="Size.Small" Class="sv-chip-muted mono">
+                            @st.FireCount @L["VllmTemplates.Fires"]
+                        </MudChip>
+                        @if (st.FalsePositiveCount > 0)
+                        {
+                            <MudTooltip Text="@string.Format(L["VllmTemplates.FpTooltip"], st.FalsePositiveCount, st.FireCount)">
+                                <MudChip T="string" Size="Size.Small" Style="@FpStyle(st.FalsePositiveRate)">
+                                    FP @($"{st.FalsePositiveRate * 100:F0}%")
+                                </MudChip>
+                            </MudTooltip>
+                        }
+                        @if (st.AvgConfidence is { } ac)
+                        {
+                            <MudTooltip Text="@L["VllmTemplates.AvgConfTooltip"]">
+                                <MudChip T="string" Size="Size.Small" Class="sv-chip-muted mono">
+                                    conf @($"{ac * 100:F0}%")
+                                </MudChip>
+                            </MudTooltip>
+                        }
+                    </MudStack>
+                }
+                else
+                {
+                    <MudText Typo="Typo.caption" Class="sv-text-muted">—</MudText>
+                }
+            </MudTd>
+            <MudTd>
+                <MudTooltip Text="@L["VllmTemplates.ShowStats"]">
+                    <MudIconButton Icon="@Icons.Material.Filled.Analytics" Size="Size.Small" OnClick="() => ShowStats(context)" />
+                </MudTooltip>
+                <MudTooltip Text="@L["VllmTemplates.Export"]">
+                    <MudIconButton Icon="@Icons.Material.Filled.FileDownload" Size="Size.Small" OnClick="() => ExportOne(context)" />
+                </MudTooltip>
+                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small" OnClick="() => Duplicate(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => Edit(context)"
+                               Disabled="context.IsBuiltIn" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => Delete(context)"
+                               Disabled="context.IsBuiltIn" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudStack>
+
+@code {
+    private List<PromptTemplate> _templates = new();
+    private Dictionary<string, SafeView.Application.Abstractions.Persistence.VllmTemplateStats> _stats = new();
+    private bool _loading = true;
+
+    private readonly TableGroupDefinition<PromptTemplate> _groupDefinition = new()
+    {
+        GroupName = "Category",
+        Indentation = false,
+        Expandable = false,
+        Selector = (e) => e.Category
+    };
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        _loading = true;
+        _templates = (await TemplateRepo.ListAsync())
+            .OrderBy(t => t.Category, StringComparer.Ordinal)
+            .ThenBy(t => t.Name, StringComparer.Ordinal)
+            .ToList();
+
+        // Metryki per-szablon za ostatnie 30 dni. Ładujemy równolegle.
+        var from = DateTime.UtcNow.AddDays(-30);
+        var tasks = _templates.Select(async t =>
+            (Id: t.Id, Stats: await IncidentRepo.GetStatsByVllmTemplateAsync(t.Id, from))).ToList();
+        var results = await Task.WhenAll(tasks);
+        _stats = results.ToDictionary(r => r.Id, r => r.Stats, StringComparer.Ordinal);
+
+        _loading = false;
+    }
+
+    private static string FpStyle(double rate)
+    {
+        if (rate < 0.10) return "background:#0E2A1E; color:#2EC27E;";
+        if (rate < 0.30) return "background:#3A2F14; color:#F5A524;";
+        return "background:#3A1515; color:#FF5964;";
+    }
+
+    private async Task ExportOne(PromptTemplate t)
+    {
+        await JS.InvokeVoidAsync("eval",
+            $"window.open('/api/vllm/templates/{t.Id}/export','_blank')");
+    }
+
+    private async Task ExportAll()
+    {
+        await JS.InvokeVoidAsync("eval",
+            "window.open('/api/vllm/templates/export-all','_blank')");
+    }
+
+    private async Task ImportFile(IBrowserFile file)
+    {
+        if (file is null) return;
+        const long MaxSize = 5 * 1024 * 1024;
+        if (file.Size > MaxSize)
+        {
+            Snackbar.Add(L["VllmTemplates.ImportFileTooLarge"], Severity.Warning);
+            return;
+        }
+        await using var stream = file.OpenReadStream(MaxSize);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        var json = System.Text.Encoding.UTF8.GetString(ms.ToArray());
+
+        var result = await JS.InvokeAsync<string>("eval", @"
+            (async () => {
+                try {
+                    const resp = await fetch('/api/vllm/templates/import', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: " + System.Text.Json.JsonSerializer.Serialize(json) + @"
+                    });
+                    const text = await resp.text();
+                    return resp.ok ? 'ok:' + text : 'err:' + resp.status + ':' + text;
+                } catch (e) { return 'err:' + e.message; }
+            })()
+        ");
+        if (result.StartsWith("ok:", StringComparison.Ordinal))
+        {
+            Snackbar.Add(L["VllmTemplates.ImportSuccess"], Severity.Success);
+            await Reload();
+        }
+        else
+        {
+            Snackbar.Add(L["VllmTemplates.ImportFailed"] + " " + result[4..], Severity.Error);
+        }
+    }
+
+    private async Task ShowStats(PromptTemplate t)
+    {
+        var parameters = new DialogParameters { ["Template"] = t };
+        var dlg = await Dialog.ShowAsync<VllmTemplateStatsDialog>(
+            L["VllmTemplates.StatsTitle"], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        var res = await dlg.Result;
+        // Gdy user kliknął "Przywróć" w dialogu, dostajemy zmodyfikowany szablon do zapisu
+        if (res is { Canceled: false, Data: PromptTemplate restored } && !t.IsBuiltIn)
+        {
+            try
+            {
+                await TemplateRepo.UpdateAsync(restored);
+                Snackbar.Add(L["VllmStats.Restored"], Severity.Success);
+                await Reload();
+            }
+            catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        }
+    }
+
+    private async Task Add()
+    {
+        var t = new PromptTemplate
+        {
+            Name = "",
+            Category = "Custom",
+            RecommendedMinConfidence = 0.7,
+            DefaultMinSeverity = ResponseSeverity.Medium,
+            RequireGoodImageQuality = true
+        };
+        await OpenDialog(t, isNew: true);
+    }
+
+    private async Task Edit(PromptTemplate t)
+    {
+        if (t.IsBuiltIn) return;
+        await OpenDialog(t, isNew: false);
+    }
+
+    private async Task Duplicate(PromptTemplate t)
+    {
+        var copy = new PromptTemplate
+        {
+            Name = t.Name + " (kopia)",
+            Description = t.Description,
+            Category = t.Category,
+            SystemPrompt = t.SystemPrompt,
+            UserTemplate = t.UserTemplate,
+            SchemaJson = t.SchemaJson,
+            RecommendedMinConfidence = t.RecommendedMinConfidence,
+            DefaultMinSeverity = t.DefaultMinSeverity,
+            RequireGoodImageQuality = t.RequireGoodImageQuality,
+            IsBuiltIn = false,
+            BuiltInKey = null
+        };
+        await OpenDialog(copy, isNew: true);
+    }
+
+    private async Task OpenDialog(PromptTemplate t, bool isNew)
+    {
+        var parameters = new DialogParameters { ["Template"] = t, ["IsNew"] = isNew };
+        var dlg = await Dialog.ShowAsync<VllmTemplateDialog>(
+            isNew ? L["VllmTemplates.AddTitle"] : L["VllmTemplates.EditTitle"],
+            parameters, new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: PromptTemplate saved })
+        {
+            try
+            {
+                if (isNew) await TemplateRepo.InsertAsync(saved);
+                else await TemplateRepo.UpdateAsync(saved);
+                Snackbar.Add(L["VllmTemplates.Saved"], Severity.Success);
+                await Reload();
+            }
+            catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        }
+    }
+
+    private async Task Delete(PromptTemplate t)
+    {
+        if (t.IsBuiltIn) return;
+        var ok = await Dialog.ShowMessageBox(L["VllmTemplates.DeleteTitle"],
+            string.Format(L["VllmTemplates.DeleteMessage"], t.Name),
+            yesText: L["Common.Delete"], cancelText: L["Common.Cancel"]);
+        if (ok != true) return;
+        await TemplateRepo.DeleteAsync(t.Id);
+        Snackbar.Add(L["VllmTemplates.Deleted"], Severity.Success);
+        await Reload();
+    }
+
+    private static string SeverityStyle(ResponseSeverity s) => s switch
+    {
+        ResponseSeverity.None => "background:#222; color:#888;",
+        ResponseSeverity.Low => "background:#1B2A3A; color:#7EB6FF;",
+        ResponseSeverity.Medium => "background:#3A2F14; color:#F5A524;",
+        ResponseSeverity.High => "background:#3A1515; color:#FF5964;",
+        ResponseSeverity.Critical => "background:#4A0D0D; color:#FF2D2D; font-weight:700;",
+        _ => "background:#222; color:#888;"
+    };
+}

@@ -1,0 +1,165 @@
+@page "/models"
+@attribute [Authorize(Policy = "perm:models:view")]
+@inject SafeView.Application.Abstractions.Persistence.IMLModelRepository ModelRepo
+@inject SafeView.Application.Abstractions.Storage.IFileStore Files
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@L["Models.Title"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudText Typo="Typo.h4">@L["Models.Title"]</MudText>
+        <MudSpacer />
+        <AuthorizeView Policy="perm:models:edit">
+            <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary" OnClick="AddModel">
+                @L["Models.AddModel"]
+            </MudButton>
+        </AuthorizeView>
+    </MudStack>
+
+    <MudTable Items="_models" Dense="true" Hover="true" Loading="_loading" Elevation="0"
+              Class="sv-card">
+        <HeaderContent>
+            <MudTh>@L["Table.Name"]</MudTh>
+            <MudTh>@L["Table.Backend"]</MudTh>
+            <MudTh>@L["Table.Source"]</MudTh>
+            <MudTh>@L["Table.Labels"]</MudTh>
+            <MudTh>@L["Table.Confidence"]</MudTh>
+            <MudTh>@L["Table.Active"]</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                <div>@context.Name</div>
+                @if (!string.IsNullOrEmpty(context.Description))
+                {
+                    <div class="sv-text-muted" style="font-size:11px;">@context.Description</div>
+                }
+            </MudTd>
+            <MudTd><span class="mono">@context.Backend</span></MudTd>
+            <MudTd class="mono sv-text-secondary" style="font-size:12px; max-width:320px; overflow:hidden; text-overflow:ellipsis;">
+                @if (context.Backend == SafeView.Domain.ML.DetectorBackend.Onnx)
+                {
+                    @(context.OnnxRelativePath ?? "—")
+                }
+                else
+                {
+                    @(context.RoboflowModelId ?? "—")
+                }
+            </MudTd>
+            <MudTd>
+                <span class="mono" style="font-size:12px;">@context.Labels.Count klas</span>
+            </MudTd>
+            <MudTd class="mono">@context.ConfidenceThreshold.ToString("N2") / @context.IouThreshold.ToString("N2")</MudTd>
+            <MudTd>
+                @if (context.Enabled)
+                {
+                    <MudChip T="string" Size="Size.Small" Style="background:#0E2A1E; color:#2EC27E;">ON</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Class="sv-chip-muted">OFF</MudChip>
+                }
+            </MudTd>
+            <MudTd>
+                <MudTooltip Text="@L["Models.Test"]">
+                    <MudIconButton Icon="@Icons.Material.Filled.PlayCircle" Size="Size.Small"
+                                   Color="Color.Success"
+                                   OnClick="() => TestModel(context)"
+                                   Disabled="@(!context.Enabled)" />
+                </MudTooltip>
+                <AuthorizeView Policy="perm:models:edit" Context="_auth">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditModel(context)" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteModel(context)" />
+                </AuthorizeView>
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudStack>
+
+@code {
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+    [SupplyParameterFromQuery(Name = "edit")] public string? EditId { get; set; }
+    [SupplyParameterFromQuery(Name = "returnTo")] public string? ReturnTo { get; set; }
+
+    private List<SafeView.Domain.ML.MLModel> _models = new();
+    private bool _loading = true;
+    private string? _openedEditId;
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        _loading = true;
+        _models = (await ModelRepo.ListAsync()).OrderBy(m => m.Name, StringComparer.Ordinal).ToList();
+        _loading = false;
+
+        if (!string.IsNullOrEmpty(EditId) && EditId != _openedEditId)
+        {
+            var target = _models.FirstOrDefault(m => m.Id == EditId);
+            if (target is not null)
+            {
+                _openedEditId = EditId;
+                await EditModel(target);
+                if (!string.IsNullOrEmpty(ReturnTo)) Nav.NavigateTo(ReturnTo);
+            }
+        }
+    }
+
+    private async Task AddModel()
+    {
+        var parameters = new DialogParameters { ["Model"] = new SafeView.Domain.ML.MLModel(), ["IsNew"] = true };
+        var dialog = await Dialog.ShowAsync<ModelDialog>(L["ModelDialog.AddTitle"], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        var res = await dialog.Result;
+        if (res is { Canceled: false, Data: SafeView.Domain.ML.MLModel m })
+        {
+            try { await ModelRepo.InsertAsync(m); Snackbar.Add("Dodano model.", Severity.Success); await Reload(); }
+            catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        }
+    }
+
+    private async Task EditModel(SafeView.Domain.ML.MLModel m)
+    {
+        var parameters = new DialogParameters { ["Model"] = m, ["IsNew"] = false };
+        var dialog = await Dialog.ShowAsync<ModelDialog>(L["ModelDialog.EditTitle"], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        var res = await dialog.Result;
+        if (res is { Canceled: false, Data: SafeView.Domain.ML.MLModel updated })
+        {
+            await ModelRepo.UpdateAsync(updated);
+            Snackbar.Add("Zapisano.", Severity.Success);
+            await Reload();
+        }
+    }
+
+    /// <summary>Otwiera ModelTestDialog — upload zdjęcia + live inference + bbox overlay + raw JSON.
+    /// Nie wymaga modyfikacji stanu aplikacji (brak insert do DB, temp file usuwany po teście).</summary>
+    private async Task TestModel(SafeView.Domain.ML.MLModel m)
+    {
+        var parameters = new DialogParameters { ["Model"] = m };
+        await Dialog.ShowAsync<ModelTestDialog>(
+            $"{L["Models.TestTitle"]} — {m.Name}", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true });
+    }
+
+    private async Task DeleteModel(SafeView.Domain.ML.MLModel m)
+    {
+        var ok = await Dialog.ShowMessageBox("Usunąć model?", $"Model '{m.Name}' zostanie usunięty.", yesText: "Usuń", cancelText: "Anuluj");
+        if (ok != true) return;
+
+        // Usuń plik .onnx jeśli istnieje
+        if (!string.IsNullOrEmpty(m.OnnxRelativePath))
+        {
+            try { await Files.DeleteAsync(SafeView.Application.Abstractions.Storage.FileKind.Model, m.OnnxRelativePath); }
+            catch { /* plik może nie istnieć */ }
+        }
+
+        await ModelRepo.DeleteAsync(m.Id);
+        Snackbar.Add("Usunięto.", Severity.Success);
+        await Reload();
+    }
+}

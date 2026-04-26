@@ -1,0 +1,96 @@
+@page "/admin/mediamtx"
+@attribute [Authorize(Policy = "perm:cameras:edit")]
+@using Microsoft.Extensions.Options
+@inject SafeView.Cameras.MediaMtxManager Manager
+@inject IOptionsMonitor<SafeView.Cameras.MediaMtxOptions> Opts
+@inject SafeView.Application.Abstractions.Persistence.ICameraRepository CameraRepo
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>MediaMTX — SafeView</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudText Typo="Typo.h4">MediaMTX</MudText>
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Refresh" OnClick="Reload" Variant="Variant.Outlined">@L["Common.Refresh"]</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.PlayArrow" OnClick="ForceReconcile"
+                   Variant="Variant.Filled" Color="Color.Primary">@L["MediaMtx.ForceRestart"]</MudButton>
+    </MudStack>
+
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-3 sv-card" Elevation="0">
+                <MudText Typo="Typo.overline" Class="sv-text-muted">Status</MudText>
+                <MudText Typo="Typo.h5" Class="@(Manager.IsRunning ? "sv-status-ok" : "sv-status-err")">
+                    @(Manager.IsRunning ? "RUNNING" : "STOPPED")
+                </MudText>
+                @if (Manager.StartedAt is { } s)
+                {
+                    <MudText Typo="Typo.caption" Class="sv-text-muted">od @s.ToString("yyyy-MM-dd HH:mm:ss") UTC</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-3 sv-card" Elevation="0">
+                <MudText Typo="Typo.overline" Class="sv-text-muted">Auto-start</MudText>
+                <MudText Typo="Typo.h5" Class="sv-text-info">
+                    @(Opts.CurrentValue.Enabled && Opts.CurrentValue.AutoStart ? "ON" : "OFF")
+                </MudText>
+                <MudText Typo="Typo.caption" Class="sv-text-muted">
+                    RTSP :@Opts.CurrentValue.RtspPort · HLS :@Opts.CurrentValue.HlsPort
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-3 sv-card" Elevation="0">
+                <MudText Typo="Typo.overline" Class="sv-text-muted">@L["MediaMtx.ActiveCameras"]</MudText>
+                <MudText Typo="Typo.h5" Class="sv-text-accent">@_activeCount / @_totalCount</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    @if (Manager.LastError is { } err)
+    {
+        <MudAlert Severity="Severity.Error">@err</MudAlert>
+    }
+
+    <MudPaper Class="pa-3 sv-card" Elevation="0">
+        <MudText Typo="Typo.subtitle2" Class="sv-text-secondary">@L["MediaMtx.GeneratedConfig"] (@Manager.CurrentConfigPath)</MudText>
+        <MudDivider Class="my-2" />
+        <pre class="sv-pre">@_configPreview</pre>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private string _configPreview = "(generuję…)";
+    private int _activeCount;
+    private int _totalCount;
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        var cams = await CameraRepo.ListAsync();
+        _totalCount = cams.Count;
+        _activeCount = cams.Count(c => c.Enabled);
+        _configPreview = SafeView.Cameras.MediaMtxManager.BuildYaml(cams, Opts.CurrentValue);
+        StateHasChanged();
+    }
+
+    private async Task ForceReconcile()
+    {
+        try
+        {
+            var cams = await CameraRepo.ListAsync();
+            await Manager.ReconcileAsync(cams);
+            await Reload();
+            Snackbar.Add("MediaMTX zrekoncyliowany.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Błąd: {ex.Message}", Severity.Error);
+        }
+    }
+}

@@ -1,0 +1,14 @@
+@page "/not-found"
+@attribute [AllowAnonymous]
+@layout MainLayout
+@inject IStringLocalizer<SharedResource> L
+
+<PageTitle>404 — @L["AppName"]</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+    <MudPaper Class="pa-8 text-center sv-card" Elevation="0">
+        <MudText Typo="Typo.h1" Class="mono sv-text-accent">404</MudText>
+        <MudText Typo="Typo.h5" Class="mt-4">@L["NotFound.Title"]</MudText>
+        <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary" Class="mt-6">Home</MudButton>
+    </MudPaper>
+</MudContainer>

@@ -1,0 +1,98 @@
+@namespace SafeView.Web.Components.Pages
+@using SafeView.Domain.Detection
+@using SafeView.Domain.ML
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3" Style="max-height:75vh; overflow-y:auto;">
+            <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined"
+                      Icon="@Icons.Material.Filled.Lightbulb">
+                @L["PromptPacks.CompileHint"]
+            </MudAlert>
+
+            <MudTextField @bind-Value="_name" Label="@L["PromptPacks.PackName"]"
+                          HelperText="@L["PromptPacks.PackNameHint"]"
+                          Variant="Variant.Outlined" />
+
+            <MudSelect T="string" @bind-Value="_selectedModelId" Label="@L["PromptPacks.SourceModel"]"
+                       HelperText="@L["PromptPacks.SourceModelHint"]"
+                       Variant="Variant.Outlined" Required="true">
+                @foreach (var m in Models)
+                {
+                    <MudSelectItem Value="@m.Id">@m.Name</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudText Typo="Typo.subtitle2">@L["PromptPacks.SelectClasses"]</MudText>
+            <MudText Typo="Typo.caption" Class="sv-text-muted">@L["PromptPacks.SelectClassesHint"]</MudText>
+
+            <div style="max-height:360px; overflow-y:auto;" class="sv-card-alt pa-2">
+                @foreach (var grp in Classes.GroupBy(c => c.Category).OrderBy(g => g.Key, StringComparer.Ordinal))
+                {
+                    <MudText Typo="Typo.overline" Class="mono sv-text-muted" Style="margin-top:8px;">
+                        @grp.Key
+                    </MudText>
+                    @foreach (var c in grp.OrderBy(x => x.Name, StringComparer.Ordinal))
+                    {
+                        <MudCheckBox T="bool"
+                                     Value="@_selectedClassIds.Contains(c.Id)"
+                                     ValueChanged="@((bool v) => Toggle(c.Id, v))"
+                                     Color="Color.Primary" Dense="true">
+                            <MudText Typo="Typo.body2">@c.Name</MudText>
+                            @if (!string.IsNullOrEmpty(c.TextPrompt))
+                            {
+                                <MudText Typo="Typo.caption" Class="mono sv-text-muted" Style="margin-left:8px;">
+                                    — @c.TextPrompt
+                                </MudText>
+                            }
+                        </MudCheckBox>
+                    }
+                }
+            </div>
+
+            <MudText Typo="Typo.caption" Class="sv-text-muted">
+                @string.Format(L["PromptPacks.SelectedCount"], _selectedClassIds.Count)
+            </MudText>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">@L["Common.Cancel"]</MudButton>
+        <MudButton OnClick="Submit" Color="Color.Primary" Variant="Variant.Filled"
+                   StartIcon="@Icons.Material.Filled.Build"
+                   Disabled="@(!Valid())">@L["PromptPacks.Compile"]</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public List<MLModel> Models { get; set; } = new();
+    [Parameter] public List<DetectionClass> Classes { get; set; } = new();
+
+    private string _name = string.Empty;
+    private string? _selectedModelId;
+    private HashSet<string> _selectedClassIds = new(StringComparer.Ordinal);
+
+    protected override void OnInitialized()
+    {
+        _selectedModelId = Models.FirstOrDefault()?.Id;
+    }
+
+    private void Toggle(string classId, bool on)
+    {
+        if (on) _selectedClassIds.Add(classId);
+        else _selectedClassIds.Remove(classId);
+    }
+
+    private bool Valid() => !string.IsNullOrWhiteSpace(_selectedModelId) && _selectedClassIds.Count > 0;
+
+    private void Submit()
+    {
+        if (!Valid()) return;
+        var req = new PromptPackCompileRequest(
+            SourceModelId: _selectedModelId!,
+            ClassIds: _selectedClassIds.ToList(),
+            Name: string.IsNullOrWhiteSpace(_name) ? null : _name);
+        MudDialog.Close(DialogResult.Ok(req));
+    }
+}

@@ -1,0 +1,126 @@
+@page "/cameras"
+@attribute [Authorize(Policy = "perm:cameras:view")]
+@inject SafeView.Application.Abstractions.Persistence.ICameraRepository CameraRepo
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedResource> L
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<PageTitle>@L["Nav.Cameras"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudText Typo="Typo.h4">@L["Nav.Cameras"]</MudText>
+        <MudSpacer />
+        <AuthorizeView Policy="perm:cameras:edit">
+            <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary" OnClick="AddCamera">
+                @L["Common.Add"]
+            </MudButton>
+        </AuthorizeView>
+    </MudStack>
+
+    <MudTable Items="_cameras" Dense="true" Hover="true" Loading="_loading" Elevation="0"
+              Class="sv-card">
+        <HeaderContent>
+            <MudTh>@L["Table.Name"]</MudTh>
+            <MudTh>@L["Table.Location"]</MudTh>
+            <MudTh>@L["Table.Vendor"]</MudTh>
+            <MudTh>@L["Table.Stream"]</MudTh>
+            <MudTh>@L["Table.Host"]</MudTh>
+            <MudTh>MediaMTX path</MudTh>
+            <MudTh>@L["Table.Interval"]</MudTh>
+            <MudTh>@L["Table.Status"]</MudTh>
+            <MudTh>@L["Table.LastFrame"]</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                <MudLink Href="@($"/cameras/{context.Id}/live")" Underline="Underline.Hover">@context.Name</MudLink>
+            </MudTd>
+            <MudTd>@(context.Location ?? "—")</MudTd>
+            <MudTd><span class="mono">@context.Vendor</span></MudTd>
+            <MudTd><span class="mono">@context.StreamProfile</span></MudTd>
+            <MudTd class="mono sv-text-secondary" style="font-size:12px;">
+                @(string.IsNullOrEmpty(context.Host) ? "—" : $"{context.Host}:{context.Port}")
+            </MudTd>
+            <MudTd class="mono sv-text-info" style="font-size:12px;">@(context.MediaMtxPath ?? "—")</MudTd>
+            <MudTd class="mono">@(context.SnapshotIntervalSeconds)s</MudTd>
+            <MudTd>
+                @if (context.Enabled)
+                {
+                    <MudChip T="string" Size="Size.Small" Style="background:#0E2A1E; color:#2EC27E;">ON</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Class="sv-chip-muted">OFF</MudChip>
+                }
+            </MudTd>
+            <MudTd class="mono">@(context.LastSnapshotAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Insights" Size="Size.Small"
+                               OnClick="@(() => Nav.NavigateTo($"/cameras/{context.Id}/detail"))" title="Szczegóły / heatmapa" />
+                <AuthorizeView Policy="perm:cameras:edit" Context="_auth">
+                    <MudTooltip Text="@L["Calibration.Title"]">
+                        <MudIconButton Icon="@Icons.Material.Filled.SquareFoot" Size="Size.Small"
+                                       OnClick="@(() => Nav.NavigateTo($"/cameras/{context.Id}/calibration"))" />
+                    </MudTooltip>
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditCamera(context)" />
+                </AuthorizeView>
+                <AuthorizeView Policy="perm:cameras:delete" Context="_auth">
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteCamera(context)" />
+                </AuthorizeView>
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudStack>
+
+@code {
+    private List<SafeView.Domain.Cameras.Camera> _cameras = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        _loading = true;
+        _cameras = (await CameraRepo.ListAsync()).OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
+        _loading = false;
+    }
+
+    private async Task AddCamera()
+    {
+        var parameters = new DialogParameters { ["Camera"] = new SafeView.Domain.Cameras.Camera(), ["IsNew"] = true };
+        var dialog = await Dialog.ShowAsync<CameraDialog>(L["CameraDialog.AddTitle"], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var res = await dialog.Result;
+        if (res is { Canceled: false, Data: SafeView.Domain.Cameras.Camera cam })
+        {
+            try { await CameraRepo.InsertAsync(cam); Snackbar.Add("Dodano kamerę.", Severity.Success); await Reload(); }
+            catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        }
+    }
+
+    private async Task EditCamera(SafeView.Domain.Cameras.Camera cam)
+    {
+        var parameters = new DialogParameters { ["Camera"] = cam, ["IsNew"] = false };
+        var dialog = await Dialog.ShowAsync<CameraDialog>(L["CameraDialog.EditTitle"], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var res = await dialog.Result;
+        if (res is { Canceled: false, Data: SafeView.Domain.Cameras.Camera updated })
+        {
+            await CameraRepo.UpdateAsync(updated);
+            Snackbar.Add("Zapisano.", Severity.Success);
+            await Reload();
+        }
+    }
+
+    private async Task DeleteCamera(SafeView.Domain.Cameras.Camera cam)
+    {
+        var ok = await Dialog.ShowMessageBox("Usunąć kamerę?", $"Kamera '{cam.Name}' zostanie usunięta.", yesText: "Usuń", cancelText: "Anuluj");
+        if (ok != true) return;
+        await CameraRepo.DeleteAsync(cam.Id);
+        Snackbar.Add("Usunięto.", Severity.Success);
+        await Reload();
+    }
+}

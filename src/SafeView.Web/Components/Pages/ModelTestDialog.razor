@@ -1,0 +1,359 @@
+@namespace SafeView.Web.Components.Pages
+@using SafeView.Domain.ML
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3" Style="min-width:720px; max-width:900px;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Memory" />
+                <div>
+                    <MudText Typo="Typo.subtitle1"><strong>@Model.Name</strong></MudText>
+                    <MudText Typo="Typo.caption" Class="sv-text-muted mono">
+                        @Model.Backend · @Model.Capabilities · @Model.Labels.Count klas
+                    </MudText>
+                </div>
+                <MudSpacer />
+                <MudFileUpload T="IBrowserFile" FilesChanged="UploadImage" Accept=".jpg,.jpeg,.png"
+                               MaximumFileCount="1" Disabled="@_running">
+                    <ActivatorContent>
+                        <MudButton HtmlTag="label" Variant="Variant.Filled" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.UploadFile"
+                                   Disabled="@_running">
+                            @(_running ? L["ModelTest.Running"] : L["ModelTest.PickImage"])
+                        </MudButton>
+                    </ActivatorContent>
+                </MudFileUpload>
+            </MudStack>
+
+            @* ── Custom text prompts (tylko dla open-vocab modeli) ───────── *@
+            @if (Model.Capabilities.HasFlag(ModelCapabilities.TextPrompts))
+            {
+                <MudPaper Class="pa-3 sv-card-alt" Elevation="0">
+                    <MudStack Spacing="2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Size="Size.Small"
+                                     Style="color:var(--mud-palette-primary);" />
+                            <MudText Typo="Typo.subtitle2">@L["ModelTest.Prompts"]</MudText>
+                            <MudSpacer />
+                            <MudTooltip Text="@L["ModelTest.PromptsResetHint"]">
+                                <MudButton Size="Size.Small" Variant="Variant.Text"
+                                           OnClick="UseModelLabels" Disabled="@_running">
+                                    @L["ModelTest.UseModelLabels"]
+                                </MudButton>
+                            </MudTooltip>
+                        </MudStack>
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">
+                            @L["ModelTest.PromptsHint"]
+                        </MudText>
+                        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                            <MudTextField T="string" @bind-Value="_promptDraft"
+                                          Placeholder="@L["ModelTest.PromptsPlaceholder"]"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          OnKeyDown="OnPromptKey" Immediate="true" />
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Filled.Add"
+                                       OnClick="AddPromptFromDraft"
+                                       Disabled="@(string.IsNullOrWhiteSpace(_promptDraft) || _running)">
+                                @L["ModelTest.AddPrompt"]
+                            </MudButton>
+                        </MudStack>
+                        @if (_prompts.Count > 0)
+                        {
+                            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                                @foreach (var p in _prompts.ToList())
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Filled"
+                                             OnClose="@(() => _prompts.Remove(p))" Disabled="@_running">
+                                        @p
+                                    </MudChip>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.caption" Class="sv-text-muted">
+                                @L["ModelTest.PromptsEmpty"]
+                            </MudText>
+                        }
+                    </MudStack>
+                </MudPaper>
+            }
+
+            @if (_running)
+            {
+                <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+            }
+
+            @if (_result is null && !_running)
+            {
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Lightbulb">
+                    @L["ModelTest.Hint"]
+                </MudAlert>
+            }
+
+            @if (_result is not null)
+            {
+                @* ── Obraz + bbox overlay ──────────────────────────────────── *@
+                <div style="position:relative; width:100%; background:#1a1a1a; border-radius:4px; overflow:hidden;">
+                    <img src="@_dataUrl" alt="test frame"
+                         style="display:block; width:100%; height:auto;" />
+                    @* SVG rysuje tylko prostokąty bboxów; labele jako HTML div overlay
+                       (żeby uniknąć kolizji Razor-a z SVG <text> tag — Razor traktuje go jako directive). *@
+                    <svg viewBox="@($"0 0 {_result.SourceWidth} {_result.SourceHeight}")"
+                         preserveAspectRatio="none"
+                         style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
+                        @foreach (var (d, idx) in _result.Detections.Select((x, i) => (x, i)))
+                        {
+                            var color = BboxColor(idx);
+                            <rect x="@Fmt(d.X)" y="@Fmt(d.Y)"
+                                  width="@Fmt(d.Width)" height="@Fmt(d.Height)"
+                                  fill="none" stroke="@color" stroke-width="3" />
+                        }
+                    </svg>
+                    @foreach (var (d, idx) in _result.Detections.Select((x, i) => (x, i)))
+                    {
+                        var color = BboxColor(idx);
+                        var leftPct = d.X / Math.Max(1, _result.SourceWidth) * 100;
+                        var topPct = d.Y / Math.Max(1, _result.SourceHeight) * 100;
+                        <div style="@($"position:absolute; left:{Fmt(leftPct)}%; top:{Fmt(topPct)}%; transform:translate(2px,2px); background:{color}; color:#000; font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; padding:1px 5px; border-radius:2px; pointer-events:none; white-space:nowrap;")">
+                            @d.Label @($"{d.Confidence * 100:F0}%")
+                        </div>
+                    }
+                </div>
+
+                @* ── Meta ──────────────────────────────────────────────────── *@
+                <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">
+                        @_result.Detections.Count @L["ModelTest.Detections"]
+                    </MudChip>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined" Class="mono">
+                        @_result.LatencyMs ms
+                    </MudChip>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined" Class="mono">
+                        @_result.SourceWidth×@_result.SourceHeight
+                    </MudChip>
+                    <MudText Typo="Typo.caption" Class="sv-text-muted mono">
+                        conf≥@($"{_result.ConfidenceThreshold:F2}") · iou=@($"{_result.IouThreshold:F2}")
+                    </MudText>
+                    @if (!string.IsNullOrEmpty(_result.UsedFlow))
+                    {
+                        <MudChip T="string" Size="Size.Small"
+                                 Color="@(_result.UsedFlow == "text-prompts" ? Color.Primary : Color.Default)"
+                                 Variant="Variant.Outlined">
+                            @(_result.UsedFlow == "text-prompts" ? L["ModelTest.FlowTextPrompts"] : L["ModelTest.FlowDefault"])
+                        </MudChip>
+                    }
+                </MudStack>
+                @if (_result.UsedFlow == "text-prompts" && _result.UsedPrompts.Count > 0)
+                {
+                    <MudText Typo="Typo.caption" Class="sv-text-muted">
+                        @L["ModelTest.UsedPrompts"]:
+                        @foreach (var p in _result.UsedPrompts)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Text" Class="ma-1">
+                                @p
+                            </MudChip>
+                        }
+                    </MudText>
+                }
+
+                @* ── Tabela detekcji ───────────────────────────────────────── *@
+                @if (_result.Detections.Count == 0)
+                {
+                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.SearchOff">
+                        @L["ModelTest.NoDetections"]
+                    </MudAlert>
+                }
+                else
+                {
+                    <MudTable Items="_result.Detections" Dense="true" Elevation="0" Class="sv-card-alt">
+                        <HeaderContent>
+                            <MudTh>#</MudTh>
+                            <MudTh>@L["ModelTest.Label"]</MudTh>
+                            <MudTh>@L["ModelTest.Confidence"]</MudTh>
+                            <MudTh>@L["ModelTest.Bbox"]</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd class="mono">@_result.Detections.IndexOf(context)</MudTd>
+                            <MudTd><strong>@context.Label</strong></MudTd>
+                            <MudTd class="mono">@($"{context.Confidence * 100:F1}%")</MudTd>
+                            <MudTd class="mono" Style="font-size:11px;">
+                                @($"x={context.X:F0} y={context.Y:F0} w={context.Width:F0} h={context.Height:F0}")
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+
+                @* ── Raw JSON ──────────────────────────────────────────────── *@
+                <MudExpansionPanels Elevation="0">
+                    <MudExpansionPanel Text="@L["ModelTest.RawOutput"]">
+                        <pre class="mono" style="font-size:11px; white-space:pre-wrap; max-height:300px; overflow:auto; background:var(--mud-palette-surface); padding:8px; border-radius:4px;">@_rawJson</pre>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Close(DialogResult.Ok(true))">@L["Common.Close"]</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public MLModel Model { get; set; } = new();
+
+    private bool _running;
+    private string? _dataUrl;   // data: URL dla <img> preview (w przeglądarce, bez serwera)
+    private TestResult? _result;
+    private string? _rawJson;
+    private readonly List<string> _prompts = new();
+    private string _promptDraft = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        // Pre-fill promptów etykietami z modelu gdy open-vocab — user może je edytować/rozszerzyć.
+        if (Model.Capabilities.HasFlag(ModelCapabilities.TextPrompts) && Model.Labels.Count > 0)
+        {
+            foreach (var l in Model.Labels.Where(s => !string.IsNullOrWhiteSpace(s)))
+                _prompts.Add(l);
+        }
+    }
+
+    private void AddPromptFromDraft()
+    {
+        var p = _promptDraft?.Trim() ?? "";
+        if (string.IsNullOrEmpty(p)) return;
+        if (!_prompts.Contains(p, StringComparer.Ordinal)) _prompts.Add(p);
+        _promptDraft = string.Empty;
+    }
+
+    private void OnPromptKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") AddPromptFromDraft();
+    }
+
+    private void UseModelLabels()
+    {
+        _prompts.Clear();
+        foreach (var l in Model.Labels.Where(s => !string.IsNullOrWhiteSpace(s)))
+            _prompts.Add(l);
+    }
+
+    private async Task UploadImage(IBrowserFile? file)
+    {
+        if (file is null) return;
+        const long Max = 20L * 1024 * 1024;
+        if (file.Size > Max)
+        {
+            Snackbar.Add(L["ModelTest.ImageTooLarge"], Severity.Warning);
+            return;
+        }
+        _running = true;
+        _result = null;
+        _rawJson = null;
+        StateHasChanged();
+        try
+        {
+            await using var stream = file.OpenReadStream(Max);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var bytes = ms.ToArray();
+            var b64 = Convert.ToBase64String(bytes);
+            _dataUrl = $"data:{file.ContentType};base64,{b64}";
+
+            // Serializujemy prompts jako JSON array — endpoint parse-uje zarówno JSON jak CSV.
+            var promptsJson = Model.Capabilities.HasFlag(ModelCapabilities.TextPrompts) && _prompts.Count > 0
+                ? System.Text.Json.JsonSerializer.Serialize(_prompts)
+                : "";
+
+            var result = await JS.InvokeAsync<string>("eval", $@"
+                (async (b64, type, name, promptsJson) => {{
+                    try {{
+                        const bin = atob(b64);
+                        const bytes = new Uint8Array(bin.length);
+                        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                        const blob = new Blob([bytes], {{ type: type }});
+                        const fd = new FormData();
+                        fd.append('image', blob, name);
+                        if (promptsJson) fd.append('prompts', promptsJson);
+                        const resp = await fetch('/api/models/{Model.Id}/test-detect', {{
+                            method: 'POST', credentials: 'same-origin', body: fd
+                        }});
+                        const text = await resp.text();
+                        return resp.ok ? ('ok:' + text) : ('err:' + resp.status + ':' + text);
+                    }} catch (e) {{ return 'err:' + e.message; }}
+                }})({System.Text.Json.JsonSerializer.Serialize(b64)},
+                    {System.Text.Json.JsonSerializer.Serialize(file.ContentType)},
+                    {System.Text.Json.JsonSerializer.Serialize(file.Name)},
+                    {System.Text.Json.JsonSerializer.Serialize(promptsJson)})
+            ");
+
+            if (result.StartsWith("ok:", StringComparison.Ordinal))
+            {
+                _rawJson = PrettyPrint(result[3..]);
+                _result = System.Text.Json.JsonSerializer.Deserialize<TestResult>(result[3..],
+                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            else
+            {
+                var msg = result.Length > 4 ? result[4..] : "unknown";
+                if (msg.Length > 400) msg = msg[..400] + "…";
+                Snackbar.Add($"{L["ModelTest.Failed"]} {msg}", Severity.Error);
+            }
+        }
+        catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        finally
+        {
+            _running = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string PrettyPrint(string json)
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            return System.Text.Json.JsonSerializer.Serialize(doc.RootElement,
+                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        }
+        catch { return json; }
+    }
+
+    private static string Fmt(double v) => v.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+
+    // Deterministyczna paleta żeby kolejne bboxy miały różne kolory — łatwiejsze debugowanie.
+    private static string BboxColor(int idx)
+    {
+        var palette = new[] { "#4DA6FF", "#2EC27E", "#F5A524", "#FF5964", "#A855F7", "#EC4899", "#14B8A6", "#EAB308" };
+        return palette[idx % palette.Length];
+    }
+
+    private sealed class TestResult
+    {
+        public string? ModelName { get; set; }
+        public string? Backend { get; set; }
+        public int SourceWidth { get; set; }
+        public int SourceHeight { get; set; }
+        public int LatencyMs { get; set; }
+        public double ConfidenceThreshold { get; set; }
+        public double IouThreshold { get; set; }
+        public string? UsedFlow { get; set; }
+        public List<string> UsedPrompts { get; set; } = new();
+        public List<TestDetection> Detections { get; set; } = new();
+    }
+
+    public sealed class TestDetection
+    {
+        public int ClassId { get; set; }
+        public string Label { get; set; } = "";
+        public double Confidence { get; set; }
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+    }
+}

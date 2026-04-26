@@ -1,0 +1,56 @@
+@namespace SafeView.Web.Components.Pages
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined"
+                      Icon="@Icons.Material.Filled.Lightbulb">
+                @L["VllmGenerator.Hint"]
+            </MudAlert>
+
+            <MudTextField @bind-Value="_description" Label="@L["VllmGenerator.DescriptionLabel"]"
+                          HelperText="@L["VllmGenerator.DescriptionHint"]"
+                          Lines="6" Variant="Variant.Outlined" AutoFocus="true" />
+
+            <MudText Typo="Typo.caption" Class="sv-text-muted">
+                @L["VllmGenerator.Examples"]:
+            </MudText>
+            <MudStack Spacing="1">
+                @foreach (var ex in _examples)
+                {
+                    var text = ex;
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                             OnClick="@(() => _description = text)">
+                        @text
+                    </MudChip>
+                }
+            </MudStack>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">@L["Common.Cancel"]</MudButton>
+        <MudButton OnClick="Submit" Color="Color.Primary" Variant="Variant.Filled"
+                   StartIcon="@Icons.Material.Filled.AutoFixHigh"
+                   Disabled="@(string.IsNullOrWhiteSpace(_description))">
+            @L["VllmGenerator.Generate"]
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _description = string.Empty;
+
+    private readonly string[] _examples = new[]
+    {
+        "Operator wózka widłowego bez kamizelki odblaskowej w hali magazynowej",
+        "Osoba używająca telefonu komórkowego przy obsłudze maszyny",
+        "Pies lub inne zwierzę w strefie produkcyjnej",
+        "Dwóch lub więcej pracowników w strefie jednoosobowej",
+        "Nieprawidłowe składowanie palety — paleta przechylona lub wystająca z regału"
+    };
+
+    private void Submit() => MudDialog.Close(DialogResult.Ok(_description));
+}

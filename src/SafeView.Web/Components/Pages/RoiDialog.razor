@@ -1,0 +1,313 @@
+@namespace SafeView.Web.Components.Pages
+@implements IAsyncDisposable
+@using SafeView.Domain.Detection
+@inject SafeView.Application.Abstractions.Media.ISnapshotService Snap
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudStack Row="true" Spacing="2">
+                <MudTextField @bind-Value="Roi.Name" Label="@L["Table.Name"]" Required="true" Variant="Variant.Outlined" />
+                <MudSelect T="string" Value="Roi.CameraId" ValueChanged="OnCameraChanged"
+                           Label="@L["Table.Camera"]" Variant="Variant.Outlined">
+                    @foreach (var c in Cameras)
+                    {
+                        <MudSelectItem Value="@c.Id">@c.Name</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudTextField @bind-Value="Roi.Color" Label="@L["ZoneDialog.Color"]" Variant="Variant.Outlined" Style="max-width:120px;" />
+                <MudSwitch @bind-Value="Roi.Enabled" Color="Color.Success" Label="@L["Table.Active"]" />
+            </MudStack>
+            <MudTextField @bind-Value="Roi.Description" Label="@L["Actions.DescriptionLabel"]" Variant="Variant.Outlined" Lines="1" />
+
+            <MudText Typo="Typo.subtitle2" Class="sv-text-secondary">@L["Rois.DrawHint"]</MudText>
+
+            @* ── Drag-to-draw canvas ──────────────────────────────────────── *@
+            <div id="@_canvasId" class="sv-card-alt" style="position:relative; overflow:hidden; aspect-ratio:16/9; user-select:none;">
+                @if (_frameDataUrl is not null)
+                {
+                    <img src="@_frameDataUrl" style="position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none;" />
+                }
+                else
+                {
+                    <div class="sv-text-muted" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center;">
+                        @(_loadingFrame ? L["ZoneDialog.LoadingFrame"] : L["ZoneDialog.NoPreview"])
+                    </div>
+                }
+                @* SVG canvas — user drag-uje prostokąt *@
+                <svg class="sv-roi-canvas" viewBox="0 0 1000 562" preserveAspectRatio="none"
+                     style="position:absolute; inset:0; width:100%; height:100%; cursor:crosshair;">
+                    <rect x="@Fmt(Roi.Rectangle.X * 1000)"
+                          y="@Fmt(Roi.Rectangle.Y * 562)"
+                          width="@Fmt(Roi.Rectangle.Width * 1000)"
+                          height="@Fmt(Roi.Rectangle.Height * 562)"
+                          fill="@Roi.Color" fill-opacity="0.18"
+                          stroke="@Roi.Color" stroke-width="3"
+                          stroke-dasharray="8 4" />
+                    @* Narożniki jako widoczne "pierścienie" *@
+                    @if (Roi.Rectangle.IsValid())
+                    {
+                        var x0 = Fmt(Roi.Rectangle.X * 1000);
+                        var y0 = Fmt(Roi.Rectangle.Y * 562);
+                        var x1 = Fmt(Roi.Rectangle.Right * 1000);
+                        var y1 = Fmt(Roi.Rectangle.Bottom * 562);
+                        <circle cx="@x0" cy="@y0" r="6" fill="@Roi.Color" stroke="#fff" stroke-width="2" />
+                        <circle cx="@x1" cy="@y0" r="6" fill="@Roi.Color" stroke="#fff" stroke-width="2" />
+                        <circle cx="@x1" cy="@y1" r="6" fill="@Roi.Color" stroke="#fff" stroke-width="2" />
+                        <circle cx="@x0" cy="@y1" r="6" fill="@Roi.Color" stroke="#fff" stroke-width="2" />
+                    }
+                </svg>
+            </div>
+
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                <MudButton StartIcon="@Icons.Material.Filled.Refresh" OnClick="CaptureFrame" Variant="Variant.Outlined" Disabled="_loadingFrame" Size="Size.Small">
+                    @(_loadingFrame ? L["ZoneDialog.Capturing"] : L["ZoneDialog.CaptureFrame"])
+                </MudButton>
+                <MudButton StartIcon="@Icons.Material.Filled.SelectAll" OnClick="ResetFullFrame" Variant="Variant.Outlined" Size="Size.Small">
+                    @L["Rois.FullFrame"]
+                </MudButton>
+                <MudSpacer />
+                <MudText Typo="Typo.caption" Class="mono sv-text-muted">
+                    @($"X={Roi.Rectangle.X:F2}  Y={Roi.Rectangle.Y:F2}  W={Roi.Rectangle.Width:F2}  H={Roi.Rectangle.Height:F2}")
+                </MudText>
+            </MudStack>
+
+            @if (!Roi.Rectangle.IsValid())
+            {
+                <MudAlert Severity="Severity.Error" Dense="true">@L["Rois.InvalidRectangle"]</MudAlert>
+            }
+
+            @* Slider-y ukryte w zwijanej sekcji — fine-tuning *@
+            <MudExpansionPanels Elevation="0">
+                <MudExpansionPanel Text="@L["Rois.FineTune"]">
+                    <MudStack Spacing="2">
+                        <MudStack Row="true" Spacing="3">
+                            <div style="flex:1;">
+                                <MudText Typo="Typo.caption">X: @($"{Roi.Rectangle.X:F2}")</MudText>
+                                <MudSlider T="double" Value="Roi.Rectangle.X" ValueChanged="@((double v) => { Roi.Rectangle.X = v; StateHasChanged(); })"
+                                           Min="0" Max="0.95" Step="0.01" />
+                            </div>
+                            <div style="flex:1;">
+                                <MudText Typo="Typo.caption">Y: @($"{Roi.Rectangle.Y:F2}")</MudText>
+                                <MudSlider T="double" Value="Roi.Rectangle.Y" ValueChanged="@((double v) => { Roi.Rectangle.Y = v; StateHasChanged(); })"
+                                           Min="0" Max="0.95" Step="0.01" />
+                            </div>
+                        </MudStack>
+                        <MudStack Row="true" Spacing="3">
+                            <div style="flex:1;">
+                                <MudText Typo="Typo.caption">Width: @($"{Roi.Rectangle.Width:F2}")</MudText>
+                                <MudSlider T="double" Value="Roi.Rectangle.Width" ValueChanged="@((double v) => { Roi.Rectangle.Width = v; StateHasChanged(); })"
+                                           Min="0.05" Max="1" Step="0.01" />
+                            </div>
+                            <div style="flex:1;">
+                                <MudText Typo="Typo.caption">Height: @($"{Roi.Rectangle.Height:F2}")</MudText>
+                                <MudSlider T="double" Value="Roi.Rectangle.Height" ValueChanged="@((double v) => { Roi.Rectangle.Height = v; StateHasChanged(); })"
+                                           Min="0.05" Max="1" Step="0.01" />
+                            </div>
+                        </MudStack>
+                    </MudStack>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+
+            <MudDivider />
+
+            <MudText Typo="Typo.h6">@L["Rois.Models"]</MudText>
+            @if (Models.Count == 0)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true">@L["Rois.NoModels"]</MudAlert>
+            }
+            else
+            {
+                <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Rois.ModelsHint"]</MudText>
+                <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                    @foreach (var m in Models)
+                    {
+                        var picked = Roi.ModelIds.Contains(m.Id);
+                        <MudChip T="string"
+                                 Color="@(picked ? Color.Primary : Color.Default)"
+                                 Variant="@(picked ? Variant.Filled : Variant.Outlined)"
+                                 OnClick="@(() => ToggleModel(m.Id))">
+                            @m.Name
+                        </MudChip>
+                    }
+                </div>
+            }
+
+            <MudDivider />
+            <MudText Typo="Typo.h6">@L["Rois.Inference"]</MudText>
+            <MudSelect T="RoiInferenceMode" @bind-Value="Roi.InferenceMode" Label="@L["Rois.Mode"]" Variant="Variant.Outlined">
+                <MudSelectItem Value="RoiInferenceMode.Native">Native (Phase 1)</MudSelectItem>
+                <MudSelectItem Value="RoiInferenceMode.Resize">Resize (Phase 1)</MudSelectItem>
+                <MudSelectItem Value="RoiInferenceMode.Sliced">Sliced — SAHI (Phase 2)</MudSelectItem>
+                <MudSelectItem Value="RoiInferenceMode.Adaptive">Adaptive (Phase 2)</MudSelectItem>
+            </MudSelect>
+            <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Rois.ModeHint"]</MudText>
+
+            <MudDivider />
+
+            @* ── Szybki pre-skan — oszczędność CPU (dawniej "Cascade mode") ───── *@
+            <MudExpansionPanels Elevation="0">
+                <MudExpansionPanel Text="@L["Rois.PrescanSection"]">
+                    <MudStack Spacing="3">
+                        <MudAlert Severity="Severity.Info" Dense="true" NoIcon="false" Variant="Variant.Outlined"
+                                  Icon="@Icons.Material.Filled.Lightbulb">
+                            @L["Rois.PrescanExplain"]
+                        </MudAlert>
+
+                        <MudSwitch T="bool"
+                                   Value="@(!string.IsNullOrEmpty(Roi.ProposerModelId))"
+                                   ValueChanged="@((bool on) => Roi.ProposerModelId = on ? (Roi.ProposerModelId ?? (Models.FirstOrDefault()?.Id ?? string.Empty)) : null)"
+                                   Color="Color.Primary"
+                                   Label="@L["Rois.PrescanEnable"]" />
+
+                        @if (!string.IsNullOrEmpty(Roi.ProposerModelId))
+                        {
+                            <MudSelect T="string" @bind-Value="Roi.ProposerModelId"
+                                       Label="@L["Rois.PrescanModel"]"
+                                       HelperText="@L["Rois.PrescanModelHelp"]"
+                                       Variant="Variant.Outlined">
+                                @foreach (var m in Models)
+                                {
+                                    <MudSelectItem Value="@m.Id">@m.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+
+                            <div>
+                                <MudText Typo="Typo.body2">@L["Rois.PrescanSensitivity"]</MudText>
+                                <MudRadioGroup T="double" Value="Roi.ProposerConfidenceThreshold"
+                                               ValueChanged="@((double v) => Roi.ProposerConfidenceThreshold = v)">
+                                    <MudRadio T="double" Value="0.40" Color="Color.Primary">@L["Rois.SensLow"]</MudRadio>
+                                    <MudRadio T="double" Value="0.25" Color="Color.Primary">@L["Rois.SensMedium"]</MudRadio>
+                                    <MudRadio T="double" Value="0.15" Color="Color.Primary">@L["Rois.SensHigh"]</MudRadio>
+                                </MudRadioGroup>
+                                <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Rois.SensExplain"]</MudText>
+                            </div>
+
+                            <div>
+                                <MudText Typo="Typo.body2">
+                                    @L["Rois.PrescanPadding"]: <b>@($"{Roi.CascadeBboxPadding * 100:F0}%")</b>
+                                </MudText>
+                                <MudSlider T="double" Value="Roi.CascadeBboxPadding"
+                                           ValueChanged="@((double v) => Roi.CascadeBboxPadding = Math.Round(v, 2))"
+                                           Min="0" Max="0.5" Step="0.05" />
+                                <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Rois.PrescanPaddingHelp"]</MudText>
+                            </div>
+                        }
+                    </MudStack>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">@L["Common.Cancel"]</MudButton>
+        <MudButton OnClick="Save" Color="Color.Primary" Variant="Variant.Filled" Disabled="!Valid()">@L["Common.Save"]</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public Roi Roi { get; set; } = new();
+    [Parameter] public bool IsNew { get; set; }
+    [Parameter] public List<SafeView.Domain.Cameras.Camera> Cameras { get; set; } = new();
+    [Parameter] public List<SafeView.Domain.ML.MLModel> Models { get; set; } = new();
+
+    private readonly string _canvasId = "sv-roi-" + Guid.NewGuid().ToString("N");
+    private string? _frameDataUrl;
+    private bool _loadingFrame;
+    private bool _autoCapture;
+    private DotNetObjectReference<RoiDialog>? _selfRef;
+
+    private static string Fmt(double v) => v.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+
+    private bool Valid()
+        => !string.IsNullOrWhiteSpace(Roi.Name)
+           && !string.IsNullOrWhiteSpace(Roi.CameraId)
+           && Roi.Rectangle.IsValid();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _selfRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("safeviewRoiEditor.attach", _canvasId, _selfRef);
+        }
+        if (!_autoCapture && !string.IsNullOrEmpty(Roi.CameraId) && _frameDataUrl is null)
+        {
+            _autoCapture = true;
+            await CaptureFrame();
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnCameraChanged(string id)
+    {
+        Roi.CameraId = id;
+        _frameDataUrl = null;
+        StateHasChanged();
+        await CaptureFrame();
+    }
+
+    private void ToggleModel(string id)
+    {
+        if (!Roi.ModelIds.Remove(id)) Roi.ModelIds.Add(id);
+    }
+
+    /// <summary>Wywoływane LIVE podczas dragowania — aktualizuje preview bez commit.</summary>
+    [JSInvokable]
+    public void OnRectanglePreview(double x, double y, double w, double h)
+    {
+        Roi.Rectangle.X = x;
+        Roi.Rectangle.Y = y;
+        Roi.Rectangle.Width = w;
+        Roi.Rectangle.Height = h;
+        InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Wywoływane po zwolnieniu myszy — finalne zatwierdzenie.</summary>
+    [JSInvokable]
+    public void OnRectangleDrawn(double x, double y, double w, double h)
+    {
+        Roi.Rectangle.X = x;
+        Roi.Rectangle.Y = y;
+        Roi.Rectangle.Width = w;
+        Roi.Rectangle.Height = h;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ResetFullFrame()
+    {
+        Roi.Rectangle.X = 0;
+        Roi.Rectangle.Y = 0;
+        Roi.Rectangle.Width = 1;
+        Roi.Rectangle.Height = 1;
+    }
+
+    private async Task CaptureFrame()
+    {
+        var cam = Cameras.FirstOrDefault(c => c.Id == Roi.CameraId);
+        if (cam is null) return;
+        _loadingFrame = true; StateHasChanged();
+        try
+        {
+            var r = await Snap.CaptureAsync(cam);
+            if (r.Success && !string.IsNullOrEmpty(r.AbsolutePath))
+            {
+                var bytes = await File.ReadAllBytesAsync(r.AbsolutePath);
+                _frameDataUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(bytes)}";
+            }
+        }
+        catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        finally { _loadingFrame = false; StateHasChanged(); }
+    }
+
+    private void Save() => MudDialog.Close(DialogResult.Ok(Roi));
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("safeviewRoiEditor.detach", _canvasId); } catch { }
+        _selfRef?.Dispose();
+    }
+}

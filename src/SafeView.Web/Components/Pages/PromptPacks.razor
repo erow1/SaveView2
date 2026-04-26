@@ -1,0 +1,418 @@
+@page "/admin/prompt-packs"
+@attribute [Authorize(Policy = "perm:admin:detection-classes")]
+@using SafeView.Domain.Detection
+@using SafeView.Domain.ML
+@inject SafeView.Application.Abstractions.Persistence.ICompiledPromptPackRepository PackRepo
+@inject SafeView.Application.Abstractions.Persistence.IDetectionClassRepository ClassRepo
+@inject SafeView.Application.Abstractions.Persistence.IMLModelRepository ModelRepo
+@inject SafeView.Application.Abstractions.Detection.IPromptPackCompiler Compiler
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@L["PromptPacks.Title"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@Icons.Material.Filled.Compress" Size="Size.Large" Style="color:var(--mud-palette-primary);" />
+        <div>
+            <MudText Typo="Typo.h4">@L["PromptPacks.Title"]</MudText>
+            <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                @L["PromptPacks.Description"]
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Build" Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="OpenCompileDialog" Disabled="@(_yoloWorldModels.Count == 0)">
+            @L["PromptPacks.Compile"]
+        </MudButton>
+    </MudStack>
+
+    @if (_yoloWorldModels.Count == 0)
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Info">
+            <MudStack Spacing="2">
+                <MudText Typo="Typo.body2">@L["PromptPacks.NoYoloWorldModel"]</MudText>
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Download"
+                               OnClick="DownloadYoloWorldAsync"
+                               Disabled="@(_downloading || _rescanning || _uploading)">
+                        @(_downloading ? L["PromptPacks.Downloading"] : L["PromptPacks.DownloadYoloWorld"])
+                    </MudButton>
+                    <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="UploadYoloWorldAsync"
+                                   Accept=".onnx,.json,.txt" MaximumFileCount="6"
+                                   Disabled="@(_downloading || _rescanning || _uploading)">
+                        <ActivatorContent>
+                            <MudButton HtmlTag="label" Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Filled.UploadFile"
+                                       Disabled="@(_downloading || _rescanning || _uploading)">
+                                @(_uploading ? L["PromptPacks.Uploading"] : L["PromptPacks.UploadFiles"])
+                            </MudButton>
+                        </ActivatorContent>
+                    </MudFileUpload>
+                    <MudButton Variant="Variant.Text"
+                               StartIcon="@Icons.Material.Filled.FolderOpen"
+                               OnClick="RescanAsync"
+                               Disabled="@(_downloading || _rescanning || _uploading)">
+                        @(_rescanning ? L["PromptPacks.Rescanning"] : L["PromptPacks.RegisterExisting"])
+                    </MudButton>
+                </MudStack>
+                <MudText Typo="Typo.caption" Class="sv-text-muted">@L["PromptPacks.DownloadSize"]</MudText>
+                @if (_downloading || _uploading)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                }
+                <MudText Typo="Typo.caption" Class="sv-text-muted" Style="white-space:pre-line;">
+                    @L["PromptPacks.ManualHint"]
+                </MudText>
+                @if (_downloading)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                    <MudText Typo="Typo.caption" Class="sv-text-muted">@L["PromptPacks.DownloadInProgress"]</MudText>
+                }
+            </MudStack>
+        </MudAlert>
+    }
+
+    <MudTable Items="_packs" Dense="true" Hover="true" Loading="_loading" Elevation="0" Class="sv-card">
+        <HeaderContent>
+            <MudTh>@L["Table.Name"]</MudTh>
+            <MudTh>@L["PromptPacks.SourceModel"]</MudTh>
+            <MudTh>@L["PromptPacks.Encoder"]</MudTh>
+            <MudTh>@L["PromptPacks.ClassCount"]</MudTh>
+            <MudTh>@L["PromptPacks.Dim"]</MudTh>
+            <MudTh>@L["PromptPacks.BlobSize"]</MudTh>
+            <MudTh>@L["PromptPacks.CompiledAt"]</MudTh>
+            <MudTh>@L["PromptPacks.Status"]</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd><strong>@context.Name</strong></MudTd>
+            <MudTd class="mono">@ModelName(context.SourceModelId)</MudTd>
+            <MudTd class="mono" Style="font-size:11px;">@context.EncoderBackend</MudTd>
+            <MudTd class="mono">@context.ClassIds.Count</MudTd>
+            <MudTd class="mono">@context.EmbeddingDimension</MudTd>
+            <MudTd class="mono">@FormatBytes(context.EmbeddingsBlob.Length)</MudTd>
+            <MudTd class="mono" Style="font-size:11px;">@context.CompiledAt.ToString("yyyy-MM-dd HH:mm")</MudTd>
+            <MudTd>
+                @if (context.Stale)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">
+                        @L["PromptPacks.Stale"]
+                    </MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined">
+                        @L["PromptPacks.Fresh"]
+                    </MudChip>
+                }
+            </MudTd>
+            <MudTd>
+                <MudTooltip Text="@L["PromptPacks.CheckStaleness"]">
+                    <MudIconButton Icon="@Icons.Material.Filled.Refresh" Size="Size.Small"
+                                   OnClick="() => CheckStaleness(context)" />
+                </MudTooltip>
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                               OnClick="() => Delete(context)" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudStack>
+
+@code {
+    private List<CompiledPromptPack> _packs = new();
+    private List<MLModel> _yoloWorldModels = new();
+    private Dictionary<string, string> _modelNames = new(StringComparer.Ordinal);
+    private bool _loading = true;
+    private bool _downloading;
+    private bool _rescanning;
+    private bool _uploading;
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        _loading = true;
+        var allModels = await ModelRepo.ListAsync();
+        _yoloWorldModels = allModels
+            .Where(m => m.Backend == DetectorBackend.YoloWorld
+                && m.Capabilities.HasFlag(ModelCapabilities.TextPrompts)
+                && m.Enabled)
+            .ToList();
+        _modelNames = allModels.ToDictionary(m => m.Id, m => m.Name, StringComparer.Ordinal);
+        _packs = (await PackRepo.ListAsync())
+            .OrderByDescending(p => p.CompiledAt)
+            .ToList();
+        _loading = false;
+    }
+
+    private string ModelName(string id) => _modelNames.GetValueOrDefault(id, id);
+
+    private static string FormatBytes(long bytes)
+    {
+        // if/else zamiast switch-expression z range patterns — CLAUDE.md pkt 9: Razor source
+        // generator miewa problem z `x switch { < N => ... }` i generuje invalid C#.
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024.0):F2} MB";
+    }
+
+    private async Task OpenCompileDialog()
+    {
+        var classes = (await ClassRepo.ListAsync())
+            .Where(c => c.Kind is DetectionClassKind.Text or DetectionClassKind.TextAndVisual
+                && !string.IsNullOrWhiteSpace(c.TextPrompt))
+            .OrderBy(c => c.Category, StringComparer.Ordinal)
+            .ThenBy(c => c.Name, StringComparer.Ordinal)
+            .ToList();
+
+        var parameters = new DialogParameters
+        {
+            ["Models"] = _yoloWorldModels,
+            ["Classes"] = classes
+        };
+        var dlg = await Dialog.ShowAsync<PromptPackCompileDialog>(
+            L["PromptPacks.CompileTitle"], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        var res = await dlg.Result;
+
+        if (res is { Canceled: false, Data: PromptPackCompileRequest req })
+        {
+            try
+            {
+                Snackbar.Add(L["PromptPacks.Compiling"], Severity.Info);
+                var pack = await Compiler.CompileAsync(req.SourceModelId, req.ClassIds, req.Name);
+                Snackbar.Add(string.Format(L["PromptPacks.Compiled"], pack.Name), Severity.Success);
+                await Reload();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Błąd: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task CheckStaleness(CompiledPromptPack pack)
+    {
+        try
+        {
+            var isStale = await Compiler.RefreshStalenessAsync(pack.Id);
+            Snackbar.Add(isStale ? L["PromptPacks.IsStale"] : L["PromptPacks.StillFresh"],
+                isStale ? Severity.Warning : Severity.Success);
+            await Reload();
+        }
+        catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+    }
+
+    /// <summary>Uruchamia download YOLO-World przez <c>/api/models/download-yolo-world</c>.
+    /// Request idzie z przeglądarki (fetch + same-origin) żeby nie kolidować z long-running
+    /// request w Blazor Server SignalR channel. Timeout browser fetch = brak (serwer ma 15 min).</summary>
+    private async Task DownloadYoloWorldAsync()
+    {
+        var ok = await Dialog.ShowMessageBox(L["PromptPacks.DownloadTitle"],
+            L["PromptPacks.DownloadMessage"],
+            yesText: L["PromptPacks.DownloadConfirm"], cancelText: L["Common.Cancel"]);
+        if (ok != true) return;
+
+        _downloading = true;
+        StateHasChanged();
+        try
+        {
+            var result = await JS.InvokeAsync<string>("eval", @"
+                (async () => {
+                    try {
+                        const resp = await fetch('/api/models/download-yolo-world', {
+                            method: 'POST', credentials: 'same-origin'
+                        });
+                        const text = await resp.text();
+                        return resp.ok ? 'ok:' + text : ('err:' + resp.status + ':' + text);
+                    } catch (e) { return 'err:' + e.message; }
+                })()
+            ");
+
+            if (result.StartsWith("ok", StringComparison.Ordinal))
+            {
+                Snackbar.Add(L["PromptPacks.DownloadSuccess"], Severity.Success);
+                await Reload();
+            }
+            else
+            {
+                var msg = result.Length > 4 ? result[4..] : "unknown error";
+                if (msg.Length > 300) msg = msg[..300] + "…";
+                Snackbar.Add($"{L["PromptPacks.DownloadFailed"]} {msg}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Błąd: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _downloading = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>Uploaduje 4 pliki YOLO-World z UI — alternatywa gdy auto-download failuje.
+    /// User pobiera w przeglądarce z dowolnego źródła (HF w sesji logged-in, innej maszyny,
+    /// USB z innego komputera), wybiera tutaj przez MudFileUpload. Backend rozpoznaje po nazwie.</summary>
+    private async Task UploadYoloWorldAsync(IReadOnlyList<IBrowserFile>? files)
+    {
+        if (files is null || files.Count == 0) return;
+        _uploading = true;
+        StateHasChanged();
+        try
+        {
+            // Budujemy multipart FormData po stronie JS i wysyłamy przez fetch. Alternatywa
+            // do HttpClient — fetch ma full browser stream, nie kopiuje całego pliku do serwera
+            // Blazor (kluczowe dla 150MB CLIP encodera).
+            // Limit 500MB per plik; Kestrel ma 500MB total body.
+            const long MaxPerFile = 200L * 1024 * 1024;
+
+            // Strategia: serwer czyta każdy IBrowserFile → base64 → JSON. JS buduje Blob-y
+            // + FormData i robi fetch z same-origin cookies. Alternatywa (HttpClient po stronie
+            // serwera) wymaga przenoszenia auth cookies, uploadowania z backendu do backendu —
+            // niepotrzebna komplikacja. 150MB w pamięci jednorazowo OK dla tego use case.
+            var payload = new System.Text.Json.Nodes.JsonArray();
+            foreach (var file in files)
+            {
+                if (file.Size > MaxPerFile)
+                {
+                    Snackbar.Add(string.Format(L["PromptPacks.UploadTooLarge"], file.Name, MaxPerFile / 1024 / 1024), Severity.Warning);
+                    continue;
+                }
+                await using var stream = file.OpenReadStream(MaxPerFile);
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                payload.Add(new System.Text.Json.Nodes.JsonObject
+                {
+                    ["name"] = file.Name,
+                    ["type"] = file.ContentType,
+                    ["b64"] = Convert.ToBase64String(ms.ToArray())
+                });
+            }
+            if (payload.Count == 0)
+            {
+                Snackbar.Add(L["PromptPacks.UploadNothingToSend"], Severity.Warning);
+                return;
+            }
+
+            var payloadJson = payload.ToJsonString();
+            var result = await JS.InvokeAsync<string>("eval", $@"
+                (async (json) => {{
+                    try {{
+                        const files = JSON.parse(json);
+                        const fd = new FormData();
+                        for (const f of files) {{
+                            const bin = atob(f.b64);
+                            const bytes = new Uint8Array(bin.length);
+                            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                            const blob = new Blob([bytes], {{ type: f.type || 'application/octet-stream' }});
+                            fd.append('file', blob, f.name);
+                        }}
+                        const resp = await fetch('/api/models/upload-yolo-world', {{
+                            method: 'POST', credentials: 'same-origin', body: fd
+                        }});
+                        const text = await resp.text();
+                        return resp.ok ? 'ok:' + text : ('err:' + resp.status + ':' + text);
+                    }} catch (e) {{ return 'err:' + e.message; }}
+                }})({System.Text.Json.JsonSerializer.Serialize(payloadJson)})
+            ");
+
+            if (result.StartsWith("ok:", StringComparison.Ordinal))
+            {
+                // Parsujemy odpowiedź — może być "ok=true" (pełny komplet, zarejestrowany)
+                // albo "ok=false, missing=[...]" (częściowy upload, czeka na dokończenie).
+                var body = result[3..];
+                try
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(body);
+                    var okFlag = doc.RootElement.TryGetProperty("ok", out var okEl) && okEl.GetBoolean();
+                    if (okFlag)
+                    {
+                        Snackbar.Add(L["PromptPacks.UploadSuccess"], Severity.Success);
+                        await Reload();
+                    }
+                    else
+                    {
+                        var msg = doc.RootElement.TryGetProperty("message", out var msgEl) ? msgEl.GetString() : "partial";
+                        Snackbar.Add(msg ?? "partial upload", Severity.Warning);
+                    }
+                }
+                catch
+                {
+                    Snackbar.Add(L["PromptPacks.UploadSuccess"], Severity.Success);
+                    await Reload();
+                }
+            }
+            else
+            {
+                var msg = result.Length > 4 ? result[4..] : "unknown";
+                if (msg.Length > 300) msg = msg[..300] + "…";
+                Snackbar.Add($"{L["PromptPacks.UploadFailed"]} {msg}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Błąd: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _uploading = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>Skanuje runtime/models/ i rejestruje nowe foldery jako MLModel + włącza disabled.
+    /// Używane gdy user pobrał pliki ręcznie (np. po 401 z HuggingFace) — wystarczy że ma
+    /// <c>runtime/models/yolo-world-v2-s/model.onnx + text-encoder.onnx + tokenizer/</c>.</summary>
+    private async Task RescanAsync()
+    {
+        _rescanning = true;
+        StateHasChanged();
+        try
+        {
+            var result = await JS.InvokeAsync<string>("eval", @"
+                (async () => {
+                    try {
+                        const resp = await fetch('/api/models/rescan', {
+                            method: 'POST', credentials: 'same-origin'
+                        });
+                        const text = await resp.text();
+                        return resp.ok ? 'ok:' + text : ('err:' + resp.status + ':' + text);
+                    } catch (e) { return 'err:' + e.message; }
+                })()
+            ");
+            if (result.StartsWith("ok", StringComparison.Ordinal))
+            {
+                Snackbar.Add(L["PromptPacks.RescanSuccess"], Severity.Success);
+                await Reload();
+            }
+            else
+            {
+                Snackbar.Add($"{L["PromptPacks.RescanFailed"]} {(result.Length > 4 ? result[4..] : "")}", Severity.Error);
+            }
+        }
+        catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        finally
+        {
+            _rescanning = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Delete(CompiledPromptPack pack)
+    {
+        var ok = await Dialog.ShowMessageBox(L["PromptPacks.DeleteTitle"],
+            string.Format(L["PromptPacks.DeleteMessage"], pack.Name),
+            yesText: L["Common.Delete"], cancelText: L["Common.Cancel"]);
+        if (ok != true) return;
+        await PackRepo.DeleteAsync(pack.Id);
+        Snackbar.Add(L["PromptPacks.Deleted"], Severity.Success);
+        await Reload();
+    }
+}

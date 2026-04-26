@@ -1,0 +1,53 @@
+@using SafeView.Domain.Users
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="_name" Label="@L["ApiKeyDialog.Name"]" Variant="Variant.Outlined" Required="true" />
+
+            <MudSelect T="string" Label="@L["ApiKeyDialog.Scopes"]" MultiSelection="true" @bind-SelectedValues="_scopes" Variant="Variant.Outlined">
+                @foreach (var s in _availableScopes)
+                {
+                    <MudSelectItem T="string" Value="@s">@s</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudDatePicker @bind-Date="_expiresAt" Label="@L["ApiKeys.Expires"]" Variant="Variant.Outlined" />
+
+            <MudText Typo="Typo.caption" Class="sv-text-muted">
+                @L["ApiKeyDialog.Warning"]
+            </MudText>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">@L["Common.Cancel"]</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save">@L["ApiKeyDialog.Create"]</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string _name = string.Empty;
+    private IEnumerable<string> _scopes = new HashSet<string>();
+    private DateTime? _expiresAt;
+
+    private static readonly string[] _availableScopes =
+    [
+        Permission.ApiIncidentsRead,
+        Permission.ApiCamerasRead,
+        Permission.ApiZonesRead
+    ];
+
+    public sealed record Outcome(string Name, IEnumerable<string> Scopes, DateTime? ExpiresAt);
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Save()
+    {
+        if (string.IsNullOrWhiteSpace(_name)) return;
+        MudDialog.Close(DialogResult.Ok(new Outcome(_name.Trim(), _scopes.ToArray(),
+            _expiresAt?.ToUniversalTime())));
+    }
+}

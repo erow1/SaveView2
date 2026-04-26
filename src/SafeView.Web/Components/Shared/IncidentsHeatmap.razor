@@ -1,0 +1,61 @@
+@* Heatmap incydentów: wiersze = dni tygodnia (Pon..Nd), kolumny = godziny 0..23.
+   Tła komórek liniowo skalowane do max wartości w gridzie. *@
+
+@if (_max == 0)
+{
+    <MudText Typo="Typo.body2" Class="sv-text-muted">Brak incydentów w wybranym okresie.</MudText>
+}
+else
+{
+    <div style="overflow:auto;">
+        <table class="sv-heatmap" style="border-collapse:collapse; font-size:11px;">
+            <thead>
+                <tr>
+                    <th class="sv-text-muted" style="padding:2px 6px;"></th>
+                    @for (int h = 0; h < 24; h++)
+                    {
+                        <th class="mono sv-text-muted" style="padding:2px 4px; text-align:center;">@h</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @for (int d = 0; d < 7; d++)
+                {
+                    <tr>
+                        <td class="mono sv-text-muted" style="padding:2px 6px;">@_dayLabels[d]</td>
+                        @for (int h = 0; h < 24; h++)
+                        {
+                            var v = _grid[d, h];
+                            var alpha = v == 0 ? 0.05 : Math.Min(0.95, 0.15 + 0.85 * v / (double)_max);
+                            <td title="@_dayLabels[d] @h:00 — @v"
+                                style="@($"width:18px; height:18px; background:rgba(255,89,100,{alpha.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}); border:1px solid #FFFFFF0A;")">
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<DateTime> OccurredAt { get; set; } = Array.Empty<DateTime>();
+
+    private static readonly string[] _dayLabels = ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nd"];
+    private int[,] _grid = new int[7, 24];
+    private int _max;
+
+    protected override void OnParametersSet()
+    {
+        _grid = new int[7, 24];
+        _max = 0;
+        foreach (var t in OccurredAt)
+        {
+            // ISO: Mon=0..Sun=6
+            int day = ((int)t.DayOfWeek + 6) % 7;
+            int hour = t.Hour;
+            _grid[day, hour]++;
+            if (_grid[day, hour] > _max) _max = _grid[day, hour];
+        }
+    }
+}

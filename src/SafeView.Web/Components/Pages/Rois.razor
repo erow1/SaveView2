@@ -1,0 +1,143 @@
+@page "/admin/rois"
+@attribute [Authorize(Policy = "perm:admin:rois")]
+@using SafeView.Domain.Detection
+@inject SafeView.Application.Abstractions.Persistence.IRoiRepository RoiRepo
+@inject SafeView.Application.Abstractions.Persistence.ICameraRepository CameraRepo
+@inject SafeView.Application.Abstractions.Persistence.IMLModelRepository ModelRepo
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@L["Nav.Rois"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@Icons.Material.Filled.CropFree" Size="Size.Large" Style="color:var(--mud-palette-primary);" />
+        <div>
+            <MudText Typo="Typo.h4">@L["Nav.Rois"]</MudText>
+            <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                @L["Rois.Description"]
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Add" OnClick="Add" Variant="Variant.Filled" Color="Color.Primary">
+            @L["Rois.Add"]
+        </MudButton>
+    </MudStack>
+
+    <MudTable Items="_rois" Dense="true" Hover="true" Loading="_loading" Elevation="0" Class="sv-card">
+        <HeaderContent>
+            <MudTh>@L["Table.Name"]</MudTh>
+            <MudTh>@L["Table.Camera"]</MudTh>
+            <MudTh>@L["Rois.Rectangle"]</MudTh>
+            <MudTh>@L["Rois.Models"]</MudTh>
+            <MudTh>@L["Rois.Mode"]</MudTh>
+            <MudTh>@L["Table.Active"]</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:@context.Color;"></span>
+                    <strong>@context.Name</strong>
+                </div>
+            </MudTd>
+            <MudTd>@(_cameras.FirstOrDefault(c => c.Id == context.CameraId)?.Name ?? "—")</MudTd>
+            <MudTd class="mono" Style="font-size:11px;">
+                @($"{context.Rectangle.X:F2},{context.Rectangle.Y:F2} / {context.Rectangle.Width:F2}×{context.Rectangle.Height:F2}")
+            </MudTd>
+            <MudTd class="mono">@context.ModelIds.Count</MudTd>
+            <MudTd class="mono">@context.InferenceMode</MudTd>
+            <MudTd>
+                @if (context.Enabled) {<MudChip T="string" Size="Size.Small" Style="background:#0E2A1E; color:#2EC27E;">ON</MudChip>}
+                else {<MudChip T="string" Size="Size.Small" Class="sv-chip-muted">OFF</MudChip>}
+            </MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => Edit(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => Delete(context)" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudStack>
+
+@code {
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+    [SupplyParameterFromQuery(Name = "edit")] public string? EditId { get; set; }
+    [SupplyParameterFromQuery(Name = "returnTo")] public string? ReturnTo { get; set; }
+
+    private List<Roi> _rois = new();
+    private List<SafeView.Domain.Cameras.Camera> _cameras = new();
+    private List<SafeView.Domain.ML.MLModel> _models = new();
+    private bool _loading = true;
+    private string? _openedEditId;
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        _loading = true;
+        _cameras = (await CameraRepo.ListAsync()).OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
+        _models = (await ModelRepo.ListAsync()).OrderBy(m => m.Name, StringComparer.Ordinal).ToList();
+        _rois = (await RoiRepo.ListAsync()).OrderBy(r => r.Name, StringComparer.Ordinal).ToList();
+        _loading = false;
+
+        if (!string.IsNullOrEmpty(EditId) && EditId != _openedEditId)
+        {
+            var target = _rois.FirstOrDefault(r => r.Id == EditId);
+            if (target is not null)
+            {
+                _openedEditId = EditId;
+                await Open(target, false);
+                if (!string.IsNullOrEmpty(ReturnTo)) Nav.NavigateTo(ReturnTo);
+            }
+        }
+    }
+
+    private async Task Add()
+    {
+        if (_cameras.Count == 0) { Snackbar.Add(L["Rois.AddCameraFirst"], Severity.Warning); return; }
+        var roi = new Roi { CameraId = _cameras[0].Id, Rectangle = new RoiRectangle { X = 0.1, Y = 0.1, Width = 0.8, Height = 0.8 } };
+        await Open(roi, true);
+    }
+
+    private async Task Edit(Roi r) => await Open(r, false);
+
+    private async Task Open(Roi roi, bool isNew)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Roi"] = roi,
+            ["IsNew"] = isNew,
+            ["Cameras"] = _cameras,
+            ["Models"] = _models
+        };
+        var dlg = await Dialog.ShowAsync<RoiDialog>(
+            isNew ? L["Rois.AddTitle"] : L["Rois.EditTitle"],
+            parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: Roi saved })
+        {
+            try
+            {
+                if (isNew) await RoiRepo.InsertAsync(saved);
+                else await RoiRepo.UpdateAsync(saved);
+                Snackbar.Add(L["Rois.Saved"], Severity.Success);
+                await Reload();
+            }
+            catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        }
+    }
+
+    private async Task Delete(Roi r)
+    {
+        var ok = await Dialog.ShowMessageBox(L["Rois.DeleteTitle"],
+            string.Format(L["Rois.DeleteMessage"], r.Name),
+            yesText: L["Common.Delete"], cancelText: L["Common.Cancel"]);
+        if (ok != true) return;
+        await RoiRepo.DeleteAsync(r.Id);
+        Snackbar.Add(L["Rois.Deleted"], Severity.Success);
+        await Reload();
+    }
+}

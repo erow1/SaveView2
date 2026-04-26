@@ -1,0 +1,136 @@
+@page "/users"
+@attribute [Authorize(Policy = "perm:admin:users")]
+@inject SafeView.Application.Abstractions.Persistence.IUserRepository UserRepo
+@inject SafeView.Application.Abstractions.Persistence.IRoleRepository RoleRepo
+@inject SafeView.Security.Passwords.IPasswordHasher Hasher
+@inject ISnackbar Snackbar
+@inject IDialogService Dialog
+@rendermode InteractiveServer
+
+<PageTitle>@L["Nav.Users"] — @L["AppName"]</PageTitle>
+@inject IStringLocalizer<SharedResource> L
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudText Typo="Typo.h4">@L["Nav.Users"]</MudText>
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary" OnClick="AddUser">
+            @L["Common.Add"]
+        </MudButton>
+    </MudStack>
+
+    <MudTable Items="_users" Dense="true" Hover="true" Loading="_loading" Elevation="0"
+              Class="sv-card">
+        <ToolBarContent>
+            <MudText Typo="Typo.caption" Class="mono sv-text-muted">@string.Format(L["Users.CountLabel"], _users.Count)</MudText>
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh>@L["Table.Login"]</MudTh>
+            <MudTh>@L["Table.Email"]</MudTh>
+            <MudTh>@L["Table.Roles"]</MudTh>
+            <MudTh>@L["Table.Status"]</MudTh>
+            <MudTh>@L["Table.LastLogin"]</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Username</MudTd>
+            <MudTd>@context.Email</MudTd>
+            <MudTd>@string.Join(", ", context.Roles)</MudTd>
+            <MudTd>
+                @if (context.IsLocked)
+                {
+                    <MudChip T="string" Size="Size.Small" Style="background:#3A1515; color:#FF5964;">LOCKED</MudChip>
+                }
+                else if (!context.IsActive)
+                {
+                    <MudChip T="string" Size="Size.Small" Class="sv-chip-muted">OFF</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Style="background:#0E2A1E; color:#2EC27E;">ACTIVE</MudChip>
+                }
+            </MudTd>
+            <MudTd class="mono">@(context.LastLoginAt?.ToString("yyyy-MM-dd HH:mm") ?? "—")</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditUser(context)" />
+                @if (context.IsLocked)
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.LockOpen" Size="Size.Small" OnClick="() => UnlockUser(context)" />
+                }
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudStack>
+
+@code {
+    private List<SafeView.Domain.Users.User> _users = new();
+    private List<SafeView.Domain.Users.Role> _roles = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Reload();
+    }
+
+    private async Task Reload()
+    {
+        _loading = true;
+        _users = (await UserRepo.ListAsync()).OrderBy(u => u.Username, StringComparer.OrdinalIgnoreCase).ToList();
+        _roles = (await RoleRepo.ListAsync()).OrderBy(r => r.Name, StringComparer.Ordinal).ToList();
+        _loading = false;
+    }
+
+    private async Task AddUser()
+    {
+        var parameters = new DialogParameters
+        {
+            ["Roles"] = _roles,
+            ["IsNew"] = true,
+            ["User"] = new SafeView.Domain.Users.User()
+        };
+        var dialog = await Dialog.ShowAsync<UserDialog>(L["UserDialog.AddTitle"], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var res = await dialog.Result;
+        if (res is { Canceled: false, Data: SafeView.Web.Components.Pages.UserDialogResult r })
+        {
+            r.User.PasswordHash = Hasher.Hash(r.Password!);
+            try
+            {
+                await UserRepo.InsertAsync(r.User);
+                Snackbar.Add("Utworzono użytkownika.", Severity.Success);
+                await Reload();
+            }
+            catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        }
+    }
+
+    private async Task EditUser(SafeView.Domain.Users.User u)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Roles"] = _roles,
+            ["IsNew"] = false,
+            ["User"] = u
+        };
+        var dialog = await Dialog.ShowAsync<UserDialog>(L["UserDialog.EditTitle"], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var res = await dialog.Result;
+        if (res is { Canceled: false, Data: SafeView.Web.Components.Pages.UserDialogResult r })
+        {
+            if (!string.IsNullOrEmpty(r.Password))
+                r.User.PasswordHash = Hasher.Hash(r.Password);
+            await UserRepo.UpdateAsync(r.User);
+            Snackbar.Add("Zapisano.", Severity.Success);
+            await Reload();
+        }
+    }
+
+    private async Task UnlockUser(SafeView.Domain.Users.User u)
+    {
+        u.IsLocked = false;
+        u.FailedLoginAttempts = 0;
+        await UserRepo.UpdateAsync(u);
+        Snackbar.Add("Odblokowano konto.", Severity.Success);
+        await Reload();
+    }
+}

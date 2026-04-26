@@ -1,0 +1,281 @@
+@page "/admin/detection-classes"
+@attribute [Authorize(Policy = "perm:admin:detection-classes")]
+@using SafeView.Domain.Detection
+@using SafeView.Domain.ML
+@inject SafeView.Application.Abstractions.Persistence.IDetectionClassRepository ClassRepo
+@inject SafeView.Application.Abstractions.Persistence.IMLModelRepository ModelRepo
+@inject SafeView.Application.Abstractions.Persistence.IIncidentRepository IncidentRepo
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@L["DetectionClasses.Title"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@Icons.Material.Filled.Category" Size="Size.Large" Style="color:var(--mud-palette-primary);" />
+        <div>
+            <MudText Typo="Typo.h4">@L["DetectionClasses.Title"]</MudText>
+            <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                @L["DetectionClasses.Description"]
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="Add">@L["DetectionClasses.Add"]</MudButton>
+    </MudStack>
+
+    <MudTable Items="_classes" Dense="true" Hover="true" Loading="_loading" Elevation="0"
+              Class="sv-card" GroupBy="@_groupDefinition">
+        <GroupHeaderTemplate>
+            <MudTh Class="mud-table-cell-custom-group" colspan="6">
+                <MudText Typo="Typo.subtitle2" Class="mono">@context.Key</MudText>
+            </MudTh>
+        </GroupHeaderTemplate>
+        <HeaderContent>
+            <MudTh>@L["Table.Name"]</MudTh>
+            <MudTh>@L["DetectionClasses.Kind"]</MudTh>
+            <MudTh>@L["DetectionClasses.Detail"]</MudTh>
+            <MudTh>@L["DetectionClasses.MinConfidence"]</MudTh>
+            <MudTh>@L["DetectionClasses.Source"]</MudTh>
+            <MudTh>@L["DetectionClasses.Stats30d"]</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                <strong>@context.Name</strong>
+                @if (!string.IsNullOrEmpty(context.Description))
+                {
+                    <div class="sv-text-muted" style="font-size:11px;">@context.Description</div>
+                }
+            </MudTd>
+            <MudTd>
+                <MudChip T="string" Size="Size.Small"
+                         Color="@KindChipColor(context.Kind)"
+                         Variant="Variant.Outlined">
+                    @KindLabel(context.Kind)
+                </MudChip>
+            </MudTd>
+            <MudTd class="mono" Style="max-width:360px; font-size:12px;">
+                @RenderDetail(context)
+            </MudTd>
+            <MudTd class="mono">@($"{context.RecommendedMinConfidence * 100:F0}%")</MudTd>
+            <MudTd>
+                @if (context.IsBuiltIn)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                        @L["DetectionClasses.BuiltIn"]
+                    </MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">
+                        @L["DetectionClasses.Custom"]
+                    </MudChip>
+                }
+            </MudTd>
+            <MudTd>
+                @if (_stats.TryGetValue(context.Id, out var st) && st.FireCount > 0)
+                {
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                            @st.FireCount @L["DetectionClasses.Fires"]
+                        </MudChip>
+                        @if (st.FalsePositiveCount > 0)
+                        {
+                            <MudTooltip Text="@string.Format(L["DetectionClasses.FpTooltip"], st.FalsePositiveCount, st.FireCount)">
+                                <MudChip T="string" Size="Size.Small"
+                                         Color="@FpChipColor(st.FalsePositiveRate)"
+                                         Variant="Variant.Outlined">
+                                    FP @($"{st.FalsePositiveRate * 100:F0}%")
+                                </MudChip>
+                            </MudTooltip>
+                        }
+                        @if (st.AvgConfidence is { } ac)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">
+                                conf @($"{ac * 100:F0}%")
+                            </MudChip>
+                        }
+                    </MudStack>
+                }
+                else
+                {
+                    <MudText Typo="Typo.caption" Class="sv-text-muted">—</MudText>
+                }
+            </MudTd>
+            <MudTd>
+                <MudTooltip Text="@L["DetectionClasses.ShowStats"]">
+                    <MudIconButton Icon="@Icons.Material.Filled.Analytics" Size="Size.Small"
+                                   OnClick="() => ShowStats(context)" />
+                </MudTooltip>
+                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small" OnClick="() => Duplicate(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => Edit(context)"
+                               Disabled="context.IsBuiltIn" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => Delete(context)"
+                               Disabled="context.IsBuiltIn" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudStack>
+
+@code {
+    private List<DetectionClass> _classes = new();
+    private List<MLModel> _models = new();
+    private Dictionary<string, SafeView.Application.Abstractions.Persistence.DetectionClassStats> _stats = new();
+    private bool _loading = true;
+
+    private readonly TableGroupDefinition<DetectionClass> _groupDefinition = new()
+    {
+        GroupName = "Category",
+        Indentation = false,
+        Expandable = false,
+        Selector = (c) => string.IsNullOrWhiteSpace(c.Category) ? "—" : c.Category
+    };
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        _loading = true;
+        _models = (await ModelRepo.ListAsync()).OrderBy(m => m.Name, StringComparer.Ordinal).ToList();
+        _classes = (await ClassRepo.ListAsync())
+            .OrderBy(c => c.Category, StringComparer.Ordinal)
+            .ThenBy(c => c.Name, StringComparer.Ordinal)
+            .ToList();
+
+        // Faza 7: metryki per-klasa za ostatnie 30 dni. Load równolegle.
+        var from = DateTime.UtcNow.AddDays(-30);
+        var tasks = _classes.Select(async c =>
+            (Id: c.Id, Stats: await IncidentRepo.GetStatsByDetectionClassAsync(c.Id, from))).ToList();
+        var results = await Task.WhenAll(tasks);
+        _stats = results.ToDictionary(r => r.Id, r => r.Stats, StringComparer.Ordinal);
+
+        _loading = false;
+    }
+
+    private static Color FpChipColor(double rate)
+    {
+        // Analog do /admin/vllm-templates — zielone do 10%, żółte do 30%, czerwone powyżej.
+        if (rate < 0.10) return Color.Success;
+        if (rate < 0.30) return Color.Warning;
+        return Color.Error;
+    }
+
+    private async Task ShowStats(DetectionClass c)
+    {
+        var parameters = new DialogParameters { ["Class"] = c };
+        await Dialog.ShowAsync<DetectionClassStatsDialog>(
+            L["DetectionClasses.StatsTitle"], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+    }
+
+    private string RenderDetail(DetectionClass c) => c.Kind switch
+    {
+        DetectionClassKind.Text => string.IsNullOrEmpty(c.TextPrompt) ? "—" : c.TextPrompt!,
+        DetectionClassKind.Visual => string.Format(L["DetectionClasses.VisualRefs"], c.VisualReferences.Count),
+        DetectionClassKind.TextAndVisual => (c.TextPrompt ?? "—") + " +" + c.VisualReferences.Count + " ref",
+        DetectionClassKind.ClosedSetBinding =>
+            (_models.FirstOrDefault(m => m.Id == c.ClosedSetModelId)?.Name ?? "?") + " / " + (c.ClosedSetLabel ?? "?"),
+        _ => "—"
+    };
+
+    private string KindLabel(DetectionClassKind k) => k switch
+    {
+        DetectionClassKind.ClosedSetBinding => L["DetectionClasses.Kind.ClosedSet"],
+        DetectionClassKind.Text => L["DetectionClasses.Kind.Text"],
+        DetectionClassKind.Visual => L["DetectionClasses.Kind.Visual"],
+        DetectionClassKind.TextAndVisual => L["DetectionClasses.Kind.TextAndVisual"],
+        _ => k.ToString()
+    };
+
+    private static Color KindChipColor(DetectionClassKind k) => k switch
+    {
+        DetectionClassKind.Text => Color.Info,
+        DetectionClassKind.Visual => Color.Warning,
+        DetectionClassKind.TextAndVisual => Color.Secondary,
+        DetectionClassKind.ClosedSetBinding => Color.Default,
+        _ => Color.Default
+    };
+
+    private async Task Add()
+    {
+        var c = new DetectionClass
+        {
+            Name = "",
+            Category = "Custom",
+            Kind = DetectionClassKind.Text,
+            RecommendedMinConfidence = 0.30
+        };
+        await OpenDialog(c, isNew: true);
+    }
+
+    private async Task Edit(DetectionClass c)
+    {
+        if (c.IsBuiltIn) return;
+        await OpenDialog(c, isNew: false);
+    }
+
+    private async Task Duplicate(DetectionClass c)
+    {
+        var copy = new DetectionClass
+        {
+            Name = c.Name + " (kopia)",
+            Description = c.Description,
+            Category = c.Category,
+            Kind = c.Kind,
+            TextPrompt = c.TextPrompt,
+            TextPromptPl = c.TextPromptPl,
+            VisualReferences = c.VisualReferences.Select(v => new VisualReference
+            {
+                RelativePath = v.RelativePath,
+                SourceFrameId = v.SourceFrameId,
+                UploadedAt = v.UploadedAt
+            }).ToList(),
+            ClosedSetModelId = c.ClosedSetModelId,
+            ClosedSetLabel = c.ClosedSetLabel,
+            RecommendedMinConfidence = c.RecommendedMinConfidence,
+            IsBuiltIn = false,
+            BuiltInKey = null
+        };
+        await OpenDialog(copy, isNew: true);
+    }
+
+    private async Task OpenDialog(DetectionClass c, bool isNew)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Class"] = c,
+            ["IsNew"] = isNew,
+            ["Models"] = _models
+        };
+        var dlg = await Dialog.ShowAsync<DetectionClassDialog>(
+            isNew ? L["DetectionClasses.AddTitle"] : L["DetectionClasses.EditTitle"],
+            parameters, new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: DetectionClass saved })
+        {
+            try
+            {
+                if (isNew) await ClassRepo.InsertAsync(saved);
+                else await ClassRepo.UpdateAsync(saved);
+                Snackbar.Add(L["DetectionClasses.Saved"], Severity.Success);
+                await Reload();
+            }
+            catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        }
+    }
+
+    private async Task Delete(DetectionClass c)
+    {
+        if (c.IsBuiltIn) return;
+        var ok = await Dialog.ShowMessageBox(L["DetectionClasses.DeleteTitle"],
+            string.Format(L["DetectionClasses.DeleteMessage"], c.Name),
+            yesText: L["Common.Delete"], cancelText: L["Common.Cancel"]);
+        if (ok != true) return;
+        await ClassRepo.DeleteAsync(c.Id);
+        Snackbar.Add(L["DetectionClasses.Deleted"], Severity.Success);
+        await Reload();
+    }
+}

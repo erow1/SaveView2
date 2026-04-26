@@ -1,0 +1,1167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+
+  <!-- App -->
+  <data name="AppName"><value>SafeView</value></data>
+  <data name="AppTagline"><value>Vision AI for Industrial Safety</value></data>
+
+  <!-- Navigation -->
+  <data name="Nav.Dashboard"><value>Dashboard</value></data>
+  <data name="Nav.LiveView"><value>Live View</value></data>
+  <data name="Nav.Incidents"><value>Incidents</value></data>
+  <data name="Nav.Monitor"><value>Monitor</value></data>
+  <data name="Nav.Flow"><value>Pipeline flow</value></data>
+  <data name="Nav.VllmTemplates"><value>VLLM templates</value></data>
+  <data name="Nav.LlmProviders"><value>LLM providers</value></data>
+  <data name="LlmProviders.Title"><value>LLM providers</value></data>
+  <data name="LlmProviders.Description"><value>LLM configurations across different hosts/platforms (Ollama, LM Studio, vLLM, OpenAI, …). Triggers can pick which one to use.</value></data>
+  <data name="LlmProviders.Add"><value>Add provider</value></data>
+  <data name="LlmProviders.AddTitle"><value>New LLM provider</value></data>
+  <data name="LlmProviders.EditTitle"><value>Edit LLM provider</value></data>
+  <data name="LlmProviders.DeleteTitle"><value>Delete provider?</value></data>
+  <data name="LlmProviders.DeleteMessage"><value>Provider '{0}' will be deleted. Triggers using it will fall back to the default.</value></data>
+  <data name="LlmProviders.Saved"><value>Provider saved.</value></data>
+  <data name="LlmProviders.Deleted"><value>Provider deleted.</value></data>
+  <data name="LlmProviders.Kind"><value>Type</value></data>
+  <data name="LlmProviders.KindHint"><value>Picking a type sets defaults for URL and model.</value></data>
+  <data name="LlmProviders.BaseUrl"><value>Endpoint URL</value></data>
+  <data name="LlmProviders.BaseUrlHint"><value>Full URL with /v1 suffix. Ollama: http://host:11434/v1, LM Studio: http://host:1234/v1, OpenAI: https://api.openai.com/v1</value></data>
+  <data name="LlmProviders.ApiKey"><value>API key</value></data>
+  <data name="LlmProviders.ApiKeyHint"><value>Local endpoints (Ollama, LM Studio) usually don't need one. Cloud — required.</value></data>
+  <data name="LlmProviders.DefaultModel"><value>Default model</value></data>
+  <data name="LlmProviders.Timeout"><value>Timeout (s)</value></data>
+  <data name="LlmProviders.IsDefault"><value>Default</value></data>
+  <data name="LlmProviders.DefaultBadge"><value>DEFAULT</value></data>
+  <data name="LlmProviders.NameHint"><value>E.g. "Ollama local (dev)", "GPT-4o cloud", "vLLM company 32B"</value></data>
+  <data name="LlmProviders.DescriptionLabel"><value>Description (host location, purpose)</value></data>
+  <data name="LlmProviders.TestConnection"><value>Test connection</value></data>
+  <data name="LlmProviders.PingOk"><value>{0}: connection OK</value></data>
+  <data name="LlmProviders.PingFailed"><value>{0}: no response (endpoint returned an error)</value></data>
+  <data name="LlmProviders.PingError"><value>Test error: {0}</value></data>
+  <data name="Triggers.VllmProvider"><value>LLM provider</value></data>
+  <data name="Triggers.VllmProviderHint"><value>Pick a specific provider. Empty = use default from /admin/llm-providers.</value></data>
+  <data name="Triggers.VllmProviderDefault"><value>Default provider</value></data>
+  <data name="VllmPlayground.Provider"><value>LLM provider</value></data>
+  <data name="VllmPlayground.ProviderHint"><value>Pick a provider. Empty = default.</value></data>
+  <data name="VllmPlayground.ProviderDefault"><value>Default provider</value></data>
+  <data name="Nav.VllmPlayground"><value>VLLM playground</value></data>
+  <data name="VllmPlayground.Title"><value>VLLM playground</value></data>
+  <data name="VllmPlayground.Description"><value>Upload a still image, pick a template or write your own prompt — verify what VLLM returns before enabling on production.</value></data>
+  <data name="VllmPlayground.Run"><value>Run test</value></data>
+  <data name="VllmPlayground.Running"><value>Running…</value></data>
+  <data name="VllmPlayground.Config"><value>Configuration</value></data>
+  <data name="VllmPlayground.LoadTemplate"><value>Load from template</value></data>
+  <data name="VllmPlayground.Model"><value>Model name</value></data>
+  <data name="VllmPlayground.ModelHint"><value>Empty = default from LLM settings. E.g. qwen2.5-vl:7b, qwen2.5-vl:32b, gemma3:27b</value></data>
+  <data name="VllmPlayground.SystemPrompt"><value>System prompt (EN)</value></data>
+  <data name="VllmPlayground.UserPrompt"><value>User prompt (PL)</value></data>
+  <data name="VllmPlayground.UserPromptHint"><value>Placeholders: {camera}, {zone}, {trigger}, {labels}, {detections}, {time_of_day}</value></data>
+  <data name="VllmPlayground.Context"><value>Event context (test data)</value></data>
+  <data name="VllmPlayground.Gates"><value>Thresholds and gates</value></data>
+  <data name="VllmPlayground.Schema"><value>Response JSON schema</value></data>
+  <data name="VllmPlayground.CameraName"><value>Camera name</value></data>
+  <data name="VllmPlayground.ZoneName"><value>Zone name</value></data>
+  <data name="VllmPlayground.TriggerName"><value>Trigger name</value></data>
+  <data name="VllmPlayground.DetectedLabels"><value>Detected labels (comma-separated)</value></data>
+  <data name="VllmPlayground.DetectedLabelsHint"><value>E.g. "person, helmet" — goes to {labels} in the prompt</value></data>
+  <data name="VllmPlayground.Image"><value>Test image</value></data>
+  <data name="VllmPlayground.UploadImage"><value>Upload image (JPG/PNG)</value></data>
+  <data name="VllmPlayground.ReplaceImage"><value>Replace image</value></data>
+  <data name="VllmPlayground.NoImageYet"><value>Upload an image to run a test.</value></data>
+  <data name="VllmPlayground.FileTooLarge"><value>File too large (max 20 MB).</value></data>
+  <data name="VllmPlayground.Result"><value>Result</value></data>
+  <data name="VllmPlayground.NoResultYet"><value>Upload an image and click "Run test".</value></data>
+  <data name="VllmPlayground.Confirmed"><value>CONFIRMED</value></data>
+  <data name="VllmPlayground.NotConfirmed"><value>NOT CONFIRMED</value></data>
+  <data name="VllmPlayground.ErrorBadge"><value>ERROR</value></data>
+  <data name="VllmPlayground.Confidence"><value>Confidence</value></data>
+  <data name="VllmPlayground.Observations"><value>Observations</value></data>
+  <data name="VllmPlayground.Alternatives"><value>Alternative explanations</value></data>
+  <data name="VllmPlayground.Duration"><value>Duration</value></data>
+  <data name="VllmPlayground.RawResponse"><value>Raw LLM response</value></data>
+  <data name="VllmPlayground.GenerateBtn"><value>Generate from description</value></data>
+  <data name="VllmPlayground.Generating"><value>Generating…</value></data>
+  <data name="VllmPlayground.GenerateTitle"><value>VLLM prompt generator</value></data>
+  <data name="VllmPlayground.GenerateSuccess"><value>Prompt generated. Test it against an image, then "Save as template" if it works.</value></data>
+  <data name="VllmPlayground.SaveAsTemplate"><value>Save as template</value></data>
+  <data name="VllmGenerator.Hint"><value>Describe in your own words what you want to detect — the LLM generates a complete prompt with system role, Polish user prompt, response schema and recommended thresholds. Refine manually if needed.</value></data>
+  <data name="VllmGenerator.DescriptionLabel"><value>Scenario description</value></data>
+  <data name="VllmGenerator.DescriptionHint"><value>Be specific: who, what, where. E.g. "forklift operator without a helmet in the warehouse" instead of generic "missing PPE".</value></data>
+  <data name="VllmGenerator.Examples"><value>Examples (click to insert)</value></data>
+  <data name="VllmGenerator.Generate"><value>Generate</value></data>
+  <data name="VllmTemplates.Title"><value>VLLM prompt templates</value></data>
+  <data name="VllmTemplates.Description"><value>Library of ready prompts for vision-based BHP event validation. Triggers use these as a base — edit once, applies to many triggers.</value></data>
+  <data name="VllmTemplates.Add"><value>New template</value></data>
+  <data name="VllmTemplates.AddTitle"><value>New VLLM template</value></data>
+  <data name="VllmTemplates.EditTitle"><value>Edit VLLM template</value></data>
+  <data name="VllmTemplates.DeleteTitle"><value>Delete template?</value></data>
+  <data name="VllmTemplates.DeleteMessage"><value>Template '{0}' will be deleted. Triggers using it keep their current configuration.</value></data>
+  <data name="VllmTemplates.Saved"><value>Template saved.</value></data>
+  <data name="VllmTemplates.Deleted"><value>Template deleted.</value></data>
+  <data name="VllmTemplates.Category"><value>Category</value></data>
+  <data name="VllmTemplates.Description.Col"><value>Description</value></data>
+  <data name="VllmTemplates.DescriptionLabel"><value>Description (1-3 sentences)</value></data>
+  <data name="VllmTemplates.MinConfidence"><value>Min confidence</value></data>
+  <data name="VllmTemplates.MinSeverity"><value>Min severity</value></data>
+  <data name="VllmTemplates.MinSeverityHelp"><value>Severity below this = trigger does not fire.</value></data>
+  <data name="VllmTemplates.Source"><value>Source</value></data>
+  <data name="VllmTemplates.BuiltIn"><value>BUILT-IN</value></data>
+  <data name="VllmTemplates.Custom"><value>CUSTOM</value></data>
+  <data name="VllmTemplates.SystemPrompt"><value>System prompt (EN)</value></data>
+  <data name="VllmTemplates.SystemPromptHelp"><value>Role + CoT rules + severity rubric. In English — models are more stable.</value></data>
+  <data name="VllmTemplates.UserTemplate"><value>User prompt (PL)</value></data>
+  <data name="VllmTemplates.UserTemplateHelp"><value>Placeholders: {camera}, {zone}, {trigger}, {labels}, {detections}, {time_of_day}</value></data>
+  <data name="VllmTemplates.SchemaJson"><value>Response JSON schema</value></data>
+  <data name="VllmTemplates.SchemaJsonHelp"><value>Strict schema — the VLLM must return JSON matching it exactly. Required: confirmed, confidence, severity, reason, image_quality, recommended_action.</value></data>
+  <data name="VllmTemplates.RequireGoodImage"><value>Require good image quality</value></data>
+  <data name="VllmTemplates.Hint"><value>Built-in templates are read-only — use "Duplicate" to create your own version.</value></data>
+  <data name="VllmTemplates.Stats30d"><value>Last 30 days</value></data>
+  <data name="VllmTemplates.Fires"><value>fires</value></data>
+  <data name="VllmTemplates.FpTooltip"><value>{0} of {1} alerts marked as false-positive — prompt likely needs tuning.</value></data>
+  <data name="VllmTemplates.AvgConfTooltip"><value>Average confidence reported by VLLM</value></data>
+  <data name="VllmTemplates.Export"><value>Export</value></data>
+  <data name="VllmTemplates.ExportAll"><value>Export all</value></data>
+  <data name="VllmTemplates.Import"><value>Import</value></data>
+  <data name="VllmTemplates.ImportSuccess"><value>Templates imported as Custom.</value></data>
+  <data name="VllmTemplates.ImportFailed"><value>Import failed:</value></data>
+  <data name="VllmTemplates.ImportFileTooLarge"><value>File too large (max 5 MB).</value></data>
+  <data name="VllmTemplates.ShowStats"><value>Stats and history</value></data>
+  <data name="VllmTemplates.StatsTitle"><value>Template stats</value></data>
+  <data name="VllmStats.FireCount"><value>Fires (30 days)</value></data>
+  <data name="VllmStats.FpRate"><value>False-positive rate</value></data>
+  <data name="VllmStats.AvgConf"><value>Average confidence</value></data>
+  <data name="VllmStats.Histogram"><value>Confidence distribution</value></data>
+  <data name="VllmStats.HistogramHint"><value>How many alerts landed in each confidence bucket. Shifted left = model uncertain → consider stronger prompt or bigger model.</value></data>
+  <data name="VllmStats.Count"><value>Count</value></data>
+  <data name="VllmStats.History"><value>Version history</value></data>
+  <data name="VllmStats.HistoryEmpty"><value>Template has never been edited — no history.</value></data>
+  <data name="VllmStats.When"><value>When</value></data>
+  <data name="VllmStats.Conf"><value>Conf</value></data>
+  <data name="VllmStats.Sev"><value>Severity</value></data>
+  <data name="VllmStats.Restore"><value>Restore</value></data>
+  <data name="VllmStats.Restored"><value>Template restored from history (previous state saved as new version).</value></data>
+  <data name="VllmPlayground.RefineBtn"><value>Refine with feedback</value></data>
+  <data name="VllmPlayground.RefineTitle"><value>Refine prompt</value></data>
+  <data name="VllmPlayground.RefineSuccess"><value>Prompt updated. Test again.</value></data>
+  <data name="VllmRefine.Hint"><value>Describe specifically what's wrong with the current prompt. LLM returns only the changed parts, the rest stays intact.</value></data>
+  <data name="VllmRefine.FeedbackLabel"><value>What to fix</value></data>
+  <data name="VllmRefine.FeedbackHint"><value>The more specific, the better. "Be more strict" is weak; "reject when the person holds a tool — that's not smoking" is good.</value></data>
+  <data name="VllmRefine.Examples"><value>Examples (click to insert)</value></data>
+  <data name="VllmRefine.Submit"><value>Refine</value></data>
+  <data name="IncidentDetail.MarkFalsePositive"><value>False alarm</value></data>
+  <data name="IncidentDetail.MarkFalsePositiveHint"><value>Mark that VLLM wrongly confirmed this alert. Feedback feeds template statistics — makes weak prompts visible.</value></data>
+  <data name="IncidentDetail.FalsePositiveBadge"><value>FALSE ALARM</value></data>
+  <data name="IncidentDetail.FalsePositiveMarked"><value>Marked as false alarm. Thanks.</value></data>
+  <data name="IncidentDetail.AnalyzeLlm"><value>LLM analysis</value></data>
+  <data name="IncidentDetail.AnalyzeLlmHint"><value>Ask the LLM to evaluate this incident — false-positive risk, recommended action, rationale.</value></data>
+  <data name="IncidentDetail.Analyzing"><value>Analyzing…</value></data>
+  <data name="IncidentDetail.AnalyzeNoResult"><value>LLM returned no result.</value></data>
+  <data name="IncidentDetail.Acknowledge"><value>Acknowledge</value></data>
+  <data name="IncidentDetail.Acknowledged"><value>Acknowledged.</value></data>
+  <data name="IncidentDetail.Resolve"><value>Resolve</value></data>
+  <data name="IncidentDetail.Resolved"><value>Resolved.</value></data>
+  <data name="IncidentDetail.ResolveAsFalse"><value>Resolve as false</value></data>
+  <data name="IncidentDetail.ResolvedAsFalse"><value>Marked as false alarm (closed).</value></data>
+  <data name="IncidentDetail.ResolveTitle"><value>Resolve?</value></data>
+  <data name="IncidentDetail.ResolveMsg"><value>Mark incident '{0}' as resolved?</value></data>
+  <data name="IncidentDetail.ResolveFalseTitle"><value>False alarm?</value></data>
+  <data name="IncidentDetail.ResolveFalseMsg"><value>Mark incident '{0}' as false alarm and close?</value></data>
+  <data name="Common.Yes"><value>Yes</value></data>
+  <data name="Triggers.VllmLoadTemplate"><value>Load from template</value></data>
+  <data name="Triggers.VllmLoadTemplateHint"><value>Pre-populates fields below with the selected template's configuration.</value></data>
+  <data name="Triggers.VllmBoundToTemplate"><value>Bound to template</value></data>
+  <data name="Triggers.VllmMinSeverity"><value>Min severity</value></data>
+  <data name="Triggers.VllmMinSeverityHint"><value>VLLM must return severity at least this value for the trigger to fire.</value></data>
+  <data name="Triggers.VllmRequireGoodImage"><value>Require good image quality</value></data>
+  <data name="Flow.Title"><value>Pipeline flow</value></data>
+  <data name="Flow.Description"><value>System topology with live event animation. Click a node to jump to its editor.</value></data>
+  <data name="Flow.Relayout"><value>Relayout</value></data>
+  <data name="Flow.Fit"><value>Fit</value></data>
+  <data name="Flow.Legend.Camera"><value>Camera</value></data>
+  <data name="Flow.Legend.Roi"><value>ROI</value></data>
+  <data name="Flow.Legend.Zone"><value>Zone</value></data>
+  <data name="Flow.Legend.Trigger"><value>Trigger</value></data>
+  <data name="Flow.Legend.Action"><value>Action</value></data>
+  <data name="Flow.Legend.Model"><value>ML model</value></data>
+  <data name="Flow.LiveLegend"><value>Yellow = trigger fire, green = action OK, red = failure / VLLM rejected</value></data>
+  <data name="Triggers.ModelIncompatible"><value>The selected model is not attached to any ROI whose zones use this trigger — detection cannot fire. Add this model to the ROI, or change the selection.</value></data>
+  <data name="Triggers.SpatialSection"><value>Spatial filters (distance in meters)</value></data>
+  <data name="Triggers.SpatialHint"><value>Checks distance between pairs of objects after projection to the ground plane. Requires camera calibration (min. 4 points).</value></data>
+  <data name="Triggers.MinDistanceM"><value>Min (m)</value></data>
+  <data name="Triggers.MaxDistanceM"><value>Max (m)</value></data>
+  <data name="Triggers.OptionalMeters"><value>Optional</value></data>
+  <data name="Triggers.PairMode"><value>Pair mode</value></data>
+  <data name="Triggers.PairMode.Any"><value>Any pair</value></data>
+  <data name="Triggers.PairMode.All"><value>All pairs</value></data>
+  <data name="Triggers.AddSpatialFilter"><value>Add spatial filter</value></data>
+  <data name="Triggers.SpatialRequiresCalibration"><value>Trigger will not fire for cameras without homography calibration (see camera calibration page).</value></data>
+  <data name="Calibration.Title"><value>Camera calibration</value></data>
+  <data name="Calibration.Description"><value>Click at least 4 ground points and type their real-world X,Y in meters. Points should not be collinear.</value></data>
+  <data name="Calibration.Instructions"><value>Click a point on the image (e.g. a floor grid corner, a marker), then enter its X and Y in meters relative to any chosen origin. Repeat for at least 4 points.</value></data>
+  <data name="Calibration.RefreshFrame"><value>Refresh frame</value></data>
+  <data name="Calibration.PointsTitle"><value>Calibration points</value></data>
+  <data name="Calibration.NoPoints"><value>Click on the image to add the first point.</value></data>
+  <data name="Calibration.MinPointsHint"><value>Minimum 4 non-collinear points. More points = better least-squares fit.</value></data>
+  <data name="Calibration.NeedFourPoints"><value>At least 4 points are required.</value></data>
+  <data name="Calibration.InvalidGeometry"><value>Points are collinear or duplicated — cannot compute a homography.</value></data>
+  <data name="Calibration.Saved"><value>Calibration saved.</value></data>
+  <data name="Calibration.Mode"><value>Mode</value></data>
+  <data name="Calibration.ModeRectangle"><value>Rectangle on floor</value></data>
+  <data name="Calibration.ModePoints"><value>Points with coordinates (advanced)</value></data>
+  <data name="Calibration.RectangleInstructions"><value>Pick a clearly visible rectangle on the floor with known dimensions (tile, parking space, machine footprint). Enter its width and depth in meters, then click 4 corners in order: top-left, top-right, bottom-right, bottom-left.</value></data>
+  <data name="Calibration.PointsInstructions"><value>Click any point on the floor and enter its X, Y in meters relative to any origin. Minimum 4 non-collinear points.</value></data>
+  <data name="Calibration.RectWidth"><value>Width (m)</value></data>
+  <data name="Calibration.RectDepth"><value>Depth (m)</value></data>
+  <data name="Calibration.NextCorner"><value>Click</value></data>
+  <data name="Calibration.Reset"><value>Clear</value></data>
+  <data name="Calibration.CornerTL"><value>TL</value></data>
+  <data name="Calibration.CornerTR"><value>TR</value></data>
+  <data name="Calibration.CornerBR"><value>BR</value></data>
+  <data name="Calibration.CornerBL"><value>BL</value></data>
+  <data name="Calibration.RectangleDone"><value>Done</value></data>
+  <data name="Calibration.RectangleStart"><value>Click the top-left corner of the rectangle.</value></data>
+  <data name="Nav.Group.Operator"><value>Operator</value></data>
+  <data name="Nav.Group.Configuration"><value>Configuration</value></data>
+  <data name="Nav.Group.Settings"><value>Settings</value></data>
+  <data name="Nav.Group.Advanced"><value>Advanced</value></data>
+  <data name="Nav.Group.Administration"><value>Administration</value></data>
+  <data name="Nav.SetupWizard"><value>Setup wizard</value></data>
+  <data name="Nav.WhatToDetect"><value>What to detect</value></data>
+  <data name="Nav.ActionHistory"><value>Action history</value></data>
+  <data name="Monitor.Title"><value>Live monitor</value></data>
+  <data name="Monitor.Description"><value>Camera frame with ROI, zones and detected objects overlay.</value></data>
+  <data name="Monitor.WallDescription"><value>Camera wall with live overlay. Click a tile to edit camera.</value></data>
+  <data name="Monitor.CamerasCount"><value>{0} cameras</value></data>
+  <data name="Monitor.TileDisabled"><value>DISABLED</value></data>
+  <data name="Monitor.CameraSaved"><value>Camera saved.</value></data>
+  <data name="Monitor.Camera"><value>Camera</value></data>
+  <data name="Monitor.NoCameras"><value>No cameras configured.</value></data>
+  <data name="Monitor.SelectCamera"><value>Select a camera to start monitoring.</value></data>
+  <data name="Monitor.ShowRois"><value>ROIs</value></data>
+  <data name="Monitor.ShowZones"><value>Zones</value></data>
+  <data name="Monitor.ShowDetections"><value>Detections</value></data>
+  <data name="Monitor.ShowDistances"><value>Distances (m)</value></data>
+  <data name="Monitor.ShowDistancesHint"><value>Lines between detected objects with distance in meters. Requires camera calibration. When no calibration — nothing will appear.</value></data>
+  <data name="Monitor.MaxPairs"><value>Pairs</value></data>
+  <data name="Monitor.SyncFrame"><value>Sync with detections</value></data>
+  <data name="Monitor.SyncFrameHint"><value>ON: image is shown from the exact frame on which detections were computed — bboxes align with objects. Image may be slightly delayed (by pipeline inference time). OFF: live image from the camera, but bboxes may lag behind moving objects (they move faster than the pipeline processes).</value></data>
+  <data name="Monitor.ShowAllClasses"><value>All classes (debug)</value></data>
+  <data name="Monitor.ShowAllClassesHint"><value>By default we only show classes configured in this camera's triggers. Enable to see everything the model detects — useful when configuring triggers or debugging why a trigger doesn't fire.</value></data>
+  <data name="Monitor.Interval"><value>Interval</value></data>
+  <data name="Monitor.Starting"><value>starting…</value></data>
+  <data name="Monitor.DetectionsCount"><value>{0} detections in last frame</value></data>
+  <data name="Monitor.LastFrame"><value>Last frame</value></data>
+  <data name="Nav.Cameras"><value>Cameras</value></data>
+  <data name="Nav.Zones"><value>Zones</value></data>
+  <data name="Nav.Rois"><value>ROIs (regions of interest)</value></data>
+  <data name="Nav.Triggers"><value>Triggers</value></data>
+  <data name="Nav.Actions"><value>Actions</value></data>
+  <!-- Detection pipeline — ROI/Trigger/Action -->
+  <data name="Rois.Description"><value>Rectangular regions of interest — where ML models run. Optimizes detection on high-res cameras.</value></data>
+  <data name="Rois.Add"><value>Add ROI</value></data>
+  <data name="Rois.AddTitle"><value>Add region of interest</value></data>
+  <data name="Rois.EditTitle"><value>Edit region of interest</value></data>
+  <data name="Rois.Rectangle"><value>Rectangle (X, Y, Width, Height)</value></data>
+  <data name="Rois.Models"><value>ML models</value></data>
+  <data name="Rois.ModelsHint"><value>Select which ML models should process this ROI.</value></data>
+  <data name="Rois.Mode"><value>Inference mode</value></data>
+  <data name="Rois.ModeHint"><value>Native/Resize = Phase 1. Sliced/Adaptive = Phase 2 (preserves detection sensitivity for 4K cameras).</value></data>
+  <data name="Rois.Inference"><value>Inference strategy</value></data>
+  <data name="Rois.PreviewHint"><value>Camera preview — ROI shown as dashed rectangle. Use sliders below for precise positioning.</value></data>
+  <data name="Rois.DrawHint"><value>Click and drag on the preview to draw the ROI rectangle. Release to save.</value></data>
+  <data name="Rois.FullFrame"><value>Full frame</value></data>
+  <data name="Rois.FineTune"><value>Fine-tune with sliders (optional)</value></data>
+  <!-- Phase 5: Cascade mode -->
+  <data name="Rois.PrescanSection"><value>Fast pre-scan (CPU saving)</value></data>
+  <data name="Rois.PrescanExplain"><value>When events are rare (fire, intrusion, missing helmet), heavy models above burn CPU on every frame for nothing. Enable pre-scan: a lightweight model first checks if anything at all is happening. Only when it spots something — heavy models run, and only on a small crop around the candidate, not the whole ROI. Typical savings: 50-80% CPU when events are rare.</value></data>
+  <data name="Rois.PrescanEnable"><value>Enable fast pre-scan</value></data>
+  <data name="Rois.PrescanModel"><value>Fast scanning model</value></data>
+  <data name="Rois.PrescanModelHelp"><value>Best choice: lightweight YOLO (yolov8n). It only needs to notice that something is there — the heavy model will confirm.</value></data>
+  <data name="Rois.PrescanSensitivity"><value>Pre-scan sensitivity</value></data>
+  <data name="Rois.SensLow"><value>Low (40%) — triggers the heavy model less often, risk of missing</value></data>
+  <data name="Rois.SensMedium"><value>Medium (25%) — default, balanced</value></data>
+  <data name="Rois.SensHigh"><value>High (15%) — catches more, but more pre-scan false-positives</value></data>
+  <data name="Rois.SensExplain"><value>Low = lower CPU cost, but might miss a small/distant object. High = more heavy-model calls on "maybe-candidates".</value></data>
+  <data name="Rois.PrescanPadding"><value>Margin around crop</value></data>
+  <data name="Rois.PrescanPaddingHelp"><value>How much context around the detected object the heavy model sees. 20% is usually enough — too big a margin negates the savings.</value></data>
+  <data name="Rois.NoModels"><value>No ML models configured — add one under Models first.</value></data>
+  <data name="Rois.InvalidRectangle"><value>Invalid rectangle — must fit within [0..1] and be non-empty.</value></data>
+  <data name="Rois.AddCameraFirst"><value>Add a camera first.</value></data>
+  <data name="Rois.Saved"><value>ROI saved.</value></data>
+  <data name="Rois.Deleted"><value>ROI deleted.</value></data>
+  <data name="Rois.DeleteTitle"><value>Delete ROI?</value></data>
+  <data name="Rois.DeleteMessage"><value>ROI '{0}' will be deleted.</value></data>
+  <data name="Triggers.Description"><value>Shared triggers — reusable rules that fire actions. Pin them to zones in the Zones page.</value></data>
+  <data name="Triggers.Add"><value>Add trigger</value></data>
+  <data name="Triggers.AddTitle"><value>Add trigger</value></data>
+  <data name="Triggers.EditTitle"><value>Edit trigger</value></data>
+  <data name="Triggers.Conditions"><value>Conditions</value></data>
+  <data name="Triggers.AddCondition"><value>Add condition</value></data>
+  <data name="Triggers.Model"><value>Model</value></data>
+  <data name="Triggers.Labels"><value>Labels (comma-separated)</value></data>
+  <data name="Triggers.LabelsHint"><value>e.g. person,no_helmet. Empty = all classes from the model.</value></data>
+  <data name="Triggers.MinCount"><value>Min count</value></data>
+  <data name="Triggers.MinConfidence"><value>Min confidence</value></data>
+  <data name="Triggers.BboxRule"><value>Bbox rule</value></data>
+  <data name="Triggers.BboxRule.CenterInZone"><value>Center in zone</value></data>
+  <data name="Triggers.BboxRule.AnyCorner"><value>Any corner in zone</value></data>
+  <data name="Triggers.BboxRule.AllCorners"><value>All corners in zone</value></data>
+  <data name="Triggers.BboxRule.NCorners"><value>N corners in zone</value></data>
+  <data name="Triggers.BboxRule.Iou"><value>IoU overlap</value></data>
+  <data name="Triggers.IouTooltip"><value>IoU (Intersection over Union) = overlap area / union area of bbox and zone. Value 0..1: 0.3 = loose match (30% overlap), 0.5 = standard, 0.7+ = strict. Used when "Center in zone" is too permissive.</value></data>
+  <data name="Triggers.UseModelDefault"><value>use model default</value></data>
+  <!-- VLLM gating (Phase 3) -->
+  <data name="Triggers.VllmSection"><value>VLLM validation (optional)</value></data>
+  <data name="Triggers.VllmHint"><value>Ask VLLM to validate each trigger before firing actions. Reduces false-positives (e.g., "is this really fire or just a lamp?"). Requires configured LLM in Settings → LLM. Adds ~1-3s latency.</value></data>
+  <data name="Triggers.VllmEnabled"><value>Enable VLLM validation</value></data>
+  <data name="Triggers.VllmPrompt"><value>Prompt template</value></data>
+  <data name="Triggers.VllmPromptHint"><value>Placeholders: {camera}, {zone}, {trigger}, {labels}, {detections}. VLLM returns JSON: {confirmed, confidence, reason}.</value></data>
+  <data name="Triggers.VllmSystemPrompt"><value>System prompt (role)</value></data>
+  <data name="Triggers.VllmIncludeFrame"><value>Include frame (requires vision model)</value></data>
+  <data name="Triggers.VllmRejectOnError"><value>Reject on LLM error (fail-closed)</value></data>
+  <data name="Triggers.VllmModelName"><value>Model name (override)</value></data>
+  <data name="Triggers.VllmModelNameHint"><value>Empty = use default from Settings → LLM (e.g., gpt-4o, llava-1.6, qwen2-vl)</value></data>
+  <data name="Triggers.VllmMinConfidence"><value>Min confidence to confirm</value></data>
+  <!-- Action types (Phase 4) -->
+  <data name="Actions.EmailHint"><value>Send email via SMTP when trigger fires. Configure SMTP credentials per action for isolation.</value></data>
+  <data name="Actions.Email.To"><value>To (comma-separated)</value></data>
+  <data name="Actions.Email.ToHint"><value>One or more addresses separated by comma</value></data>
+  <data name="Actions.Email.From"><value>From</value></data>
+  <data name="Actions.Email.Host"><value>SMTP host</value></data>
+  <data name="Actions.Email.Port"><value>Port</value></data>
+  <data name="Actions.Email.Username"><value>Username</value></data>
+  <data name="Actions.Email.Password"><value>Password</value></data>
+  <data name="Actions.Email.UseTls"><value>Use STARTTLS</value></data>
+  <data name="Actions.Email.AttachFrame"><value>Attach camera frame</value></data>
+  <data name="Actions.Email.Subject"><value>Subject template</value></data>
+  <data name="Actions.Email.Body"><value>Body template</value></data>
+  <data name="Actions.WebhookHint"><value>POST JSON payload to an HTTP endpoint (Zapier, Make.com, custom webhook, Slack/Discord via integration).</value></data>
+  <data name="Actions.Webhook.Url"><value>Webhook URL</value></data>
+  <data name="Actions.Webhook.Secret"><value>Bearer token (optional)</value></data>
+  <data name="Actions.Webhook.SecretHint"><value>Sent in Authorization: Bearer {secret} header</value></data>
+  <data name="Actions.Webhook.Template"><value>Payload template (JSON)</value></data>
+  <data name="Actions.Webhook.TemplateHint"><value>Empty = default structured payload. Custom = JSON with placeholders {camera}, {zone}, {trigger}, {labels}.</value></data>
+  <data name="Triggers.CornersRequired"><value>Corners required</value></data>
+  <data name="Triggers.Cooldown"><value>Cooldown [s]</value></data>
+  <data name="Triggers.CooldownHint"><value>Minimum seconds between two fires for the same zone. 0 = no cooldown.</value></data>
+  <data name="Triggers.Persistent"><value>Persistent frames</value></data>
+  <data name="Triggers.PersistentHint"><value>Require N consecutive frames with matching conditions.</value></data>
+  <data name="Triggers.Schedule"><value>Schedule</value></data>
+  <data name="Triggers.ScheduleEnabled"><value>Time-limited</value></data>
+  <data name="Triggers.ScheduleStart"><value>Start hour</value></data>
+  <data name="Triggers.ScheduleEnd"><value>End hour</value></data>
+  <data name="Triggers.Actions"><value>Actions count</value></data>
+  <data name="Triggers.ActionsToFire"><value>Actions to fire</value></data>
+  <data name="Triggers.ActionsHint"><value>Click actions to attach/detach. All selected actions will be fired when the trigger matches.</value></data>
+  <data name="Triggers.NoActionsAvailable"><value>No actions configured — create one under Actions first.</value></data>
+  <data name="Triggers.Saved"><value>Trigger saved.</value></data>
+  <data name="Triggers.Deleted"><value>Trigger deleted.</value></data>
+  <data name="Triggers.DeleteTitle"><value>Delete trigger?</value></data>
+  <data name="Triggers.DeleteMessage"><value>Trigger '{0}' will be deleted.</value></data>
+  <data name="Actions.Description"><value>Actions fired by triggers — LogAlert, in-app notification. Future: Email, Webhook, Relay, SMS.</value></data>
+  <data name="Actions.Add"><value>Add action</value></data>
+  <data name="Actions.AddTitle"><value>Add action</value></data>
+  <data name="Actions.EditTitle"><value>Edit action</value></data>
+  <data name="Actions.Type"><value>Type</value></data>
+  <data name="Actions.RateLimit"><value>Rate limit / min</value></data>
+  <data name="Actions.RateLimitHint"><value>Max fires per minute per this action. 0 = unlimited.</value></data>
+  <data name="Actions.Config"><value>Configuration</value></data>
+  <data name="Actions.Template"><value>Message template</value></data>
+  <data name="Actions.TemplateHint"><value>Placeholders: {camera}, {zone}, {trigger}, {labels}, {detections}.</value></data>
+  <data name="Actions.DescriptionLabel"><value>Description</value></data>
+  <data name="Actions.HistoryLink"><value>Execution history</value></data>
+  <data name="Actions.Saved"><value>Action saved.</value></data>
+  <data name="Actions.Deleted"><value>Action deleted.</value></data>
+  <data name="Actions.DeleteTitle"><value>Delete action?</value></data>
+  <data name="Actions.DeleteMessage"><value>Action '{0}' will be deleted.</value></data>
+  <data name="Test.Fire"><value>Test fire</value></data>
+  <data name="Test.Succeeded"><value>Test succeeded ({0} ms).</value></data>
+  <data name="Test.Failed"><value>Test failed: {0}</value></data>
+  <data name="Test.NoActions"><value>Trigger has no actions assigned.</value></data>
+  <data name="Test.TriggerResult"><value>Trigger test: {0} OK, {1} failed.</value></data>
+  <data name="ActionHistory.Title"><value>Action execution history</value></data>
+  <data name="ActionHistory.Description"><value>Audit log of every trigger fire and action execution. Retention 30 days (automatic TTL).</value></data>
+  <data name="ActionHistory.Status"><value>Status</value></data>
+  <data name="ActionHistory.ActionCol"><value>Action</value></data>
+  <data name="ActionHistory.TriggerCol"><value>Trigger</value></data>
+  <data name="ActionHistory.ZoneCol"><value>Zone</value></data>
+  <data name="ActionHistory.DetailsCol"><value>Details</value></data>
+  <data name="ActionHistory.Empty"><value>No executions recorded yet.</value></data>
+  <data name="ActionHistory.TotalLabel"><value>Total: {0} · shown: {1}</value></data>
+  <data name="ZoneDialog.Roi"><value>ROI (region of interest)</value></data>
+  <data name="ZoneDialog.NoRoisForCamera"><value>No ROIs defined for this camera — create one in ROIs page first.</value></data>
+  <data name="ZoneDialog.Triggers"><value>Triggers</value></data>
+  <data name="ZoneDialog.TriggersHint"><value>Click triggers to attach/detach. Selected triggers are evaluated for this zone on every frame.</value></data>
+  <data name="ZoneDialog.NoTriggersAvailable"><value>No triggers defined — create one under Triggers page first.</value></data>
+  <data name="ZoneDialog.GeometryOutsideRoi"><value>{0} polygon point(s) are outside ROI '{1}'. Adjust the polygon or change ROI.</value></data>
+  <data name="Zones.Roi"><value>ROI</value></data>
+  <data name="Zones.TriggersCount"><value>Triggers</value></data>
+  <data name="Zones.AddCameraFirst"><value>Add a camera first.</value></data>
+  <data name="Zones.AddRoiFirst"><value>Add an ROI first.</value></data>
+  <data name="Zones.Saved"><value>Zone saved.</value></data>
+  <data name="Zones.Deleted"><value>Zone deleted.</value></data>
+  <data name="Zones.DeleteTitle"><value>Delete zone?</value></data>
+  <data name="Zones.DeleteMessage"><value>Zone '{0}' will be deleted.</value></data>
+  <data name="Nav.Models"><value>Models</value></data>
+  <data name="Nav.Reports"><value>Reports</value></data>
+  <data name="Nav.Assistant"><value>Assistant</value></data>
+  <data name="Nav.Users"><value>Users &amp; Roles</value></data>
+  <data name="Nav.Settings"><value>Settings</value></data>
+  <data name="Nav.License"><value>License</value></data>
+  <data name="Nav.AuditLog"><value>Audit Log</value></data>
+  <data name="Nav.SystemEvents"><value>System Logs</value></data>
+  <data name="Nav.Performance"><value>Performance</value></data>
+  <!-- Phase 5: Performance dashboard -->
+  <data name="Performance.Description"><value>Real-time pipeline latency and throughput per camera, ROI, and model. In-memory rolling window, resets on app restart.</value></data>
+  <data name="Performance.Window"><value>Window</value></data>
+  <data name="Performance.AutoRefresh"><value>Auto (5s)</value></data>
+  <data name="Performance.FramesPerMin"><value>Frames / min</value></data>
+  <data name="Performance.AvgLatency"><value>Avg latency</value></data>
+  <data name="Performance.P95Latency"><value>P95 latency</value></data>
+  <data name="Performance.TotalSamples"><value>Samples</value></data>
+  <data name="Performance.Errors"><value>Errors</value></data>
+  <data name="Performance.NoData"><value>No data in this window — pipeline hasn't processed any frames yet. Check that cameras are enabled with ROI + models.</value></data>
+  <data name="Performance.NoEntries"><value>No entries.</value></data>
+  <data name="Performance.PerCamera"><value>Per camera</value></data>
+  <data name="Performance.PerRoi"><value>Per ROI</value></data>
+  <data name="Performance.PerModel"><value>Per model</value></data>
+  <data name="Performance.PerStage"><value>Per pipeline stage</value></data>
+  <data name="Performance.Name"><value>Name</value></data>
+  <data name="Performance.Count"><value>Count</value></data>
+  <data name="Performance.ErrorsShort"><value>Err</value></data>
+  <data name="Performance.AvgMs"><value>Avg ms</value></data>
+  <data name="Performance.P50Ms"><value>P50 ms</value></data>
+  <data name="Performance.P95Ms"><value>P95 ms</value></data>
+  <data name="Performance.MaxMs"><value>Max ms</value></data>
+  <data name="Performance.AvgDet"><value>Avg det</value></data>
+  <data name="Performance.GeneratedAt"><value>Generated at {0}</value></data>
+  <data name="SystemEvents.Description"><value>Technical application events — errors, warnings, process crashes. Retention 7 days (automatic).</value></data>
+  <data name="SystemEvents.AutoRefresh"><value>Auto-refresh (10s)</value></data>
+  <data name="SystemEvents.MinSeverity"><value>Min. level</value></data>
+  <data name="SystemEvents.Source"><value>Source</value></data>
+  <data name="SystemEvents.Category"><value>Category</value></data>
+  <data name="SystemEvents.Search"><value>Search in message</value></data>
+  <data name="SystemEvents.SearchPlaceholder"><value>e.g. stimeout, Permission denied, code=137</value></data>
+  <data name="SystemEvents.SeverityCol"><value>Level</value></data>
+  <data name="SystemEvents.Message"><value>Message</value></data>
+  <data name="SystemEvents.NoEvents"><value>No events match the filters — system is healthy 🎉</value></data>
+  <data name="SystemEvents.TotalLabel"><value>Total events: {0} · shown: {1}</value></data>
+  <data name="SystemEvents.CopyTooltip"><value>Copy event to clipboard</value></data>
+  <data name="SystemEvents.CopyFull"><value>Copy full event</value></data>
+  <data name="SystemEvents.Details"><value>Details</value></data>
+  <data name="SystemEvents.Copied"><value>Event copied to clipboard</value></data>
+  <data name="SystemEvents.CopyFailed"><value>Clipboard unavailable (insecure context?) — open browser devtools and copy manually</value></data>
+  <data name="SystemEvents.CopyManualHint"><value>Clipboard blocked by browser — select text below (Cmd+A / Ctrl+A) and copy (Cmd+C / Ctrl+C) manually.</value></data>
+  <data name="Settings.Tab.Diagnostics"><value>Diagnostics</value></data>
+  <data name="Settings.Hint.DiagEnabled"><value>Whether to write system events to DB (visible in System Logs)</value></data>
+  <data name="Settings.Hint.DiagMinLevel"><value>Minimum event level: Debug (0), Info (1), Warning (2), Error (3), Critical (4). Recommended: 2 (Warning)</value></data>
+  <data name="Settings.Hint.DiagRetention"><value>Retention in days — older records auto-deleted (MongoDB TTL index)</value></data>
+  <data name="Settings.Tab.ML"><value>ML (GPU)</value></data>
+  <data name="Settings.Hint.MLUseGpu"><value>Enable CUDA GPU acceleration (requires NVIDIA GPU + Microsoft.ML.OnnxRuntime.Gpu package, see CLAUDE.md)</value></data>
+  <data name="Settings.Hint.MLGpuDeviceId"><value>GPU device ID for multi-GPU systems (default 0)</value></data>
+  <data name="Settings.Hint.MLFallback"><value>Fallback provider when CUDA unavailable: "directml" (Win AMD/Intel), "coreml" (macOS), empty = CPU</value></data>
+  <data name="Nav.ApiKeys"><value>API Keys</value></data>
+  <data name="Nav.Llm"><value>LLM</value></data>
+  <data name="Nav.MediaMtx"><value>MediaMTX</value></data>
+
+  <!-- Auth -->
+  <data name="Auth.SignIn"><value>Sign in</value></data>
+  <data name="Auth.SignOut"><value>Sign out</value></data>
+  <data name="Auth.Username"><value>Username</value></data>
+  <data name="Auth.Password"><value>Password</value></data>
+
+  <!-- Common actions -->
+  <data name="Common.Save"><value>Save</value></data>
+  <data name="Common.Cancel"><value>Cancel</value></data>
+  <data name="Common.Delete"><value>Delete</value></data>
+  <data name="Common.Edit"><value>Edit</value></data>
+  <data name="Common.Add"><value>Add</value></data>
+  <data name="Common.Refresh"><value>Refresh</value></data>
+  <data name="Common.Search"><value>Search</value></data>
+  <data name="Common.Saving"><value>Saving…</value></data>
+  <data name="Common.SaveAll"><value>Save all</value></data>
+  <data name="Common.Close"><value>Close</value></data>
+  <data name="Common.Back"><value>Back</value></data>
+  <data name="Common.NoData"><value>No data.</value></data>
+
+  <!-- Language -->
+  <data name="Language.Polish"><value>Polski</value></data>
+  <data name="Language.English"><value>English</value></data>
+
+  <!-- Table headers -->
+  <data name="Table.Name"><value>Name</value></data>
+  <data name="Table.Location"><value>Location</value></data>
+  <data name="Table.Status"><value>Status</value></data>
+  <data name="Table.When"><value>When</value></data>
+  <data name="Table.Camera"><value>Camera</value></data>
+  <data name="Table.Category"><value>Category</value></data>
+  <data name="Table.Severity"><value>Severity</value></data>
+  <data name="Table.Summary"><value>Summary</value></data>
+  <data name="Table.Model"><value>Model</value></data>
+  <data name="Table.Email"><value>Email</value></data>
+  <data name="Table.Roles"><value>Roles</value></data>
+  <data name="Table.Login"><value>Login</value></data>
+  <data name="Table.LastLogin"><value>Last login</value></data>
+  <data name="Table.Active"><value>Active</value></data>
+  <data name="Table.Vendor"><value>Vendor</value></data>
+  <data name="Table.Stream"><value>Stream</value></data>
+  <data name="Table.Host"><value>Host</value></data>
+  <data name="Table.Interval"><value>Interval</value></data>
+  <data name="Table.LastFrame"><value>Last frame</value></data>
+  <data name="Table.Vertices"><value>Vertices</value></data>
+  <data name="Table.Rules"><value>Rules</value></data>
+  <data name="Table.Backend"><value>Backend</value></data>
+  <data name="Table.Source"><value>Source</value></data>
+  <data name="Table.Labels"><value>Labels</value></data>
+  <data name="Table.Prefix"><value>Prefix</value></data>
+  <data name="Table.Scopes"><value>Scopes</value></data>
+  <data name="Table.Created"><value>Created</value></data>
+  <data name="Table.LastUsed"><value>Last used</value></data>
+  <data name="Table.Time"><value>Time (UTC)</value></data>
+  <data name="Table.User"><value>User</value></data>
+  <data name="Table.Action"><value>Action</value></data>
+  <data name="Table.Object"><value>Object</value></data>
+  <data name="Table.IP"><value>IP</value></data>
+  <data name="Table.Details"><value>Details</value></data>
+  <data name="Table.Confidence"><value>Conf / IoU</value></data>
+  <data name="Table.Count"><value>Count</value></data>
+
+  <!-- Pages: Home / Dashboard -->
+  <data name="Home.Description"><value>Automatic detection of OHS threats in production environments using ML (ONNX/Roboflow) and locally hosted LLM (vLLM).</value></data>
+  <data name="Home.CamerasActive"><value>Active cameras</value></data>
+  <data name="Home.Incidents24h"><value>Incidents (24h)</value></data>
+  <data name="Home.ActiveModels"><value>Active models</value></data>
+  <data name="Home.LicenseStatus"><value>License status</value></data>
+  <data name="Home.Heatmap"><value>Incidents heatmap (7 days, UTC hours)</value></data>
+  <data name="Home.TopCategories"><value>Top categories (7 days)</value></data>
+  <data name="Home.LatestIncidents"><value>Latest incidents</value></data>
+
+  <!-- Pages: Incidents -->
+  <data name="Incidents.Title"><value>Incidents</value></data>
+  <data name="IncidentDetail.Title"><value>Incident details</value></data>
+  <data name="IncidentDetail.NoFrame"><value>No evidence frame</value></data>
+  <data name="IncidentDetail.Camera"><value>Camera</value></data>
+  <data name="IncidentDetail.Roi"><value>ROI</value></data>
+  <data name="IncidentDetail.Zone"><value>Zone</value></data>
+  <data name="IncidentDetail.Trigger"><value>Trigger</value></data>
+  <data name="IncidentDetail.Category"><value>Category</value></data>
+  <data name="IncidentDetail.Severity"><value>Severity</value></data>
+  <data name="IncidentDetail.Status"><value>Status</value></data>
+  <data name="IncidentDetail.DetectionsCount"><value>Detections</value></data>
+  <data name="IncidentDetail.DetectionsList"><value>Detections</value></data>
+  <data name="IncidentDetail.Label"><value>Label</value></data>
+  <data name="IncidentDetail.Confidence"><value>Confidence</value></data>
+  <data name="IncidentDetail.Bbox"><value>Bbox</value></data>
+  <data name="IncidentDetail.LlmAnalysis"><value>LLM analysis</value></data>
+  <data name="IncidentDetail.LlmRecommended"><value>Recommended</value></data>
+  <data name="Incidents.FilterStatus"><value>Status filter</value></data>
+  <data name="Incidents.All"><value>All</value></data>
+  <data name="Incidents.Open"><value>Open</value></data>
+  <data name="Incidents.Confirmed"><value>Confirmed</value></data>
+  <data name="Incidents.Resolved"><value>Resolved</value></data>
+  <data name="Incidents.FalsePositive"><value>False positive</value></data>
+  <data name="Incidents.FalsePositiveFlag"><value>FALSE ALARM</value></data>
+  <data name="Incidents.FalsePositiveTooltip"><value>Operator flagged this incident as a false-positive — feeds VLLM template statistics.</value></data>
+
+  <!-- Pages: Camera detail -->
+  <data name="CameraDetail.Last24h"><value>Last 24h</value></data>
+  <data name="CameraDetail.Last7d"><value>Last 7 days</value></data>
+  <data name="CameraDetail.FpRate"><value>False-positive (7d)</value></data>
+  <data name="CameraDetail.SnapshotHeatmap"><value>Snapshot + detection heatmap (7d)</value></data>
+  <data name="CameraDetail.NoFrame"><value>No frame — capture a snapshot or wait for first incident.</value></data>
+  <data name="CameraDetail.Capturing"><value>Capturing…</value></data>
+  <data name="CameraDetail.CaptureFrame"><value>Capture new frame</value></data>
+  <data name="CameraDetail.LlmSummary"><value>Activity summary (LLM)</value></data>
+  <data name="CameraDetail.Analyzing"><value>Analyzing…</value></data>
+  <data name="CameraDetail.Analyze7d"><value>Analyze 7d</value></data>
+  <data name="CameraDetail.LlmHint"><value>Click "Analyze 7d" to get a summary of incident patterns for this camera.</value></data>
+  <data name="CameraDetail.CategoryBreakdown"><value>Category breakdown (7d)</value></data>
+  <data name="CameraDetail.NoIncidents7d"><value>No incidents in last 7 days.</value></data>
+  <data name="CameraDetail.RecentIncidents"><value>Recent incidents (max 50)</value></data>
+  <data name="CameraDetail.LivePreview"><value>Live preview</value></data>
+
+  <!-- Pages: Camera live -->
+  <data name="CameraLive.Title"><value>Live preview</value></data>
+  <data name="CameraLive.CaptureFrame"><value>Capture frame</value></data>
+  <data name="CameraLive.Recording"><value>Recording…</value></data>
+  <data name="CameraLive.ClipButton"><value>Clip {0}s</value></data>
+  <data name="CameraLive.ClipSaved"><value>Clip saved: {0} ({1:N2} MB)</value></data>
+  <data name="CameraLive.ClipError"><value>Clip error: {0}</value></data>
+  <data name="CameraLive.SnapshotFailed"><value>Snapshot failed.</value></data>
+  <data name="CameraLive.HintCapture"><value>Click "Capture frame" to take a snapshot.</value></data>
+  <data name="CameraLive.HlsStream"><value>HLS stream</value></data>
+  <data name="CameraLive.LiveStream"><value>Live stream</value></data>
+  <data name="CameraLive.Snapshot"><value>Snapshot</value></data>
+  <data name="CameraLive.HlsNotAvailable"><value>HLS stream not available — MediaMTX may be disabled.</value></data>
+
+  <!-- Pages: Camera dialog -->
+  <data name="CameraDialog.Connection"><value>Connection</value></data>
+  <data name="CameraDialog.Stream"><value>Stream</value></data>
+  <data name="CameraDialog.Channel"><value>Channel</value></data>
+  <data name="CameraDialog.HostIp"><value>Host / IP</value></data>
+  <data name="CameraDialog.Login"><value>Login</value></data>
+  <data name="CameraDialog.SourceUrl"><value>Source URL (RTSP / HTTP / RTMP)</value></data>
+  <data name="CameraDialog.SnapshotInterval"><value>Snapshot interval (s)</value></data>
+  <data name="CameraDialog.ClipDuration"><value>Clip duration (s)</value></data>
+
+  <!-- Pages: Zones -->
+  <data name="Zones.AddZone"><value>Add zone</value></data>
+  <data name="Zones.EditZone"><value>Edit zone</value></data>
+  <data name="Zones.DeleteZone"><value>Delete zone?</value></data>
+
+  <!-- Pages: Zone editor -->
+  <data name="ZoneEditor.Rules"><value>Rules</value></data>
+  <data name="ZoneEditor.NoRules"><value>No rules — zone won't generate incidents.</value></data>
+
+  <!-- Pages: Models -->
+  <data name="Models.Title"><value>ML Models</value></data>
+  <data name="Models.AddModel"><value>Add model</value></data>
+  <data name="Models.Test"><value>Test on image</value></data>
+  <data name="Models.TestTitle"><value>Quick test</value></data>
+  <data name="ModelTest.PickImage"><value>Pick image</value></data>
+  <data name="ModelTest.Running"><value>Detecting…</value></data>
+  <data name="ModelTest.Hint"><value>Upload a test image (.jpg/.png, max 20MB). The model will run detection and show bounding boxes + raw output.</value></data>
+  <data name="ModelTest.Detections"><value>detections</value></data>
+  <data name="ModelTest.NoDetections"><value>No detections found. Try a different image, lower confidence threshold, or for open-vocab: add meaningful labels to the model.</value></data>
+  <data name="ModelTest.Label"><value>Label</value></data>
+  <data name="ModelTest.Confidence"><value>Confidence</value></data>
+  <data name="ModelTest.Bbox"><value>Bbox (x,y,w,h)</value></data>
+  <data name="ModelTest.RawOutput"><value>Raw output (JSON)</value></data>
+  <data name="ModelTest.Failed"><value>Detection failed:</value></data>
+  <data name="ModelTest.ImageTooLarge"><value>Image too large (max 20MB).</value></data>
+  <data name="ModelTest.Prompts"><value>Text prompts (open-vocab)</value></data>
+  <data name="ModelTest.PromptsHint"><value>For YOLO-World / YOLOE — describe what the model should detect. Pre-filled from model labels; edit freely for this test.</value></data>
+  <data name="ModelTest.PromptsPlaceholder"><value>e.g. "worker without hard hat"</value></data>
+  <data name="ModelTest.AddPrompt"><value>Add</value></data>
+  <data name="ModelTest.PromptsEmpty"><value>No prompts — add at least one, or click 'Use model labels' to reset.</value></data>
+  <data name="ModelTest.UseModelLabels"><value>Use model labels</value></data>
+  <data name="ModelTest.PromptsResetHint"><value>Reset to model.Labels.</value></data>
+  <data name="ModelTest.FlowTextPrompts"><value>text-prompts mode</value></data>
+  <data name="ModelTest.FlowDefault"><value>default / closed-set</value></data>
+  <data name="ModelTest.UsedPrompts"><value>Used prompts</value></data>
+
+  <!-- Pages: Users -->
+  <data name="Users.CountLabel"><value>{0} users</value></data>
+  <data name="Users.AddUser"><value>Add user</value></data>
+
+  <!-- Pages: API keys -->
+  <data name="ApiKeys.GenerateNew"><value>Generate new</value></data>
+  <data name="ApiKeys.KeyCreated"><value>Key created — copy now!</value></data>
+  <data name="ApiKeys.KeyWarning"><value>After leaving this page the key will no longer be accessible.</value></data>
+  <data name="ApiKeys.Expires"><value>Expires (optional)</value></data>
+
+  <!-- Pages: Audit log -->
+  <data name="AuditLog.TotalLabel"><value>Total: {0}</value></data>
+
+  <!-- Pages: Reports -->
+  <data name="Reports.Title"><value>Reports</value></data>
+  <data name="Reports.From"><value>From</value></data>
+  <data name="Reports.To"><value>To (inclusive)</value></data>
+  <data name="Reports.MinSeverity"><value>Min. severity</value></data>
+  <data name="Reports.CameraOptional"><value>Camera (optional)</value></data>
+  <data name="Reports.AllCameras"><value>All</value></data>
+  <data name="Reports.Preview"><value>Preview</value></data>
+
+  <!-- Pages: LLM Admin -->
+  <data name="LlmAdmin.DefaultModel"><value>Default model</value></data>
+
+  <!-- Pages: MediaMTX Admin -->
+  <data name="MediaMtx.ForceRestart"><value>Force restart</value></data>
+  <data name="MediaMtx.ActiveCameras"><value>Active cameras</value></data>
+  <data name="MediaMtx.GeneratedConfig"><value>Generated config</value></data>
+
+  <!-- Pages: Settings -->
+  <data name="Settings.Title"><value>Application settings</value></data>
+  <data name="Settings.Description"><value>Edit appsettings.Runtime.json — overrides applied without restart (IOptionsMonitor).</value></data>
+  <data name="Settings.RestartWarning"><value>Empty field = use default value (from appsettings.json). After saving, new value will appear in the "Current" column within a few seconds (file is hot-reloaded). Changes in Rate limiter, Auth and some singletons require application restart.</value></data>
+  <data name="Settings.RawJson"><value>Raw JSON</value></data>
+  <data name="Settings.DefaultPlaceholder"><value>(use default)</value></data>
+  <data name="Settings.DefaultPlaceholderBool"><value>(default)</value></data>
+  <data name="Settings.CurrentValue"><value>Current value: </value></data>
+  <data name="Settings.FilePath"><value>File: </value></data>
+  <data name="Settings.SaveRaw"><value>Save raw</value></data>
+  <data name="Settings.ReloadFromDisk"><value>Reload from disk</value></data>
+  <data name="Settings.RawJsonHint"><value>Direct file editing. Pay attention to syntax — invalid JSON will be ignored.</value></data>
+  <data name="Settings.RawJsonMustBeObject"><value>Root must be a JSON object.</value></data>
+  <data name="Settings.SavedOk"><value>Settings saved. The app will pick up changes shortly.</value></data>
+  <data name="Settings.SavedRawOk"><value>Runtime config file saved.</value></data>
+  <data name="Settings.StorageValidating"><value>Verifying storage directories…</value></data>
+  <data name="Settings.StorageOk"><value>All storage directories are accessible.</value></data>
+  <data name="Settings.StorageCreated"><value>Storage directory created: {0}</value></data>
+  <data name="Settings.StorageError"><value>Cannot access directory "{0}" ({1}): {2}</value></data>
+  <data name="Settings.StorageWarning"><value>Some storage directories are unavailable — settings were saved, but these paths may cause errors:</value></data>
+  <data name="Settings.Tab.License"><value>License</value></data>
+  <data name="Settings.Tab.CameraSampler"><value>Cameras (Sampler)</value></data>
+  <data name="Settings.Tab.SmtpEmail"><value>SMTP / E-mail</value></data>
+  <data name="Settings.Tab.Storage"><value>Storage</value></data>
+  <data name="Settings.MongoRestartWarning"><value>Changing MongoDB address/database requires an application restart — the Mongo client is a singleton and does not support hot-reload of the connection string.</value></data>
+  <!-- Settings field hints -->
+  <data name="Settings.Hint.MongoConn"><value>e.g. mongodb://localhost:27017 or mongodb+srv://user:pass@cluster.mongodb.net</value></data>
+  <data name="Settings.Hint.MongoDb"><value>Database name (default 'safeview')</value></data>
+  <data name="Settings.Hint.MtxEnabled"><value>Whether MediaMTX should be used for RTSP/HLS streaming</value></data>
+  <data name="Settings.Hint.MtxAutoStart"><value>The app starts the mediamtx binary itself and refreshes config</value></data>
+  <data name="Settings.Hint.MtxBinary"><value>Path to mediamtx binary (e.g. /usr/local/bin/mediamtx). Empty = 'mediamtx' from PATH.</value></data>
+  <data name="Settings.Hint.MtxConfigDir"><value>Directory for generated mediamtx.yml. Empty = tmp.</value></data>
+  <data name="Settings.Hint.MtxReconcile"><value>How often (seconds) to check for camera changes</value></data>
+  <data name="Settings.Hint.MtxHost"><value>Public stream URL host (e.g. localhost / 192.168.1.10)</value></data>
+  <data name="Settings.Hint.MtxRtsp"><value>RTSP port (default 8554)</value></data>
+  <data name="Settings.Hint.MtxHls"><value>HLS port (default 8888)</value></data>
+  <data name="Settings.Hint.FfBinary"><value>Path to ffmpeg binary. Empty = 'ffmpeg' from PATH.</value></data>
+  <data name="Settings.Hint.FfTimeout"><value>Timeout for a single snapshot</value></data>
+  <data name="Settings.Hint.FfTransport"><value>tcp (default, more stable) or udp</value></data>
+  <data name="Settings.Hint.LlmBackend"><value>openai, vllm, ollama, lmstudio</value></data>
+  <data name="Settings.Hint.LlmBaseUrl"><value>HTTP endpoint (e.g. http://localhost:11434 for Ollama, http://localhost:8000/v1 for vLLM)</value></data>
+  <data name="Settings.Hint.LlmApiKey"><value>API key (openai) — leave empty for local backends</value></data>
+  <data name="Settings.Hint.LlmModel"><value>Model name (e.g. gpt-4o-mini, llama3.1:8b)</value></data>
+  <data name="Settings.Hint.SmtpEnabled"><value>Whether to send e-mail notifications</value></data>
+  <data name="Settings.Hint.SmtpFrom"><value>Sender address</value></data>
+  <data name="Settings.Hint.SmtpSubject"><value>Subject template — placeholders: {severity}, {category}, {camera}</value></data>
+  <data name="Settings.Hint.StorageRoot"><value>Base directory (can be relative)</value></data>
+  <data name="Settings.Hint.LicFile"><value>Path to .lic file</value></data>
+  <data name="Settings.Hint.LicReadOnly"><value>Whether to allow read-only mode on invalid license</value></data>
+  <data name="Settings.Hint.LicDevBypass"><value>DEV: bypass license validation</value></data>
+  <data name="Settings.Hint.CameraMedia"><value>Directory for video/image files uploaded as camera source</value></data>
+
+  <!-- Pages: License -->
+  <data name="License.Active"><value>ACTIVE</value></data>
+  <data name="License.Expired"><value>EXPIRED</value></data>
+  <data name="License.Invalid"><value>INVALID</value></data>
+  <data name="License.None"><value>NONE</value></data>
+  <data name="License.ActiveModules"><value>Active modules</value></data>
+  <data name="License.Limits"><value>Limits</value></data>
+  <data name="License.DaysRemaining"><value>Days remaining</value></data>
+  <data name="License.Client"><value>Client</value></data>
+  <data name="License.IssuedAt"><value>Issued</value></data>
+  <data name="License.ExpiresAt"><value>Expires</value></data>
+
+  <!-- Pages: Change password -->
+  <data name="ChangePassword.Title"><value>Change password</value></data>
+  <data name="ChangePassword.Current"><value>Current password</value></data>
+  <data name="ChangePassword.New"><value>New password</value></data>
+  <data name="ChangePassword.Confirm"><value>Confirm new password</value></data>
+
+  <!-- Pages: Setup -->
+  <data name="Setup.Title"><value>Initial setup</value></data>
+  <data name="Setup.Description"><value>Create the first administrator account. This form is available only once — until the first user is created.</value></data>
+  <data name="Setup.DisplayName"><value>Display name</value></data>
+  <data name="Setup.PasswordHint"><value>Password (min. 8 characters)</value></data>
+  <data name="Setup.PasswordConfirm"><value>Repeat password</value></data>
+  <data name="Setup.Submit"><value>Create administrator</value></data>
+
+  <!-- Pages: Assistant -->
+  <data name="Assistant.Title"><value>OHS Assistant</value></data>
+  <data name="Assistant.Placeholder"><value>Ask about an incident, safety rules, report…</value></data>
+
+  <!-- Pages: Error / Forbidden / NotFound -->
+  <data name="Error.Title"><value>An error has occurred</value></data>
+  <data name="Error.Description"><value>An unexpected error occurred while processing the request.</value></data>
+  <data name="Forbidden.Title"><value>403 — Access Denied</value></data>
+  <data name="Forbidden.Description"><value>You do not have permission to access this page.</value></data>
+  <data name="NotFound.Title"><value>404 — Page not found</value></data>
+
+  <!-- Dialog: Camera -->
+  <data name="CameraDialog.AddTitle"><value>Add camera</value></data>
+  <data name="CameraDialog.EditTitle"><value>Edit camera</value></data>
+  <data name="CameraDialog.Name"><value>Name</value></data>
+  <data name="CameraDialog.Description"><value>Description</value></data>
+  <data name="CameraDialog.LocationZone"><value>Location / zone</value></data>
+  <data name="CameraDialog.Vendor"><value>Vendor</value></data>
+  <data name="CameraDialog.CustomUrl"><value>Custom (manual URL)</value></data>
+  <data name="CameraDialog.StreamMain"><value>Main (HD)</value></data>
+  <data name="CameraDialog.StreamSub"><value>Sub (LD)</value></data>
+  <data name="CameraDialog.Port"><value>Port</value></data>
+  <data name="CameraDialog.Template"><value>Template</value></data>
+  <data name="CameraDialog.ComputedUrl"><value>Computed URL:</value></data>
+  <data name="CameraDialog.FillHostLogin"><value>(fill in host/login)</value></data>
+  <data name="CameraDialog.Sampling"><value>Sampling</value></data>
+  <data name="CameraDialog.EnabledLabel"><value>Active (sampler + MediaMTX)</value></data>
+  <data name="CameraDialog.FileSource"><value>File (MP4 / image)</value></data>
+  <data name="CameraDialog.FileSourcePath"><value>File path</value></data>
+  <data name="CameraDialog.FileSourceHint"><value>e.g. /data/video/test.mp4, /data/img/snapshot.jpg</value></data>
+  <data name="CameraDialog.FileSourceInfo"><value>MP4/MKV/AVI files will be played in a loop as a simulated camera stream. JPG/PNG images will be served as a static frame. Ideal for testing and demos.</value></data>
+  <data name="CameraDialog.FileNotSelected"><value>no file selected</value></data>
+  <data name="CameraDialog.FileSelectButton"><value>Select file</value></data>
+  <data name="CameraDialog.FileUploading"><value>Uploading…</value></data>
+  <data name="CameraDialog.FileUploaded"><value>Uploaded: {0}</value></data>
+  <data name="CameraDialog.FileUploadError"><value>Upload error: {0}</value></data>
+  <data name="CameraDialog.FileTooLarge"><value>File too large ({0} MB, max 2 GB)</value></data>
+  <data name="CameraDialog.SourceUrlHint"><value>e.g. rtsp://user:pass@192.168.1.10:554/Streaming/Channels/101</value></data>
+
+  <!-- Dialog: Zone -->
+  <data name="ZoneDialog.AddTitle"><value>New zone</value></data>
+  <data name="ZoneDialog.EditTitle"><value>Edit zone</value></data>
+  <data name="ZoneDialog.Name"><value>Name</value></data>
+  <data name="ZoneDialog.Camera"><value>Camera</value></data>
+  <data name="ZoneDialog.Color"><value>Color</value></data>
+  <data name="ZoneDialog.Active"><value>Active</value></data>
+  <data name="ZoneDialog.Description"><value>Description</value></data>
+  <data name="ZoneDialog.ClickHint"><value>Click on preview to add a vertex. Min. 3 points.</value></data>
+  <data name="ZoneDialog.LoadingFrame"><value>Loading frame…</value></data>
+  <data name="ZoneDialog.NoPreview"><value>No preview. Click "Capture frame".</value></data>
+  <data name="ZoneDialog.Capturing"><value>Capturing…</value></data>
+  <data name="ZoneDialog.CaptureFrame"><value>Capture frame</value></data>
+  <data name="ZoneDialog.UndoPoint"><value>Undo point</value></data>
+  <data name="ZoneDialog.ClearPolygon"><value>Clear polygon</value></data>
+  <data name="ZoneDialog.PointCount"><value>{0} pts.</value></data>
+  <data name="ZoneDialog.AddRule"><value>Add rule</value></data>
+  <data name="ZoneDialog.Labels"><value>Labels</value></data>
+  <data name="ZoneDialog.LabelsHint"><value>comma-separated, empty = any class</value></data>
+  <data name="ZoneDialog.Mode"><value>Mode</value></data>
+  <data name="ZoneDialog.ModeInside"><value>Inside zone</value></data>
+  <data name="ZoneDialog.ModeOutside"><value>Outside zone</value></data>
+  <data name="ZoneDialog.Severity"><value>Severity</value></data>
+  <data name="ZoneDialog.Category"><value>Category</value></data>
+  <data name="ZoneDialog.TemplateLabel"><value>Template</value></data>
+  <data name="ZoneDialog.TemplateHint"><value>{label},{zone},{conf}</value></data>
+  <data name="ZoneDialog.SelectCamera"><value>Select a camera.</value></data>
+  <data name="ZoneDialog.FrameError"><value>Failed to capture frame: {0}</value></data>
+
+  <!-- Dialog: Model -->
+  <data name="ModelDialog.AddTitle"><value>Add model</value></data>
+  <data name="ModelDialog.EditTitle"><value>Edit model</value></data>
+  <data name="ModelDialog.Name"><value>Name</value></data>
+  <data name="ModelDialog.Description"><value>Description</value></data>
+  <data name="ModelDialog.Backend"><value>Backend</value></data>
+  <data name="ModelDialog.OnnxFile"><value>ONNX file:</value></data>
+  <data name="ModelDialog.OnnxNotLoaded"><value>not loaded</value></data>
+  <data name="ModelDialog.Uploading"><value>Uploading…</value></data>
+  <data name="ModelDialog.UploadOnnx"><value>Upload .onnx</value></data>
+  <data name="ModelDialog.InputSize"><value>Input size (px, square)</value></data>
+  <data name="ModelDialog.RoboflowModelId"><value>Roboflow Model ID (e.g. 'ppe-safety/3')</value></data>
+  <data name="ModelDialog.RoboflowApiKey"><value>API key</value></data>
+  <data name="ModelDialog.LabelsLabel"><value>Labels (comma-separated, in classId order)</value></data>
+  <data name="ModelDialog.LabelsHint"><value>e.g. helmet,no_helmet,vest,no_vest</value></data>
+  <data name="ModelDialog.Confidence"><value>Confidence</value></data>
+  <data name="ModelDialog.Iou"><value>IoU (NMS)</value></data>
+  <data name="ModelDialog.InputSizeHelp"><value>Model input size in pixels (square). YOLO: typically 640. Change only if the model was exported with a different size.</value></data>
+  <data name="ModelDialog.ConfidenceHelp"><value>Detection confidence threshold — everything below is dropped before the result leaves the model. Trigger has its own optional override.</value></data>
+  <data name="ModelDialog.IouHelp"><value>IoU threshold for Non-Max Suppression — removes duplicate bboxes and merges detections across SAHI tiles. This is NOT the zone IoU in triggers.</value></data>
+  <data name="ModelDialog.Active"><value>Active</value></data>
+  <data name="ModelDialog.FileTooLarge"><value>File too large ({0} MB, max 500 MB)</value></data>
+  <data name="ModelDialog.Uploaded"><value>Uploaded: {0}</value></data>
+  <data name="ModelDialog.UploadError"><value>Upload error: {0}</value></data>
+  <data name="ModelDialog.Capabilities"><value>Capabilities</value></data>
+  <data name="ModelDialog.CapabilitiesHint"><value>What inference modes this model supports. Auto-suggested from backend; toggle to override.</value></data>
+  <data name="ModelDialog.Cap.ClosedSet"><value>Closed-set</value></data>
+  <data name="ModelDialog.Cap.ClosedSetHint"><value>Fixed vocabulary baked into weights.</value></data>
+  <data name="ModelDialog.Cap.TextPrompts"><value>Text prompts</value></data>
+  <data name="ModelDialog.Cap.TextPromptsHint"><value>Open-vocab via text (YOLO-World / YOLOE).</value></data>
+  <data name="ModelDialog.Cap.VisualPrompts"><value>Visual prompts</value></data>
+  <data name="ModelDialog.Cap.VisualPromptsHint"><value>Open-vocab via reference crops (YOLOE).</value></data>
+  <data name="ModelDialog.Cap.WarnNone"><value>At least one capability must be selected.</value></data>
+  <data name="ModelDialog.Cap.WarnYoloWorldText"><value>YOLO-World without 'Text prompts' loses its main value.</value></data>
+  <data name="ModelDialog.Cap.WarnYoloEVisual"><value>YOLOE without 'Visual prompts' — reference-crop detection won't work.</value></data>
+  <data name="ModelDialog.OnnxBundled"><value>bundled</value></data>
+  <data name="ModelDialog.BundledHint"><value>YOLO-World / YOLOE are bundled with extra files (text-encoder, tokenizer). Manage via /admin/prompt-packs or runtime/models/ + Rescan.</value></data>
+  <data name="ModelDialog.LicenseDepends"><value>license depends on source</value></data>
+  <data name="ModelDialog.LabelsAsPrompts"><value>Default prompts (comma-separated)</value></data>
+  <data name="ModelDialog.LabelsAsPromptsHint"><value>English phrases work best. Example: "worker wearing hard hat, forklift truck".</value></data>
+  <data name="ModelDialog.CompiledFrom"><value>Compiled pack from source model {0}</value></data>
+  <data name="ModelDialog.CompiledClasses"><value>{0} classes frozen</value></data>
+
+  <!-- Dialog: User -->
+  <data name="UserDialog.AddTitle"><value>Add user</value></data>
+  <data name="UserDialog.EditTitle"><value>Edit user</value></data>
+  <data name="UserDialog.DisplayName"><value>Display name</value></data>
+  <data name="UserDialog.PasswordNew"><value>Password</value></data>
+  <data name="UserDialog.PasswordEdit"><value>New password (opt.)</value></data>
+  <data name="UserDialog.PasswordHint"><value>Minimum 10 characters.</value></data>
+  <data name="UserDialog.Roles"><value>Roles</value></data>
+  <data name="UserDialog.Active"><value>Active</value></data>
+  <data name="UserDialog.UiLanguage"><value>UI Language</value></data>
+
+  <!-- Dialog: API key -->
+  <data name="ApiKeyDialog.Title"><value>New API key</value></data>
+  <data name="ApiKeyDialog.Name"><value>Name (e.g. 'ERP integration')</value></data>
+  <data name="ApiKeyDialog.Scopes"><value>Scopes</value></data>
+  <data name="ApiKeyDialog.Warning"><value>The key will be generated after saving and shown ONLY ONCE.</value></data>
+  <data name="ApiKeyDialog.Create"><value>Create</value></data>
+
+  <!-- Theme toggle -->
+  <data name="Theme.SwitchToLight"><value>Switch to light mode</value></data>
+  <data name="Theme.SwitchToDark"><value>Switch to dark mode</value></data>
+
+  <!-- Detection classes library -->
+  <data name="Nav.DetectionClasses"><value>Detection classes</value></data>
+  <data name="DetectionClasses.Title"><value>Detection classes</value></data>
+  <data name="DetectionClasses.Description"><value>Library of detection classes — text prompts, visual references, or closed-set bindings. Reusable in triggers.</value></data>
+  <data name="DetectionClasses.Hint"><value>Kind determines how the class is matched. Text = open-vocabulary prompt (YOLO-World). ClosedSetBinding = binds to a specific label from a classical YOLO model. Visual = reference crops (YOLOE / OWLv2).</value></data>
+  <data name="DetectionClasses.Add"><value>New class</value></data>
+  <data name="DetectionClasses.AddTitle"><value>New detection class</value></data>
+  <data name="DetectionClasses.EditTitle"><value>Edit detection class</value></data>
+  <data name="DetectionClasses.Saved"><value>Class saved.</value></data>
+  <data name="DetectionClasses.Deleted"><value>Class deleted.</value></data>
+  <data name="DetectionClasses.DeleteTitle"><value>Delete class?</value></data>
+  <data name="DetectionClasses.DeleteMessage"><value>Delete class '{0}'? Triggers using this class will need to be updated.</value></data>
+  <data name="DetectionClasses.Category"><value>Category</value></data>
+  <data name="DetectionClasses.DescriptionLabel"><value>Description</value></data>
+  <data name="DetectionClasses.Kind"><value>Kind</value></data>
+  <data name="DetectionClasses.KindSelect"><value>Class kind</value></data>
+  <data name="DetectionClasses.KindHelp"><value>Determines which detector backend can handle this class.</value></data>
+  <data name="DetectionClasses.Kind.ClosedSet"><value>Closed-set binding</value></data>
+  <data name="DetectionClasses.Kind.Text"><value>Text prompt</value></data>
+  <data name="DetectionClasses.Kind.Visual"><value>Visual prompt</value></data>
+  <data name="DetectionClasses.Kind.TextAndVisual"><value>Text + Visual</value></data>
+  <data name="DetectionClasses.Detail"><value>Detail</value></data>
+  <data name="DetectionClasses.MinConfidence"><value>Recommended min confidence</value></data>
+  <data name="DetectionClasses.Source"><value>Source</value></data>
+  <data name="DetectionClasses.BuiltIn"><value>Built-in</value></data>
+  <data name="DetectionClasses.Custom"><value>Custom</value></data>
+  <data name="DetectionClasses.TextPrompt"><value>Text prompt (EN)</value></data>
+  <data name="DetectionClasses.TextPromptHelp"><value>English is more stable for CLIP-based models. Example: "construction worker wearing hard hat".</value></data>
+  <data name="DetectionClasses.TextPromptPl"><value>Text prompt (PL, display-only)</value></data>
+  <data name="DetectionClasses.TextPromptPlHelp"><value>Polish label shown in UI. Not used by the model.</value></data>
+  <data name="DetectionClasses.ClosedSetModel"><value>Model</value></data>
+  <data name="DetectionClasses.ClosedSetModelHelp"><value>Classical closed-set YOLO model that was trained with this label.</value></data>
+  <data name="DetectionClasses.ClosedSetLabel"><value>Label</value></data>
+  <data name="DetectionClasses.ClosedSetLabelHelp"><value>Exact label name from the model (e.g. "person", "forklift").</value></data>
+  <data name="DetectionClasses.AvailableLabels"><value>Available labels from selected model</value></data>
+  <data name="DetectionClasses.VisualRefs"><value>{0} reference image(s)</value></data>
+  <data name="DetectionClasses.VisualRefsCount"><value>Currently {0} visual reference(s).</value></data>
+  <data name="DetectionClasses.VisualRefsCountV2"><value>{0} uploaded</value></data>
+  <data name="DetectionClasses.VisualRefsSection"><value>Reference images</value></data>
+  <data name="DetectionClasses.VisualRefsSaveFirst"><value>Save the class first, then upload reference crops.</value></data>
+  <data name="DetectionClasses.VisualRefsEmpty"><value>No reference images yet. Upload 3-5 example crops of the object you want to detect.</value></data>
+  <data name="DetectionClasses.UploadRef"><value>Upload image</value></data>
+  <data name="DetectionClasses.RefUploaded"><value>Reference uploaded.</value></data>
+  <data name="DetectionClasses.RefTooLarge"><value>File too large (max 5MB).</value></data>
+  <data name="DetectionClasses.UploadFailed"><value>Upload failed:</value></data>
+  <data name="DetectionClasses.DeleteRefFailed"><value>Failed to delete reference.</value></data>
+  <data name="DetectionClasses.VisualWipNote"><value>Visual prompts require a detector with VisualPrompts capability (YOLOE backend). Upload 3-5 example crops — the detector will compute visual embeddings for each.</value></data>
+
+  <!-- Detection class quality stats (Faza 7) -->
+  <data name="DetectionClasses.Stats30d"><value>Last 30 days</value></data>
+  <data name="DetectionClasses.Fires"><value>fires</value></data>
+  <data name="DetectionClasses.FpTooltip"><value>False positive: {0} of {1} fires marked as FP by operators</value></data>
+  <data name="DetectionClasses.ShowStats"><value>Show stats + histogram</value></data>
+  <data name="DetectionClasses.StatsTitle"><value>Class quality — last N days</value></data>
+  <data name="DetectionClassStats.Window"><value>Window</value></data>
+  <data name="DetectionClassStats.Days"><value>days</value></data>
+  <data name="DetectionClassStats.FireCount"><value>Fires</value></data>
+  <data name="DetectionClassStats.FpRate"><value>False positive rate</value></data>
+  <data name="DetectionClassStats.AvgConf"><value>Avg detection confidence</value></data>
+  <data name="DetectionClassStats.Histogram"><value>Confidence histogram</value></data>
+  <data name="DetectionClassStats.HistogramHint"><value>Distribution of detection confidence across 10 buckets (0-10%…90-100%). Skew to the right = model is sure; left = weak matches, consider tightening MinConfidence.</value></data>
+  <data name="DetectionClassStats.NoData"><value>No incidents recorded in this window yet.</value></data>
+  <data name="DetectionClassStats.LastFire"><value>Last fire</value></data>
+
+  <!-- Trigger dialog — DetectionClass integration -->
+  <data name="Triggers.DetectionClass"><value>Detection class</value></data>
+  <data name="Triggers.DetectionClassHint"><value>Pick a class from the library, or configure legacy ModelId + Labels manually.</value></data>
+  <data name="Triggers.UseDetectionClass"><value>Use class from library</value></data>
+  <data name="Triggers.UseLegacyFields"><value>Configure manually (advanced)</value></data>
+  <data name="Triggers.PickClassHint"><value>Pick a class — or switch to manual config for ad-hoc ModelId + labels.</value></data>
+  <data name="Triggers.AdvancedManualConfig"><value>Manual configuration (advanced)</value></data>
+  <data name="Triggers.AdvancedHint"><value>Manual mode: bind to specific MLModel + exact labels. Prefer class library when possible — it's simpler and works with open-vocabulary models (YOLO-World, YOLOE).</value></data>
+
+  <!-- Compiled prompt packs -->
+  <data name="Nav.PromptPacks"><value>Prompt packs</value></data>
+  <data name="PromptPacks.Title"><value>Compiled prompt packs</value></data>
+  <data name="PromptPacks.Description"><value>Pre-computed text embeddings cache for YOLO-World — speeds up inference by skipping CLIP encode per frame. Compile once, reuse across cameras.</value></data>
+  <data name="PromptPacks.Compile"><value>Compile pack</value></data>
+  <data name="PromptPacks.CompileTitle"><value>Compile new prompt pack</value></data>
+  <data name="PromptPacks.CompileHint"><value>Pick a YOLO-World model and detection classes (Text kind only). The compiler will CLIP-encode all prompts once and store as a pack — subsequent inferences skip encoding.</value></data>
+  <data name="PromptPacks.Compiling"><value>Compiling pack… may take a few seconds.</value></data>
+  <data name="PromptPacks.Compiled"><value>Pack '{0}' compiled.</value></data>
+  <data name="PromptPacks.PackName"><value>Pack name (optional)</value></data>
+  <data name="PromptPacks.PackNameHint"><value>Leave empty for auto-generated name.</value></data>
+  <data name="PromptPacks.SourceModel"><value>Source model</value></data>
+  <data name="PromptPacks.SourceModelHint"><value>YOLO-World model that will use this cache at inference.</value></data>
+  <data name="PromptPacks.SelectClasses"><value>Select detection classes</value></data>
+  <data name="PromptPacks.SelectClassesHint"><value>Only Text / TextAndVisual classes with TextPrompt are listed.</value></data>
+  <data name="PromptPacks.SelectedCount"><value>Selected: {0} classes</value></data>
+  <data name="PromptPacks.Encoder"><value>Encoder</value></data>
+  <data name="PromptPacks.ClassCount"><value>Classes</value></data>
+  <data name="PromptPacks.Dim"><value>Dim</value></data>
+  <data name="PromptPacks.BlobSize"><value>Size</value></data>
+  <data name="PromptPacks.CompiledAt"><value>Compiled</value></data>
+  <data name="PromptPacks.Status"><value>Status</value></data>
+  <data name="PromptPacks.Fresh"><value>Fresh</value></data>
+  <data name="PromptPacks.Stale"><value>Stale — recompile</value></data>
+  <data name="PromptPacks.CheckStaleness"><value>Check if any class prompt changed</value></data>
+  <data name="PromptPacks.IsStale"><value>Pack is stale — one of the class prompts changed. Please recompile.</value></data>
+  <data name="PromptPacks.StillFresh"><value>Pack is still fresh — no prompt changes detected.</value></data>
+  <data name="PromptPacks.DeleteTitle"><value>Delete pack?</value></data>
+  <data name="PromptPacks.DeleteMessage"><value>Delete pack '{0}'? Inference will fall back to live CLIP encoding until re-compiled.</value></data>
+  <data name="PromptPacks.Deleted"><value>Pack deleted.</value></data>
+  <data name="PromptPacks.NoYoloWorldModel"><value>No enabled YOLO-World model registered yet. Download the bundled Apache 2.0 model with one click below.</value></data>
+  <data name="PromptPacks.DownloadYoloWorld"><value>Download YOLO-World v2-s</value></data>
+  <data name="PromptPacks.Downloading"><value>Downloading…</value></data>
+  <data name="PromptPacks.DownloadSize"><value>~200MB (ONNX + CLIP encoder). Takes 1–3 minutes.</value></data>
+  <data name="PromptPacks.DownloadTitle"><value>Download YOLO-World?</value></data>
+  <data name="PromptPacks.DownloadMessage"><value>Runs download script and auto-registers the model as enabled. Request may take up to 15 minutes — keep this tab open.</value></data>
+  <data name="PromptPacks.DownloadConfirm"><value>Download</value></data>
+  <data name="PromptPacks.DownloadInProgress"><value>Please wait — downloading ~200MB and registering. Do not close this tab.</value></data>
+  <data name="PromptPacks.DownloadSuccess"><value>YOLO-World downloaded and activated. You can compile prompt packs now.</value></data>
+  <data name="PromptPacks.DownloadFailed"><value>Download failed:</value></data>
+  <data name="PromptPacks.RegisterExisting"><value>Register downloaded files</value></data>
+  <data name="PromptPacks.Rescanning"><value>Scanning…</value></data>
+  <data name="PromptPacks.RescanSuccess"><value>Models rescanned. If files were present, YOLO-World is now registered.</value></data>
+  <data name="PromptPacks.RescanFailed"><value>Rescan failed:</value></data>
+  <data name="PromptPacks.UploadFiles"><value>Upload files</value></data>
+  <data name="PromptPacks.Uploading"><value>Uploading…</value></data>
+  <data name="PromptPacks.UploadSuccess"><value>Files uploaded and YOLO-World registered. You can compile prompt packs now.</value></data>
+  <data name="PromptPacks.UploadFailed"><value>Upload failed:</value></data>
+  <data name="PromptPacks.UploadTooLarge"><value>File '{0}' too large (max {1} MB) — skipped.</value></data>
+  <data name="PromptPacks.UploadNothingToSend"><value>No files to send.</value></data>
+  <data name="PromptPacks.ManualHint"><value>If 'Download' fails (HF returned 401, or files arrive tiny = HTML error pages):
+1. Delete broken files: rm -rf runtime/models/yolo-world-v2-s
+2. Retry 'Download' — now uses ultralytics CLI (pulls official weights from GitHub CDN).
+3. If still failing, from terminal:
+   runtime/models/.venv/bin/yolo export model=yolov8s-worldv2.pt format=onnx imgsz=640 opset=12 dynamic=True
+   then manually grab CLIP text encoder from openai/clip-vit-base-patch32 on HF (that repo is always public).
+4. Click 'Rescan' — auto-cleans files &lt; 1MB and registers valid models.</value></data>
+
+  <!-- Setup wizard -->
+  <data name="Wizard.Title"><value>Setup wizard</value></data>
+  <data name="Wizard.Subtitle"><value>Guided camera-to-action flow. 5 steps, ~2 minutes.</value></data>
+  <data name="Wizard.Help"><value>Help</value></data>
+  <data name="Wizard.Back"><value>Back</value></data>
+  <data name="Wizard.Next"><value>Next</value></data>
+  <data name="Wizard.CreateAndRun"><value>Create and run</value></data>
+  <data name="Wizard.Done"><value>Ready! Created camera '{0}' with {1} rules. Redirecting to flow diagram...</value></data>
+  <data name="Wizard.Step1.Title"><value>Camera</value></data>
+  <data name="Wizard.Step1.Subtitle"><value>Pick a camera to configure detection for. Cameras are added by your IT admin in Advanced → Cameras.</value></data>
+  <data name="Wizard.Step1.AvailableCount"><value>Available: {0} camera(s)</value></data>
+  <data name="Wizard.Step1.NoCameras"><value>No cameras available</value></data>
+  <data name="Wizard.Step1.NoCamerasHint"><value>Ask your IT admin to add cameras first (RTSP URL, credentials, vendor). You can configure detection only for cameras that already exist.</value></data>
+  <data name="Wizard.Step1.GoToCameras"><value>Open Cameras page</value></data>
+  <data name="Wizard.Step1.Offline"><value>offline</value></data>
+  <data name="Wizard.Step2.Title"><value>What to detect</value></data>
+  <data name="Wizard.Step2.Subtitle"><value>Pick one or more classes. Each picked class becomes an alert rule.</value></data>
+  <data name="Wizard.Step2.NoClasses"><value>No detection classes in the library. Built-in classes should auto-seed at startup — check that DetectionClassSeeder ran.</value></data>
+  <data name="Wizard.Step2.Selected"><value>Selected: {0} classes</value></data>
+  <data name="Wizard.Step2.NewClass"><value>New class</value></data>
+  <data name="Wizard.Step2.NewClassTitle"><value>New detection class (quick add)</value></data>
+  <data name="Wizard.Step2.ClassAdded"><value>Class saved and auto-selected.</value></data>
+  <data name="Wizard.Step3.Title"><value>Scope</value></data>
+  <data name="Wizard.Step3.Subtitle"><value>Where on the camera frame to look for detections.</value></data>
+  <data name="Wizard.Step3.MvpNote"><value>MVP: analysis covers the entire frame. Precise zone drawing (e.g. 'only near the gate') — in the next version or in the advanced Zones page.</value></data>
+  <data name="Wizard.Step3.Name"><value>Zone name</value></data>
+  <data name="Wizard.Step3.FullFrame"><value>Full frame</value></data>
+  <data name="Wizard.Step3.FullFrameHint"><value>Every detection anywhere in the camera view triggers the rule.</value></data>
+  <data name="Wizard.Step3.NameHint"><value>Visible label for the new zone (e.g. "Entrance"). Used in incident alerts.</value></data>
+  <data name="Wizard.Step3.RoiLabel"><value>ROI</value></data>
+  <data name="Wizard.Step3.Vertices"><value>vertices</value></data>
+  <data name="Wizard.Step3.AlreadyHasTriggers"><value>already has {0} rules</value></data>
+  <data name="Wizard.Step3.CreateNew"><value>Create new ROI / zone</value></data>
+  <data name="Wizard.Step3.CreateNewHint"><value>Open advanced editor — draw polygon zones, return here to finish wizard.</value></data>
+  <data name="Wizard.Step3.ExistingZone"><value>existing zone</value></data>
+
+  <!-- Wizard step 2: ROI -->
+  <data name="Wizard.StepRoi.Title"><value>Analysis area (ROI)</value></data>
+  <data name="Wizard.StepRoi.Subtitle"><value>Pick the rectangular area the ML model should analyse. Most setups = full camera frame.</value></data>
+  <data name="Wizard.StepRoi.FullFrame"><value>Full frame</value></data>
+  <data name="Wizard.StepRoi.FullFrameHint"><value>Analyse the entire camera view. Simplest — recommended as default.</value></data>
+  <data name="Wizard.StepRoi.Name"><value>New ROI name</value></data>
+  <data name="Wizard.StepRoi.NameHint"><value>Internal label (e.g. "Full frame", "Entrance area").</value></data>
+  <data name="Wizard.StepRoi.ZonesInRoi"><value>{0} zones inside</value></data>
+  <data name="Wizard.StepRoi.CreateNew"><value>Create new ROI</value></data>
+  <data name="Wizard.StepRoi.CreateNewHint"><value>Opens editor for the selected camera. Save and continue in wizard.</value></data>
+  <data name="Wizard.StepRoi.CreateDialogTitle"><value>New ROI for selected camera</value></data>
+  <data name="Wizard.StepRoi.Created"><value>ROI saved and auto-selected.</value></data>
+  <data name="Wizard.StepRoi.ExistingRoi"><value>existing ROI</value></data>
+
+  <!-- Wizard step 3: Zone -->
+  <data name="Wizard.StepZone.Title"><value>Alert zone</value></data>
+  <data name="Wizard.StepZone.Subtitle"><value>Pick the polygon inside the ROI where the rule should fire alerts.</value></data>
+  <data name="Wizard.StepZone.Context"><value>Working in ROI: {0}</value></data>
+  <data name="Wizard.StepZone.FullRoi"><value>Whole ROI</value></data>
+  <data name="Wizard.StepZone.FullRoiHint"><value>Alerts fire anywhere inside the ROI. Simplest — polygon = ROI rectangle.</value></data>
+  <data name="Wizard.StepZone.Name"><value>New zone name</value></data>
+  <data name="Wizard.StepZone.NameHint"><value>Shown in alerts (e.g. "Entrance", "Machine area").</value></data>
+  <data name="Wizard.StepZone.Vertices"><value>vertices</value></data>
+  <data name="Wizard.StepZone.AlreadyHasTriggers"><value>already has {0} rules</value></data>
+  <data name="Wizard.StepZone.CreateNew"><value>Create new zone</value></data>
+  <data name="Wizard.StepZone.CreateNewHint"><value>Opens editor with ROI pre-selected from the previous step.</value></data>
+  <data name="Wizard.StepZone.CreateDialogTitle"><value>New zone inside selected ROI</value></data>
+  <data name="Wizard.StepZone.Created"><value>Zone saved and auto-selected.</value></data>
+  <data name="Wizard.StepZone.SelectRoiFirst"><value>Pick or create a specific ROI first (Whole frame mode doesn't have an ROI yet).</value></data>
+  <data name="Wizard.StepZone.ExistingZone"><value>existing zone</value></data>
+
+  <data name="Wizard.Help.StepRoi"><value>ROI (Region of Interest):
+  • Rectangular sub-area of the frame where the ML model runs.
+  • Full frame = analyse everything. 95% of cases.
+  • Narrow ROI saves CPU/GPU when only part of view is relevant.
+
+Who defines ROIs: IT admin in Advanced → ROI.
+Pick from existing or use "Full frame".</value></data>
+
+  <data name="Wizard.Help.StepZone"><value>Zone (alert polygon):
+  • Polygon inside ROI — alerts fire only when detection falls inside.
+  • "Whole ROI" = simplest, polygon = entire rectangle.
+  • Custom polygon: narrow strip near gate, around machine, excluding footpath.
+
+Not every detection = alert. Add more zones later in Advanced → Zones.</value></data>
+  <data name="Wizard.Step4.Title"><value>What to do</value></data>
+  <data name="Wizard.Step4.Subtitle"><value>Pick the notification type fired when any of the selected classes is detected.</value></data>
+  <data name="Wizard.Step4.ActionName"><value>Action name</value></data>
+  <data name="Wizard.Step4.EmailTo"><value>Email recipient</value></data>
+  <data name="Wizard.Step4.WebhookUrl"><value>Webhook URL</value></data>
+  <data name="Wizard.Step4.Type.InApp"><value>In-app notification</value></data>
+  <data name="Wizard.Step4.Type.InAppHint"><value>Popup in operator console. Zero config.</value></data>
+  <data name="Wizard.Step4.Type.Email"><value>Email</value></data>
+  <data name="Wizard.Step4.Type.EmailHint"><value>Send to recipient. SMTP config required in app settings.</value></data>
+  <data name="Wizard.Step4.Type.Webhook"><value>Webhook</value></data>
+  <data name="Wizard.Step4.Type.WebhookHint"><value>POST JSON to URL. For Slack/Teams/custom backend.</value></data>
+  <data name="Wizard.Step4.Type.Log"><value>Log only</value></data>
+  <data name="Wizard.Step4.Type.LogHint"><value>Write to system log. No external notification.</value></data>
+  <data name="Wizard.Step5.Title"><value>Summary</value></data>
+  <data name="Wizard.Step5.Subtitle"><value>Review config before creating entities in the database.</value></data>
+  <data name="Wizard.Step5.WillCreate"><value>Will create: 1 camera + 1 ROI + 1 zone + {0} triggers + 1 action.</value></data>
+  <data name="Wizard.Help.Step1"><value>Who adds cameras:
+  • New cameras (URL, credentials, vendor) are added by IT admin in Advanced → Cameras.
+  • As a safety/BHP operator you only pick from the list.
+
+Tips:
+  • If no cameras show up — request setup from IT.
+  • Click a card to select.</value></data>
+  <data name="Wizard.Help.Step2"><value>14 built-in safety classes. Click cards to pick.
+
+Tips:
+  • Pick 2-5 classes at start. Easier to tune FP rates later.
+  • For YOLO-World classes (Text) compile prompt pack before first inference (Advanced → Prompt packs).
+
+Pitfalls:
+  • Picking 10+ classes at once makes FP analysis hard.</value></data>
+  <data name="Wizard.Help.Step3"><value>Currently: scope = full camera frame.
+
+Refine later in /zones — draw polygon zones (e.g. 'only near machine'). Alerts only fire inside zones.</value></data>
+  <data name="Wizard.Help.Step4"><value>Action = what happens after a rule fires.
+
+Recommendations:
+  • Start with "In-app notification" — operator sees popup, zero config.
+  • Email — add SMTP in /admin/settings.
+  • Webhook — Slack/Teams/ERP. POST JSON.
+
+Each trigger rate-limited to 10 fires/minute by default.</value></data>
+  <data name="Wizard.Help.Step5"><value>After "Create and run":
+  • Camera + zone + rules saved.
+  • Pipeline starts within ~5 seconds.
+  • Redirect to /flow — graph of what was created.
+
+Next:
+  • /monitor — live detections.
+  • /incidents — alerts.
+  • /admin/triggers — refine thresholds.</value></data>
+</root>

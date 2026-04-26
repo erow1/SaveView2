@@ -1,0 +1,317 @@
+@page "/incidents/{Id}"
+@attribute [Authorize(Policy = "perm:incidents:view")]
+@inject SafeView.Application.Abstractions.Persistence.IIncidentRepository IncidentRepo
+@inject SafeView.Application.Abstractions.LLM.IIncidentAnalyzer Analyzer
+@inject NavigationManager Nav
+@inject IDialogService Dialog
+@inject AuthenticationStateProvider AuthState
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@(_incident?.Summary ?? L["IncidentDetail.Title"]) — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" OnClick="@(() => Nav.NavigateTo("/incidents"))" />
+        <MudText Typo="Typo.h5">@L["IncidentDetail.Title"]</MudText>
+        @if (_incident is not null)
+        {
+            <MudChip T="string" Size="Size.Small" Class="mono ms-2">@_incident.OccurredAt.ToString("yyyy-MM-dd HH:mm:ss") UTC</MudChip>
+            <MudChip T="string" Size="Size.Small"
+                     Variant="Variant.Outlined" Color="@StatusColor(_incident.Status)">@_incident.Status</MudChip>
+            @if (_incident.WasFalsePositive)
+            {
+                <MudChip T="string" Size="Size.Small"
+                         Variant="Variant.Outlined" Color="Color.Warning"
+                         Icon="@Icons.Material.Filled.ThumbDown">
+                    @L["IncidentDetail.FalsePositiveBadge"]
+                </MudChip>
+            }
+        }
+    </MudStack>
+
+    @* ── Pasek akcji — wszystkie w tym samym stylu (Outlined) dla spójności wizualnej.
+         Kolory sygnalizują charakter akcji (Info=recon, Success=zamknięcie pozytywne, Warning=fałszywy). ──── *@
+    @if (_incident is not null)
+    {
+        <MudPaper Class="pa-2 sv-card" Elevation="0">
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                <AuthorizeView Policy="perm:llm:chat">
+                    <MudTooltip Text="@L["IncidentDetail.AnalyzeLlmHint"]">
+                        <MudButton StartIcon="@Icons.Material.Filled.AutoAwesome"
+                                   Variant="Variant.Outlined" Color="Color.Primary"
+                                   OnClick="AnalyzeLlm" Disabled="_busy || _analyzing">
+                            @(_analyzing ? L["IncidentDetail.Analyzing"] : L["IncidentDetail.AnalyzeLlm"])
+                        </MudButton>
+                    </MudTooltip>
+                </AuthorizeView>
+
+                <AuthorizeView Policy="perm:incidents:resolve">
+                    @if (_incident.Status == SafeView.Domain.Incidents.IncidentStatus.Open)
+                    {
+                        <MudButton StartIcon="@Icons.Material.Filled.Check"
+                                   Variant="Variant.Outlined" Color="Color.Info"
+                                   OnClick="Acknowledge" Disabled="_busy">
+                            @L["IncidentDetail.Acknowledge"]
+                        </MudButton>
+                    }
+                    @if (_incident.Status != SafeView.Domain.Incidents.IncidentStatus.Resolved &&
+                         _incident.Status != SafeView.Domain.Incidents.IncidentStatus.FalsePositive)
+                    {
+                        <MudButton StartIcon="@Icons.Material.Filled.DoneAll"
+                                   Variant="Variant.Outlined" Color="Color.Success"
+                                   OnClick="Resolve" Disabled="_busy">
+                            @L["IncidentDetail.Resolve"]
+                        </MudButton>
+                        <MudTooltip Text="@L["IncidentDetail.MarkFalsePositiveHint"]">
+                            <MudButton StartIcon="@Icons.Material.Filled.ThumbDown"
+                                       Variant="Variant.Outlined" Color="Color.Warning"
+                                       OnClick="MarkFalsePositive" Disabled="_busy">
+                                @L["IncidentDetail.MarkFalsePositive"]
+                            </MudButton>
+                        </MudTooltip>
+                    }
+                </AuthorizeView>
+            </MudStack>
+        </MudPaper>
+    }
+
+    @if (_incident is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else
+    {
+        <MudGrid>
+            <MudItem xs="12" md="8">
+                <MudPaper Class="pa-0 sv-card" Elevation="0"
+                          Style="position:relative; background:#000; display:flex; align-items:center; justify-content:center; overflow:hidden; border-radius:8px;">
+                    <div style="position:relative; width:100%;">
+                        @if (!string.IsNullOrEmpty(_incident.FrameRelativePath))
+                        {
+                            <img src="@($"/incidents/{_incident.Id}/frame.jpg")" alt="frame"
+                                 style="width:100%; max-height:70vh; display:block; object-fit:contain;" />
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1" preserveAspectRatio="none"
+                                 style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;">
+                                @foreach (var d in _incident.Detections)
+                                {
+                                    <rect x="@Num(d.X)" y="@Num(d.Y)" width="@Num(d.Width)" height="@Num(d.Height)"
+                                          fill="none" stroke="#2EC27E" stroke-width="2" vector-effect="non-scaling-stroke" />
+                                }
+                            </svg>
+                            <div style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;">
+                                @foreach (var d in _incident.Detections)
+                                {
+                                    var labelBelow = d.Y < 0.035f;
+                                    var top = labelBelow ? $"{d.Y * 100:0.##}%" : $"calc({d.Y * 100:0.##}% - 22px)";
+                                    <div style="@($"position:absolute;left:{d.X * 100:0.##}%;top:{top};max-width:{Math.Max(d.Width * 100, 10):0.##}%;height:22px;display:flex;align-items:center;padding:0 8px;background:rgba(46,194,126,0.85);color:#fff;font:600 11px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:3px 3px 0 0;box-shadow:0 1px 2px rgba(0,0,0,0.4);")">
+                                        @d.Label @($"{d.Confidence * 100:F0}%")
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <MudStack AlignItems="AlignItems.Center" Class="pa-5">
+                                <MudIcon Icon="@Icons.Material.Filled.ImageNotSupported" Size="Size.Large" />
+                                <MudText Typo="Typo.body2" Class="sv-text-muted">@L["IncidentDetail.NoFrame"]</MudText>
+                            </MudStack>
+                        }
+                    </div>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-4 sv-card" Elevation="0">
+                    <MudStack Spacing="2">
+                        @Row(L["IncidentDetail.Camera"], _incident.CameraName)
+                        @Row(L["IncidentDetail.Roi"], _incident.RoiName ?? "—")
+                        @Row(L["IncidentDetail.Zone"], _incident.ZoneName ?? "—")
+                        @Row(L["IncidentDetail.Trigger"], _incident.TriggerName ?? "—")
+                        @Row(L["IncidentDetail.Category"], _incident.Category, mono: true)
+                        @Row(L["IncidentDetail.Severity"], _incident.Severity.ToString())
+                        @Row(L["IncidentDetail.Status"], _incident.Status.ToString())
+                        @Row(L["IncidentDetail.DetectionsCount"], _incident.Detections.Count.ToString(), mono: true)
+                    </MudStack>
+                </MudPaper>
+
+                @if (_incident.Detections.Count > 0)
+                {
+                    <MudPaper Class="pa-3 mt-3 sv-card" Elevation="0">
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">@L["IncidentDetail.DetectionsList"]</MudText>
+                        <MudTable Items="_incident.Detections" Dense="true" Elevation="0">
+                            <HeaderContent>
+                                <MudTh>@L["IncidentDetail.Label"]</MudTh>
+                                <MudTh>@L["IncidentDetail.Confidence"]</MudTh>
+                                <MudTh>@L["IncidentDetail.Bbox"]</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd class="mono">@context.Label</MudTd>
+                                <MudTd class="mono">@($"{context.Confidence * 100:F0}%")</MudTd>
+                                <MudTd class="mono sv-text-muted" style="font-size:11px;">
+                                    @($"({context.X:F2},{context.Y:F2}) {context.Width:F2}×{context.Height:F2}")
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudPaper>
+                }
+
+                @if (_incident.LlmAnalysis is { } a)
+                {
+                    <MudPaper Class="pa-3 mt-3 sv-card" Elevation="0">
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">@L["IncidentDetail.LlmAnalysis"]</MudText>
+                        <MudText Typo="Typo.body2">@a.Summary</MudText>
+                        <MudText Typo="Typo.caption" Class="sv-text-muted mt-2">
+                            @L["IncidentDetail.LlmRecommended"]: <b>@a.RecommendedAction</b> · FP @($"{a.FalsePositiveProbability:P0}")
+                        </MudText>
+                        <MudText Typo="Typo.caption" Class="mt-1">@a.Rationale</MudText>
+                    </MudPaper>
+                }
+            </MudItem>
+        </MudGrid>
+    }
+</MudStack>
+
+@code {
+    [Parameter] public string Id { get; set; } = string.Empty;
+
+    private SafeView.Domain.Incidents.Incident? _incident;
+    private bool _busy;
+    private bool _analyzing;
+
+    private async Task<string?> GetUserIdAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        return state.User.FindFirst(SafeView.Security.Auth.SafeViewClaims.UserId)?.Value;
+    }
+
+    /// <summary>
+    /// Oznacza incydent jako fałszywy alarm: zamyka workflow (Status=FalsePositive + ResolvedAt)
+    /// i jednocześnie ustawia flagę <c>WasFalsePositive</c> — feedback do statystyk szablonu VLLM
+    /// (agregowane w /admin/vllm-templates, chipy FP rate).
+    /// </summary>
+    private async Task MarkFalsePositive()
+    {
+        if (_incident is null) return;
+        var msg = await Dialog.ShowMessageBox(L["IncidentDetail.ResolveFalseTitle"],
+            string.Format(L["IncidentDetail.ResolveFalseMsg"], _incident.Summary),
+            yesText: L["Common.Yes"], cancelText: L["Common.Cancel"]);
+        if (msg != true) return;
+
+        _busy = true;
+        try
+        {
+            var uid = await GetUserIdAsync();
+            var now = DateTime.UtcNow;
+            _incident.WasFalsePositive = true;
+            _incident.FalsePositiveAt = now;
+            _incident.FalsePositiveByUserId = uid;
+            _incident.Status = SafeView.Domain.Incidents.IncidentStatus.FalsePositive;
+            _incident.ResolvedAt = now;
+            _incident.ResolvedByUserId = uid;
+            await IncidentRepo.UpdateAsync(_incident);
+            Snackbar.Add(L["IncidentDetail.FalsePositiveMarked"], Severity.Success);
+        }
+        catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        finally { _busy = false; }
+    }
+
+    private async Task Acknowledge()
+    {
+        if (_incident is null) return;
+        _busy = true;
+        try
+        {
+            _incident.Status = SafeView.Domain.Incidents.IncidentStatus.Acknowledged;
+            _incident.AcknowledgedAt = DateTime.UtcNow;
+            _incident.AcknowledgedByUserId = await GetUserIdAsync();
+            await IncidentRepo.UpdateAsync(_incident);
+            Snackbar.Add(L["IncidentDetail.Acknowledged"], Severity.Success);
+        }
+        catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        finally { _busy = false; }
+    }
+
+    /// <summary>Zamyka incydent jako rozwiązany (działanie podjęte, zagrożenie zażegnane).</summary>
+    private async Task Resolve()
+    {
+        if (_incident is null) return;
+        var msg = await Dialog.ShowMessageBox(L["IncidentDetail.ResolveTitle"],
+            string.Format(L["IncidentDetail.ResolveMsg"], _incident.Summary),
+            yesText: L["Common.Yes"], cancelText: L["Common.Cancel"]);
+        if (msg != true) return;
+
+        _busy = true;
+        try
+        {
+            _incident.Status = SafeView.Domain.Incidents.IncidentStatus.Resolved;
+            _incident.ResolvedAt = DateTime.UtcNow;
+            _incident.ResolvedByUserId = await GetUserIdAsync();
+            await IncidentRepo.UpdateAsync(_incident);
+            Snackbar.Add(L["IncidentDetail.Resolved"], Severity.Success);
+        }
+        catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        finally { _busy = false; }
+    }
+
+    private async Task AnalyzeLlm()
+    {
+        if (_incident is null || _analyzing) return;
+        _analyzing = true;
+        try
+        {
+            Snackbar.Add(L["IncidentDetail.Analyzing"], Severity.Info);
+            var analysis = await Analyzer.AnalyzeAsync(_incident);
+            if (analysis is null)
+            {
+                Snackbar.Add(L["IncidentDetail.AnalyzeNoResult"], Severity.Warning);
+                return;
+            }
+            _incident.LlmAnalysis = analysis;
+            await IncidentRepo.UpdateAsync(_incident);
+            Snackbar.Add($"LLM: {analysis.RecommendedAction} (FP {analysis.FalsePositiveProbability:P0})", Severity.Success);
+        }
+        catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        finally { _analyzing = false; }
+    }
+
+    private static Color StatusColor(SafeView.Domain.Incidents.IncidentStatus s) => s switch
+    {
+        SafeView.Domain.Incidents.IncidentStatus.Open          => Color.Error,
+        SafeView.Domain.Incidents.IncidentStatus.Acknowledged  => Color.Warning,
+        SafeView.Domain.Incidents.IncidentStatus.Resolved      => Color.Success,
+        SafeView.Domain.Incidents.IncidentStatus.FalsePositive => Color.Default,
+        _ => Color.Default
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _incident = await IncidentRepo.GetByIdAsync(Id);
+    }
+
+    private static string Num(float v)
+        => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private static RenderFragment Row(string label, string value, bool mono = false) => builder =>
+    {
+        builder.OpenComponent<MudStack>(0);
+        builder.AddAttribute(1, "Row", true);
+        builder.AddAttribute(2, "AlignItems", AlignItems.Baseline);
+        builder.AddAttribute(3, "Spacing", 2);
+        builder.AddAttribute(4, "ChildContent", (RenderFragment)(b =>
+        {
+            b.OpenElement(10, "div");
+            b.AddAttribute(11, "class", "sv-text-muted");
+            b.AddAttribute(12, "style", "min-width:120px; font-size:12px;");
+            b.AddContent(13, label);
+            b.CloseElement();
+
+            b.OpenElement(20, "div");
+            if (mono) b.AddAttribute(21, "class", "mono");
+            b.AddContent(22, value);
+            b.CloseElement();
+        }));
+        builder.CloseComponent();
+    };
+}

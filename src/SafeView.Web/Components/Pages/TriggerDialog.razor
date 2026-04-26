@@ -1,0 +1,583 @@
+@namespace SafeView.Web.Components.Pages
+@using SafeView.Domain.Detection
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudStack Row="true" Spacing="2">
+                <MudTextField @bind-Value="Trigger.Name" Label="@L["Table.Name"]" Required="true" Variant="Variant.Outlined" />
+                <MudSwitch @bind-Value="Trigger.Enabled" Color="Color.Success" Label="@L["Table.Active"]" />
+            </MudStack>
+            <MudTextField @bind-Value="Trigger.Description" Label="@L["Actions.DescriptionLabel"]" Variant="Variant.Outlined" Lines="1" />
+
+            <MudStack Row="true" Spacing="2">
+                <MudNumericField T="int" @bind-Value="Trigger.CooldownSeconds" Label="@L["Triggers.Cooldown"]"
+                                 Variant="Variant.Outlined" Min="0" Max="3600"
+                                 HelperText="@L["Triggers.CooldownHint"]" />
+                <MudNumericField T="int" @bind-Value="Trigger.PersistentFrames" Label="@L["Triggers.Persistent"]"
+                                 Variant="Variant.Outlined" Min="1" Max="30"
+                                 HelperText="@L["Triggers.PersistentHint"]" />
+            </MudStack>
+
+            <MudDivider />
+
+            @* ── Conditions ─────────────────────────────────────────────── *@
+            <MudStack Row="true" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.h6">@L["Triggers.Conditions"]</MudText>
+                <MudText Typo="Typo.caption" Class="sv-text-muted">(AND)</MudText>
+                <MudSpacer />
+                <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small"
+                           OnClick="AddCondition" Variant="Variant.Outlined">
+                    @L["Triggers.AddCondition"]
+                </MudButton>
+            </MudStack>
+
+            @for (var i = 0; i < Trigger.Conditions.Count; i++)
+            {
+                var idx = i; var c = Trigger.Conditions[idx];
+                var useClass = !string.IsNullOrEmpty(c.DetectionClassId) || string.IsNullOrEmpty(c.ModelId);
+                <MudPaper Class="pa-2 sv-card-alt" Elevation="0">
+                    <MudStack Spacing="2">
+                        @* Default: class-based flow (biblioteka klas detekcji) *@
+                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                            <MudText Typo="Typo.subtitle2">@L["Triggers.DetectionClass"]</MudText>
+                            <MudSpacer />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                           OnClick="() => Trigger.Conditions.RemoveAt(idx)" />
+                        </MudStack>
+
+                        @if (useClass)
+                        {
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                <MudSelect T="string" Value="c.DetectionClassId"
+                                           ValueChanged="@((string v) => OnClassSelected(c, v))"
+                                           Label="@L["Triggers.DetectionClass"]"
+                                           HelperText="@L["Triggers.DetectionClassHint"]"
+                                           Variant="Variant.Outlined" Margin="Margin.Dense"
+                                           Style="min-width:320px;" Clearable="true">
+                                    @foreach (var grp in DetectionClasses.GroupBy(x => x.Category).OrderBy(g => g.Key, StringComparer.Ordinal))
+                                    {
+                                        @foreach (var klass in grp.OrderBy(x => x.Name, StringComparer.Ordinal))
+                                        {
+                                            <MudSelectItem Value="@klass.Id">
+                                                [@grp.Key] @klass.Name
+                                            </MudSelectItem>
+                                        }
+                                    }
+                                </MudSelect>
+                                @if (!string.IsNullOrEmpty(c.DetectionClassId))
+                                {
+                                    var klass = DetectionClasses.FirstOrDefault(k => k.Id == c.DetectionClassId);
+                                    if (klass is not null)
+                                    {
+                                        <MudChip T="string" Size="Size.Small"
+                                                 Color="@ClassKindChipColor(klass.Kind)"
+                                                 Variant="Variant.Outlined">
+                                            @klass.Kind
+                                        </MudChip>
+                                    }
+                                }
+                                <MudNumericField T="int" @bind-Value="c.MinCount" Label="@L["Triggers.MinCount"]"
+                                                 HelperText="(1 - 100)"
+                                                 Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                 Min="1" Max="100" Step="1" Style="max-width:140px;" />
+                            </MudStack>
+                            @if (string.IsNullOrEmpty(c.DetectionClassId))
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudText Typo="Typo.caption" Class="sv-text-muted">
+                                        @L["Triggers.PickClassHint"]
+                                    </MudText>
+                                    <MudSpacer />
+                                    <MudButton Size="Size.Small" Variant="Variant.Text"
+                                               OnClick="@(() => ToggleConditionMode(c, false))">
+                                        @L["Triggers.UseLegacyFields"]
+                                    </MudButton>
+                                </MudStack>
+                            }
+                        }
+                        else
+                        {
+                            @* Legacy flow — ukryty domyślnie, dla power userów *@
+                            <MudExpansionPanels Elevation="0" MultiExpansion="true">
+                                <MudExpansionPanel Text="@L["Triggers.AdvancedManualConfig"]" Expanded="true">
+                                    <MudStack Spacing="2">
+                                        <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined"
+                                                  Icon="@Icons.Material.Filled.Info">
+                                            @L["Triggers.AdvancedHint"]
+                                        </MudAlert>
+                                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                            <MudSelect T="string" @bind-Value="c.ModelId" Label="@L["Triggers.Model"]" Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width:200px;">
+                                                @foreach (var m in Models)
+                                                {
+                                                    <MudSelectItem Value="@m.Id">@m.Name</MudSelectItem>
+                                                }
+                                            </MudSelect>
+                                            <MudTextField Value="@string.Join(",", c.Labels)"
+                                                          ValueChanged="@((string s) => c.Labels = s.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList())"
+                                                          Label="@L["Triggers.Labels"]"
+                                                          HelperText="@L["Triggers.LabelsHint"]"
+                                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                            <MudNumericField T="int" @bind-Value="c.MinCount" Label="@L["Triggers.MinCount"]"
+                                                             HelperText="(1 - 100)"
+                                                             Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                             Min="1" Max="100" Step="1" Style="max-width:140px;" />
+                                        </MudStack>
+                                        @if (IsModelIncompatible(c.ModelId))
+                                        {
+                                            <MudAlert Severity="Severity.Warning" Dense="true" NoIcon="false" Variant="Variant.Outlined"
+                                                      Icon="@Icons.Material.Filled.Warning">
+                                                @L["Triggers.ModelIncompatible"]
+                                            </MudAlert>
+                                        }
+                                        <MudButton Size="Size.Small" Variant="Variant.Text"
+                                                   StartIcon="@Icons.Material.Filled.AutoAwesome"
+                                                   OnClick="@(() => ToggleConditionMode(c, true))">
+                                            @L["Triggers.UseDetectionClass"]
+                                        </MudButton>
+                                    </MudStack>
+                                </MudExpansionPanel>
+                            </MudExpansionPanels>
+                        }
+                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                            <MudSelect T="BboxRule" @bind-Value="c.BboxRule" Label="@L["Triggers.BboxRule"]" Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width:200px;">
+                                <MudSelectItem Value="BboxRule.CenterInZone">@L["Triggers.BboxRule.CenterInZone"]</MudSelectItem>
+                                <MudSelectItem Value="BboxRule.AnyCorner">@L["Triggers.BboxRule.AnyCorner"]</MudSelectItem>
+                                <MudSelectItem Value="BboxRule.AllCorners">@L["Triggers.BboxRule.AllCorners"]</MudSelectItem>
+                                <MudSelectItem Value="BboxRule.NCorners">@L["Triggers.BboxRule.NCorners"]</MudSelectItem>
+                                <MudSelectItem Value="BboxRule.Iou">@L["Triggers.BboxRule.Iou"]</MudSelectItem>
+                            </MudSelect>
+                            @if (c.BboxRule == BboxRule.NCorners)
+                            {
+                                <MudNumericField T="int" Value="@(c.CornersRequired ?? 2)"
+                                                 ValueChanged="@((int v) => c.CornersRequired = v)"
+                                                 Label="@L["Triggers.CornersRequired"]"
+                                                 HelperText="(1 - 4)"
+                                                 Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                 Min="1" Max="4" Step="1" Style="max-width:140px;" />
+                            }
+                            @if (c.BboxRule == BboxRule.Iou)
+                            {
+                                <MudTooltip Text="@L["Triggers.IouTooltip"]" Placement="Placement.Top">
+                                    <div style="min-width:220px;">
+                                        <MudText Typo="Typo.caption" Class="sv-text-muted">
+                                            IoU threshold: <b>@($"{(c.IouThreshold ?? 0.3) * 100:F0}%")</b>
+                                            <MudIcon Icon="@Icons.Material.Filled.HelpOutline" Size="Size.Small" Style="vertical-align:middle; opacity:0.5;" />
+                                        </MudText>
+                                        <MudSlider T="double" Value="@(c.IouThreshold ?? 0.3)"
+                                                   ValueChanged="@((double v) => c.IouThreshold = Math.Round(v, 2))"
+                                                   Min="0" Max="1" Step="0.05" />
+                                    </div>
+                                </MudTooltip>
+                            }
+                            <div style="min-width:260px;">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudSwitch T="bool"
+                                               Value="@(c.MinConfidence.HasValue)"
+                                               ValueChanged="@((bool on) => c.MinConfidence = on ? (c.MinConfidence ?? 0.25) : null)"
+                                               Color="Color.Primary" Size="Size.Small"
+                                               Label="@L["Triggers.MinConfidence"]" />
+                                    <MudSpacer />
+                                    @if (c.MinConfidence is { } mc)
+                                    {
+                                        <MudText Typo="Typo.caption" Class="mono"><b>@($"{mc * 100:F0}%")</b></MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Triggers.UseModelDefault"]</MudText>
+                                    }
+                                </MudStack>
+                                @if (c.MinConfidence is { } mcv)
+                                {
+                                    <MudSlider T="double" Value="@mcv"
+                                               ValueChanged="@((double v) => c.MinConfidence = Math.Round(v, 2))"
+                                               Min="0.05" Max="1" Step="0.05" />
+                                }
+                            </div>
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            }
+
+            <MudDivider />
+
+            @* ── Schedule ──────────────────────────────────────────────── *@
+            <MudStack Row="true" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.h6">@L["Triggers.Schedule"]</MudText>
+                <MudSwitch T="bool" Value="@(Trigger.Schedule is not null)"
+                           ValueChanged="@((bool v) => Trigger.Schedule = v ? new TriggerSchedule
+                           {
+                               DaysOfWeek = [DayOfWeek.Monday,DayOfWeek.Tuesday,DayOfWeek.Wednesday,DayOfWeek.Thursday,DayOfWeek.Friday,DayOfWeek.Saturday,DayOfWeek.Sunday],
+                               StartMinute = 0, EndMinute = 24*60
+                           } : null)"
+                           Color="Color.Primary" Label="@L["Triggers.ScheduleEnabled"]" />
+            </MudStack>
+            @if (Trigger.Schedule is { } sch)
+            {
+                <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                    @foreach (var d in Enum.GetValues<DayOfWeek>())
+                    {
+                        var pick = sch.DaysOfWeek.Contains(d);
+                        <MudChip T="string"
+                                 Color="@(pick ? Color.Primary : Color.Default)"
+                                 Variant="@(pick ? Variant.Filled : Variant.Outlined)"
+                                 Size="Size.Small"
+                                 OnClick="@(() => ToggleDay(sch, d))">
+                            @d.ToString()[..3]
+                        </MudChip>
+                    }
+                </div>
+                <MudStack Row="true" Spacing="2">
+                    <MudNumericField T="int" Value="@(sch.StartMinute / 60)" ValueChanged="@((int h) => sch.StartMinute = h*60)"
+                                     Label="@L["Triggers.ScheduleStart"]" Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Max="23" Style="max-width:140px;" />
+                    <MudNumericField T="int" Value="@(sch.EndMinute / 60)" ValueChanged="@((int h) => sch.EndMinute = h*60)"
+                                     Label="@L["Triggers.ScheduleEnd"]" Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Max="24" Style="max-width:140px;" />
+                </MudStack>
+            }
+
+            <MudDivider />
+
+            @* ── Actions ──────────────────────────────────────────────── *@
+            <MudText Typo="Typo.h6">@L["Triggers.ActionsToFire"]</MudText>
+            @if (Actions.Count == 0)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true">@L["Triggers.NoActionsAvailable"]</MudAlert>
+            }
+            else
+            {
+                <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Triggers.ActionsHint"]</MudText>
+                <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                    @foreach (var a in Actions)
+                    {
+                        var picked = Trigger.ActionIds.Contains(a.Id);
+                        <MudChip T="string"
+                                 Color="@(picked ? Color.Primary : Color.Default)"
+                                 Variant="@(picked ? Variant.Filled : Variant.Outlined)"
+                                 OnClick="@(() => ToggleAction(a.Id))">
+                            @a.Name <MudText Typo="Typo.caption" Style="margin-left:6px; opacity:0.6;">(@a.Type)</MudText>
+                        </MudChip>
+                    }
+                </div>
+            }
+
+            <MudDivider />
+
+            @* ── Filtry przestrzenne (dystans między obiektami w metrach) ───── *@
+            <MudExpansionPanels Elevation="0">
+                <MudExpansionPanel Text="@L["Triggers.SpatialSection"]">
+                    <MudStack Spacing="2">
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">
+                            @L["Triggers.SpatialHint"]
+                        </MudText>
+
+                        @for (var si = 0; si < Trigger.SpatialFilters.Count; si++)
+                        {
+                            var sidx = si; var sf = Trigger.SpatialFilters[sidx];
+                            <MudPaper Class="pa-2 sv-card-alt" Elevation="0">
+                                <MudStack Spacing="2">
+                                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                        <MudText Typo="Typo.body2" Class="mono">A</MudText>
+                                        <MudSelect T="string" @bind-Value="sf.ModelIdA" Label="@L["Triggers.Model"]"
+                                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width:200px;">
+                                            @foreach (var m in Models)
+                                            {
+                                                <MudSelectItem Value="@m.Id">@m.Name</MudSelectItem>
+                                            }
+                                        </MudSelect>
+                                        <MudTextField Value="@string.Join(",", sf.LabelsA)"
+                                                      ValueChanged="@((string s) => sf.LabelsA = s.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList())"
+                                                      Label="@L["Triggers.Labels"]"
+                                                      HelperText="@L["Triggers.LabelsHint"]"
+                                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                        <MudSpacer />
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                       OnClick="() => Trigger.SpatialFilters.RemoveAt(sidx)" />
+                                    </MudStack>
+                                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                        <MudText Typo="Typo.body2" Class="mono">B</MudText>
+                                        <MudSelect T="string" @bind-Value="sf.ModelIdB" Label="@L["Triggers.Model"]"
+                                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width:200px;">
+                                            @foreach (var m in Models)
+                                            {
+                                                <MudSelectItem Value="@m.Id">@m.Name</MudSelectItem>
+                                            }
+                                        </MudSelect>
+                                        <MudTextField Value="@string.Join(",", sf.LabelsB)"
+                                                      ValueChanged="@((string s) => sf.LabelsB = s.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList())"
+                                                      Label="@L["Triggers.Labels"]"
+                                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                    </MudStack>
+                                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                        <MudNumericField T="double?" @bind-Value="sf.MinDistanceM"
+                                                         Label="@L["Triggers.MinDistanceM"]"
+                                                         HelperText="@L["Triggers.OptionalMeters"]"
+                                                         Min="0" Max="1000" Step="0.5" Immediate="true"
+                                                         Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                                         Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:160px;" />
+                                        <MudNumericField T="double?" @bind-Value="sf.MaxDistanceM"
+                                                         Label="@L["Triggers.MaxDistanceM"]"
+                                                         HelperText="@L["Triggers.OptionalMeters"]"
+                                                         Min="0" Max="1000" Step="0.5" Immediate="true"
+                                                         Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                                         Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:160px;" />
+                                        <MudSelect T="SafeView.Domain.Detection.SpatialPairMode" @bind-Value="sf.PairMode"
+                                                   Label="@L["Triggers.PairMode"]"
+                                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width:200px;">
+                                            <MudSelectItem Value="SafeView.Domain.Detection.SpatialPairMode.AnyPair">@L["Triggers.PairMode.Any"]</MudSelectItem>
+                                            <MudSelectItem Value="SafeView.Domain.Detection.SpatialPairMode.AllPairs">@L["Triggers.PairMode.All"]</MudSelectItem>
+                                        </MudSelect>
+                                    </MudStack>
+                                </MudStack>
+                            </MudPaper>
+                        }
+
+                        <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small"
+                                   OnClick="AddSpatialFilter" Variant="Variant.Outlined">
+                            @L["Triggers.AddSpatialFilter"]
+                        </MudButton>
+
+                        @if (Trigger.SpatialFilters.Count > 0)
+                        {
+                            <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined"
+                                      Icon="@Icons.Material.Filled.Info">
+                                @L["Triggers.SpatialRequiresCalibration"]
+                            </MudAlert>
+                        }
+                    </MudStack>
+                </MudExpansionPanel>
+
+                <MudExpansionPanel Text="@L["Triggers.VllmSection"]">
+                    <MudStack Spacing="2">
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">
+                            @L["Triggers.VllmHint"]
+                        </MudText>
+                        <MudSwitch T="bool"
+                                   Value="@(Trigger.VllmCheck?.Enabled ?? false)"
+                                   ValueChanged="@((bool v) => EnsureVllm().Enabled = v)"
+                                   Color="Color.Primary" Label="@L["Triggers.VllmEnabled"]" />
+
+                        @if (Trigger.VllmCheck is { Enabled: true } vllmCfg)
+                        {
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                <MudSelect T="string" Value="_selectedTemplateId"
+                                           ValueChanged="OnTemplateSelected"
+                                           Label="@L["Triggers.VllmLoadTemplate"]"
+                                           HelperText="@L["Triggers.VllmLoadTemplateHint"]"
+                                           Variant="Variant.Outlined" Margin="Margin.Dense"
+                                           Style="min-width:320px;" Clearable="true">
+                                    @foreach (var grp in Templates.GroupBy(t => t.Category).OrderBy(g => g.Key, StringComparer.Ordinal))
+                                    {
+                                        @foreach (var tpl in grp.OrderBy(x => x.Name, StringComparer.Ordinal))
+                                        {
+                                            <MudSelectItem Value="@tpl.Id">[@grp.Key] @tpl.Name</MudSelectItem>
+                                        }
+                                    }
+                                </MudSelect>
+                                @if (!string.IsNullOrEmpty(vllmCfg.TemplateId))
+                                {
+                                    <MudChip T="string" Size="Size.Small" Class="sv-chip-muted" Icon="@Icons.Material.Filled.Link">
+                                        @L["Triggers.VllmBoundToTemplate"]
+                                    </MudChip>
+                                }
+                            </MudStack>
+
+                            <MudTextField @bind-Value="vllmCfg.PromptTemplate" Label="@L["Triggers.VllmPrompt"]"
+                                          HelperText="@L["Triggers.VllmPromptHint"]"
+                                          Variant="Variant.Outlined" Lines="4" />
+                            <MudTextField @bind-Value="vllmCfg.SystemPrompt" Label="@L["Triggers.VllmSystemPrompt"]"
+                                          Variant="Variant.Outlined" Lines="2" />
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                <MudSwitch @bind-Value="vllmCfg.IncludeFrame" Color="Color.Primary"
+                                           Label="@L["Triggers.VllmIncludeFrame"]" />
+                                <MudSwitch @bind-Value="vllmCfg.RejectOnError" Color="Color.Warning"
+                                           Label="@L["Triggers.VllmRejectOnError"]" />
+                            </MudStack>
+                            <MudStack Row="true" Spacing="2">
+                                <MudSelect T="string" Value="vllmCfg.LlmProviderId"
+                                           ValueChanged="@((string v) => vllmCfg.LlmProviderId = string.IsNullOrEmpty(v) ? null : v)"
+                                           Label="@L["Triggers.VllmProvider"]"
+                                           HelperText="@L["Triggers.VllmProviderHint"]"
+                                           Variant="Variant.Outlined" Clearable="true" Style="min-width:220px;">
+                                    <MudSelectItem Value="@string.Empty">@L["Triggers.VllmProviderDefault"]</MudSelectItem>
+                                    @foreach (var p in LlmProviders.Where(p => p.Enabled))
+                                    {
+                                        <MudSelectItem Value="@p.Id">@p.Name</MudSelectItem>
+                                    }
+                                </MudSelect>
+                                <MudTextField @bind-Value="vllmCfg.ModelName" Label="@L["Triggers.VllmModelName"]"
+                                              HelperText="@L["Triggers.VllmModelNameHint"]"
+                                              Variant="Variant.Outlined" />
+                                <div style="min-width:240px;">
+                                    <MudText Typo="Typo.caption" Class="sv-text-muted">
+                                        @L["Triggers.VllmMinConfidence"]:
+                                        <b>@($"{vllmCfg.MinConfidenceToConfirm * 100:F0}%")</b>
+                                    </MudText>
+                                    <MudSlider T="double" Value="vllmCfg.MinConfidenceToConfirm"
+                                               ValueChanged="@((double v) => vllmCfg.MinConfidenceToConfirm = Math.Round(v, 2))"
+                                               Min="0" Max="1" Step="0.05" />
+                                </div>
+                            </MudStack>
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                <MudSelect T="SafeView.Domain.Vllm.ResponseSeverity" @bind-Value="vllmCfg.MinSeverity"
+                                           Label="@L["Triggers.VllmMinSeverity"]"
+                                           HelperText="@L["Triggers.VllmMinSeverityHint"]"
+                                           Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width:200px;">
+                                    @foreach (var s in Enum.GetValues<SafeView.Domain.Vllm.ResponseSeverity>())
+                                    {
+                                        <MudSelectItem Value="@s">@s</MudSelectItem>
+                                    }
+                                </MudSelect>
+                                <MudSwitch T="bool" @bind-Value="vllmCfg.RequireGoodImageQuality"
+                                           Color="Color.Primary"
+                                           Label="@L["Triggers.VllmRequireGoodImage"]" />
+                            </MudStack>
+                        }
+                    </MudStack>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">@L["Common.Cancel"]</MudButton>
+        <MudButton OnClick="Save" Color="Color.Primary" Variant="Variant.Filled" Disabled="!Valid()">@L["Common.Save"]</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public Trigger Trigger { get; set; } = new();
+    [Parameter] public bool IsNew { get; set; }
+    [Parameter] public List<SafeView.Domain.ML.MLModel> Models { get; set; } = new();
+    [Parameter] public List<DetectionAction> Actions { get; set; } = new();
+    [Parameter] public List<SafeView.Domain.Vllm.PromptTemplate> Templates { get; set; } = new();
+    [Parameter] public List<SafeView.Domain.Detection.DetectionClass> DetectionClasses { get; set; } = new();
+    [Parameter] public List<SafeView.Domain.Llm.LlmProvider> LlmProviders { get; set; } = new();
+
+    private string? _selectedTemplateId;
+
+    protected override void OnParametersSet()
+    {
+        _selectedTemplateId = Trigger.VllmCheck?.TemplateId;
+    }
+
+    private void OnTemplateSelected(string? templateId)
+    {
+        _selectedTemplateId = templateId;
+        if (string.IsNullOrEmpty(templateId)) return;
+        var tpl = Templates.FirstOrDefault(t => t.Id == templateId);
+        if (tpl is null) return;
+
+        var cfg = EnsureVllm();
+        cfg.Enabled = true;
+        cfg.TemplateId = tpl.Id;
+        cfg.SystemPrompt = tpl.SystemPrompt;
+        cfg.PromptTemplate = tpl.UserTemplate;
+        cfg.SchemaJson = tpl.SchemaJson;
+        cfg.MinConfidenceToConfirm = tpl.RecommendedMinConfidence;
+        cfg.MinSeverity = tpl.DefaultMinSeverity;
+        cfg.RequireGoodImageQuality = tpl.RequireGoodImageQuality;
+    }
+
+    /// <summary>
+    /// Zbiór ID modeli, które są faktycznie przypisane do ROI używanych przez strefy
+    /// wskazujące na ten trigger. Jeśli condition.ModelId nie jest w tym zbiorze,
+    /// detekcja nie ma szans zadziałać — dialog pokazuje ostrzeżenie.
+    /// Pusty zbiór = trigger jeszcze nie przypięty do żadnej strefy (brak walidacji).
+    /// </summary>
+    [Parameter] public HashSet<string> CompatibleModelIds { get; set; } = new();
+
+    private bool IsModelIncompatible(string? modelId)
+        => !string.IsNullOrEmpty(modelId)
+           && CompatibleModelIds.Count > 0
+           && !CompatibleModelIds.Contains(modelId);
+
+    private bool Valid()
+        => !string.IsNullOrWhiteSpace(Trigger.Name)
+           && Trigger.Conditions.Count > 0
+           && Trigger.Conditions.All(c =>
+                !string.IsNullOrWhiteSpace(c.DetectionClassId) // class-based path
+                || !string.IsNullOrWhiteSpace(c.ModelId));      // legacy path
+
+    /// <summary>
+    /// Toggle między class-based (DetectionClassId set) a legacy (ModelId + Labels) flow.
+    /// Wyczyszczenie odpowiednich pól zapobiega ambiguity — matcher w pipeline wybiera ścieżkę
+    /// po obecności DetectionClassId, więc jednoznaczny stan trzyma się "albo-albo".
+    /// </summary>
+    private static void ToggleConditionMode(SafeView.Domain.Detection.TriggerCondition c, bool useClass)
+    {
+        if (useClass)
+        {
+            // Przełączenie na class-based — czyścimy legacy fields żeby pipeline nie pomieszał
+            c.ModelId = string.Empty;
+            c.Labels = new List<string>();
+        }
+        else
+        {
+            c.DetectionClassId = null;
+        }
+    }
+
+    /// <summary>
+    /// Gdy user wybiera klasę z dropdown, automatycznie propagujemy default MinConfidence z klasy
+    /// (user może go potem nadpisać). Dla closed-set binding wypełniamy też ModelId i Labels —
+    /// pipeline matcher faktycznie ich nie potrzebuje (używa klasy), ale pomaga to UI i backward
+    /// compat przy eksporcie triggera.
+    /// </summary>
+    private void OnClassSelected(SafeView.Domain.Detection.TriggerCondition c, string? classId)
+    {
+        c.DetectionClassId = string.IsNullOrEmpty(classId) ? null : classId;
+        if (string.IsNullOrEmpty(classId)) return;
+
+        var klass = DetectionClasses.FirstOrDefault(k => k.Id == classId);
+        if (klass is null) return;
+
+        if (c.MinConfidence is null)
+            c.MinConfidence = klass.RecommendedMinConfidence;
+
+        if (klass.Kind == SafeView.Domain.Detection.DetectionClassKind.ClosedSetBinding)
+        {
+            if (!string.IsNullOrEmpty(klass.ClosedSetModelId)) c.ModelId = klass.ClosedSetModelId;
+            if (!string.IsNullOrEmpty(klass.ClosedSetLabel)) c.Labels = [klass.ClosedSetLabel];
+        }
+    }
+
+    private static MudBlazor.Color ClassKindChipColor(SafeView.Domain.Detection.DetectionClassKind k) => k switch
+    {
+        SafeView.Domain.Detection.DetectionClassKind.Text => MudBlazor.Color.Info,
+        SafeView.Domain.Detection.DetectionClassKind.Visual => MudBlazor.Color.Warning,
+        SafeView.Domain.Detection.DetectionClassKind.TextAndVisual => MudBlazor.Color.Secondary,
+        _ => MudBlazor.Color.Default
+    };
+
+    private void AddCondition() => Trigger.Conditions.Add(new TriggerCondition());
+
+    private void AddSpatialFilter() => Trigger.SpatialFilters.Add(new SpatialFilter
+    {
+        ModelIdA = Models.FirstOrDefault()?.Id ?? string.Empty,
+        ModelIdB = Models.FirstOrDefault()?.Id ?? string.Empty
+    });
+
+    private void ToggleAction(string id)
+    {
+        if (!Trigger.ActionIds.Remove(id)) Trigger.ActionIds.Add(id);
+    }
+
+    private void ToggleDay(TriggerSchedule sch, DayOfWeek d)
+    {
+        if (!sch.DaysOfWeek.Remove(d)) sch.DaysOfWeek.Add(d);
+    }
+
+    /// <summary>
+    /// Inicjalizuje VllmCheck gdy user kliknie switch po raz pierwszy. Zwraca referencję do niego
+    /// żeby można było od razu ustawić pole (np. Enabled=true).
+    /// </summary>
+    private VllmCheckConfig EnsureVllm()
+    {
+        if (Trigger.VllmCheck is null)
+            Trigger.VllmCheck = new VllmCheckConfig();
+        return Trigger.VllmCheck;
+    }
+
+    private void Save() => MudDialog.Close(DialogResult.Ok(Trigger));
+}

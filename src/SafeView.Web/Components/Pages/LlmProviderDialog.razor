@@ -1,0 +1,118 @@
+@namespace SafeView.Web.Components.Pages
+@using SafeView.Domain.Llm
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="Provider.Name" Label="@L["Table.Name"]" Required="true"
+                          HelperText="@L["LlmProviders.NameHint"]"
+                          Variant="Variant.Outlined" />
+
+            <MudTextField @bind-Value="Provider.Description" Label="@L["LlmProviders.DescriptionLabel"]"
+                          Lines="2" Variant="Variant.Outlined" />
+
+            <MudSelect T="LlmProviderKind" Value="Provider.Kind" ValueChanged="OnKindChanged"
+                       Label="@L["LlmProviders.Kind"]"
+                       HelperText="@L["LlmProviders.KindHint"]"
+                       Variant="Variant.Outlined">
+                @foreach (var k in Enum.GetValues<LlmProviderKind>())
+                {
+                    <MudSelectItem Value="@k">@KindLabel(k)</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudTextField @bind-Value="Provider.BaseUrl" Label="@L["LlmProviders.BaseUrl"]" Required="true"
+                          HelperText="@L["LlmProviders.BaseUrlHint"]"
+                          Variant="Variant.Outlined" Class="mono" />
+
+            <MudTextField @bind-Value="Provider.ApiKey" Label="@L["LlmProviders.ApiKey"]"
+                          HelperText="@L["LlmProviders.ApiKeyHint"]"
+                          InputType="InputType.Password"
+                          Variant="Variant.Outlined" />
+
+            <MudTextField @bind-Value="Provider.DefaultModel" Label="@L["LlmProviders.DefaultModel"]" Required="true"
+                          HelperText="@DefaultModelHint()"
+                          Variant="Variant.Outlined" Class="mono" />
+
+            <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
+                <MudNumericField T="int" @bind-Value="Provider.TimeoutSeconds" Label="@L["LlmProviders.Timeout"]"
+                                 Min="5" Max="600" Step="10" Variant="Variant.Outlined" Style="max-width:160px;" />
+                <MudSwitch T="bool" @bind-Value="Provider.Enabled" Color="Color.Success" Label="@L["Table.Active"]" />
+                <MudSwitch T="bool" @bind-Value="Provider.IsDefault" Color="Color.Primary" Label="@L["LlmProviders.IsDefault"]" />
+            </MudStack>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">@L["Common.Cancel"]</MudButton>
+        <MudButton OnClick="Save" Color="Color.Primary" Variant="Variant.Filled" Disabled="!Valid()">@L["Common.Save"]</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public LlmProvider Provider { get; set; } = new();
+    [Parameter] public bool IsNew { get; set; }
+
+    private bool Valid()
+        => !string.IsNullOrWhiteSpace(Provider.Name)
+           && !string.IsNullOrWhiteSpace(Provider.BaseUrl)
+           && !string.IsNullOrWhiteSpace(Provider.DefaultModel);
+
+    private void OnKindChanged(LlmProviderKind kind)
+    {
+        Provider.Kind = kind;
+        // Przy pustym BaseUrl/DefaultModel ustaw sensowne wartości dla nowego typu.
+        var (url, model) = Preset(kind);
+        if (string.IsNullOrWhiteSpace(Provider.BaseUrl)) Provider.BaseUrl = url;
+        if (string.IsNullOrWhiteSpace(Provider.DefaultModel)) Provider.DefaultModel = model;
+    }
+
+    private void Save() => MudDialog.Close(DialogResult.Ok(Provider));
+
+    private string DefaultModelHint() => Provider.Kind switch
+    {
+        LlmProviderKind.Ollama => "np. qwen2.5-vl:7b, qwen2.5-vl:32b, llama3.2-vision:11b, gemma3:27b",
+        LlmProviderKind.LmStudio => "np. qwen2.5-vl-7b-instruct-gguf, llava-v1.6-mistral-7b",
+        LlmProviderKind.Vllm => "np. Qwen/Qwen2.5-VL-7B-Instruct, meta-llama/Llama-3.2-11B-Vision",
+        LlmProviderKind.OpenAI => "np. gpt-4o, gpt-4o-mini, gpt-4-vision-preview",
+        LlmProviderKind.AzureOpenAI => "nazwa deployment-u w Azure",
+        LlmProviderKind.Groq => "np. llama-3.2-90b-vision-preview",
+        LlmProviderKind.TogetherAi => "np. meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo",
+        LlmProviderKind.MistralAi => "np. pixtral-large-latest, pixtral-12b",
+        LlmProviderKind.DeepSeek => "np. deepseek-chat",
+        LlmProviderKind.LocalAi => "nazwa zgodna z konfiguracją LocalAI",
+        _ => "nazwa modelu zgodna z API dostawcy"
+    };
+
+    private string KindLabel(LlmProviderKind k) => k switch
+    {
+        LlmProviderKind.Ollama => "Ollama (lokalnie)",
+        LlmProviderKind.LmStudio => "LM Studio (lokalnie)",
+        LlmProviderKind.Vllm => "vLLM (self-hosted)",
+        LlmProviderKind.LocalAi => "LocalAI",
+        LlmProviderKind.OpenAI => "OpenAI (cloud)",
+        LlmProviderKind.AzureOpenAI => "Azure OpenAI (cloud)",
+        LlmProviderKind.Groq => "Groq (cloud)",
+        LlmProviderKind.TogetherAi => "Together AI (cloud)",
+        LlmProviderKind.MistralAi => "Mistral AI (cloud)",
+        LlmProviderKind.DeepSeek => "DeepSeek (cloud)",
+        LlmProviderKind.OpenAiCompatible => "Inny OpenAI-compat",
+        _ => k.ToString()
+    };
+
+    private static (string Url, string Model) Preset(LlmProviderKind k) => k switch
+    {
+        LlmProviderKind.Ollama => ("http://localhost:11434/v1", "qwen2.5-vl:7b"),
+        LlmProviderKind.LmStudio => ("http://localhost:1234/v1", "qwen2.5-vl-7b-instruct"),
+        LlmProviderKind.Vllm => ("http://localhost:8000/v1", "Qwen/Qwen2.5-VL-7B-Instruct"),
+        LlmProviderKind.LocalAi => ("http://localhost:8080/v1", "gpt-4-vision-preview"),
+        LlmProviderKind.OpenAI => ("https://api.openai.com/v1", "gpt-4o-mini"),
+        LlmProviderKind.AzureOpenAI => ("https://YOUR-RESOURCE.openai.azure.com/openai/deployments/YOUR-DEPLOYMENT", ""),
+        LlmProviderKind.Groq => ("https://api.groq.com/openai/v1", "llama-3.2-90b-vision-preview"),
+        LlmProviderKind.TogetherAi => ("https://api.together.xyz/v1", "meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo"),
+        LlmProviderKind.MistralAi => ("https://api.mistral.ai/v1", "pixtral-12b-2409"),
+        LlmProviderKind.DeepSeek => ("https://api.deepseek.com/v1", "deepseek-chat"),
+        _ => ("", "")
+    };
+}

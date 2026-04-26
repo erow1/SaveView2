@@ -1,0 +1,26 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SafeView.Application/SafeView.Application.csproj" />
+    <Project Path="src/SafeView.Cameras/SafeView.Cameras.csproj" />
+    <Project Path="src/SafeView.Domain/SafeView.Domain.csproj" />
+    <Project Path="src/SafeView.Infrastructure/SafeView.Infrastructure.csproj" />
+    <Project Path="src/SafeView.Licensing/SafeView.Licensing.csproj" />
+    <Project Path="src/SafeView.LLM/SafeView.LLM.csproj" />
+    <Project Path="src/SafeView.ML/SafeView.ML.csproj" />
+    <Project Path="src/SafeView.Notifications/SafeView.Notifications.csproj" />
+    <Project Path="src/SafeView.Reports/SafeView.Reports.csproj" />
+    <Project Path="src/SafeView.Roboflow/SafeView.Roboflow.csproj" />
+    <Project Path="src/SafeView.Security/SafeView.Security.csproj" />
+    <Project Path="src/SafeView.Web/SafeView.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SafeView.Application.Tests/SafeView.Application.Tests.csproj" />
+    <Project Path="tests/SafeView.Domain.Tests/SafeView.Domain.Tests.csproj" />
+    <Project Path="tests/SafeView.ML.Tests/SafeView.ML.Tests.csproj" />
+    <Project Path="tests/SafeView.Web.Tests/SafeView.Web.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/SafeView.LicenseGenerator/SafeView.LicenseGenerator.csproj" />
+    <Project Path="tools/SafeView.Admin/SafeView.Admin.csproj" />
+  </Folder>
+</Solution>

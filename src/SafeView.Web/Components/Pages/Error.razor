@@ -1,0 +1,30 @@
+@page "/Error"
+@attribute [AllowAnonymous]
+@using System.Diagnostics
+@layout MainLayout
+@inject IStringLocalizer<SharedResource> L
+
+<PageTitle>@L["Error.Title"] — @L["AppName"]</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+    <MudPaper Class="pa-8" Elevation="0" Style="border:1px solid #FF5964;">
+        <MudText Typo="Typo.h4" Class="sv-status-err">@L["Error.Title"]</MudText>
+        <MudText Typo="Typo.body1" Class="mt-3">@L["Error.Description"]</MudText>
+        @if (ShowRequestId)
+        {
+            <MudText Typo="Typo.caption" Class="mono mt-4 sv-text-muted">Request ID: @RequestId</MudText>
+        }
+        <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary" Class="mt-6">Home</MudButton>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

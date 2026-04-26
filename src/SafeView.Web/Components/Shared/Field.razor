@@ -1,0 +1,13 @@
+@* Prosty 2-wierszowy field label/value — używany w LicenseInfo itp.
+   Kolory adaptywne przez klasy .sv-field-label / .sv-field-value (theme-dark/light.css). *@
+
+<div>
+    <div class="sv-field-label">@Label</div>
+    <div class="sv-field-value @(Mono ? "mono" : "")">@Value</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Value { get; set; } = string.Empty;
+    [Parameter] public bool Mono { get; set; }
+}

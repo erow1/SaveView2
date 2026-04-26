@@ -1,0 +1,542 @@
+@page "/admin/settings"
+@attribute [Authorize(Policy = "perm:admin:settings")]
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@using Microsoft.Extensions.Configuration
+@using SafeView.Web.Services
+@inject SafeView.Web.Services.RuntimeConfigService Runtime
+@inject IConfiguration Config
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@L["Settings.Title"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@Icons.Material.Filled.Settings" Size="Size.Large" Style="color:var(--mud-palette-primary);" />
+        <div>
+            <MudText Typo="Typo.h4">@L["Settings.Title"]</MudText>
+            <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                @L["Settings.Description"]
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Save" Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="SaveAll" Disabled="_saving">
+            @(_saving ? L["Common.Saving"] : L["Common.SaveAll"])
+        </MudButton>
+    </MudStack>
+
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+        @L["Settings.RestartWarning"]
+    </MudAlert>
+
+    <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-3">
+        <MudTabPanel Text="MongoDB" Icon="@Icons.Material.Filled.Storage">
+            @RenderGroup(_mongo)
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mt-3">
+                @L["Settings.MongoRestartWarning"]
+            </MudAlert>
+        </MudTabPanel>
+        <MudTabPanel Text="MediaMTX" Icon="@Icons.Material.Filled.Stream">
+            @RenderGroup(_mediaMtx)
+        </MudTabPanel>
+        <MudTabPanel Text="FFmpeg" Icon="@Icons.Material.Filled.Movie">
+            @RenderGroup(_ffmpeg)
+        </MudTabPanel>
+        <MudTabPanel Text="LLM" Icon="@Icons.Material.Filled.AutoAwesome">
+            @RenderGroup(_llm)
+        </MudTabPanel>
+        <MudTabPanel Text="@L["Settings.Tab.SmtpEmail"]" Icon="@Icons.Material.Filled.Email">
+            @RenderGroup(_smtp)
+        </MudTabPanel>
+        <MudTabPanel Text="@L["Settings.Tab.Storage"]" Icon="@Icons.Material.Filled.Folder">
+            @RenderGroup(_storage)
+        </MudTabPanel>
+        <MudTabPanel Text="@L["Settings.Tab.License"]" Icon="@Icons.Material.Filled.VpnKey">
+            @RenderGroup(_license)
+        </MudTabPanel>
+        <MudTabPanel Text="@L["Settings.Tab.CameraSampler"]" Icon="@Icons.Material.Filled.CameraAlt">
+            @RenderGroup(_sampler)
+        </MudTabPanel>
+        <MudTabPanel Text="@L["Settings.Tab.Diagnostics"]" Icon="@Icons.Material.Filled.BugReport">
+            @RenderGroup(_diagnostics)
+        </MudTabPanel>
+        <MudTabPanel Text="@L["Settings.Tab.ML"]" Icon="@Icons.Material.Filled.Memory">
+            @RenderGroup(_ml)
+        </MudTabPanel>
+        <MudTabPanel Text="@L["Settings.RawJson"]" Icon="@Icons.Material.Filled.Code">
+            <MudStack Spacing="2">
+                <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                    @L["Settings.RawJsonHint"]
+                </MudText>
+                <MudTextField @bind-Value="_rawJson" Lines="20" Variant="Variant.Outlined"
+                              Class="mono" Style="font-family:'JetBrains Mono',monospace;" />
+                <MudStack Row="true">
+                    <MudButton StartIcon="@Icons.Material.Filled.Save" OnClick="SaveRaw" Variant="Variant.Filled" Color="Color.Primary">
+                        @L["Settings.SaveRaw"]
+                    </MudButton>
+                    <MudButton StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadRaw" Variant="Variant.Outlined">
+                        @L["Settings.ReloadFromDisk"]
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudTabPanel>
+    </MudTabs>
+
+    <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+        @L["Settings.FilePath"] <code class="mono">@Runtime.FilePath</code>
+    </MudText>
+</MudStack>
+
+@code {
+    private sealed record Field(
+        string Path,
+        string Label,
+        string? HintKey = null,
+        FieldKind Kind = FieldKind.Text,
+        bool Secret = false);
+
+    private enum FieldKind { Text, Int, Bool, Password }
+
+    private sealed class Group
+    {
+        public string Title { get; init; } = "";
+        public List<Field> Fields { get; init; } = [];
+        public Dictionary<string, string?> Inputs { get; } = new();
+    }
+
+    private readonly Group _mongo = new()
+    {
+        Title = "MongoDB",
+        Fields =
+        [
+            new("Mongo:ConnectionString", "ConnectionString", "Settings.Hint.MongoConn", FieldKind.Password, Secret: true),
+            new("Mongo:DatabaseName", "DatabaseName", "Settings.Hint.MongoDb"),
+        ]
+    };
+
+    private readonly Group _mediaMtx = new()
+    {
+        Title = "MediaMTX",
+        Fields =
+        [
+            new("MediaMtx:Enabled", "Enabled", "Settings.Hint.MtxEnabled", FieldKind.Bool),
+            new("MediaMtx:AutoStart", "AutoStart", "Settings.Hint.MtxAutoStart", FieldKind.Bool),
+            new("MediaMtx:BinaryPath", "BinaryPath", "Settings.Hint.MtxBinary"),
+            new("MediaMtx:ConfigDirectory", "ConfigDirectory", "Settings.Hint.MtxConfigDir"),
+            new("MediaMtx:ReconcileIntervalSeconds", "ReconcileIntervalSeconds", "Settings.Hint.MtxReconcile", FieldKind.Int),
+            new("MediaMtx:Host", "Host", "Settings.Hint.MtxHost"),
+            new("MediaMtx:RtspPort", "RtspPort", "Settings.Hint.MtxRtsp", FieldKind.Int),
+            new("MediaMtx:HlsPort", "HlsPort", "Settings.Hint.MtxHls", FieldKind.Int),
+        ]
+    };
+
+    private readonly Group _ffmpeg = new()
+    {
+        Title = "FFmpeg",
+        Fields =
+        [
+            new("Ffmpeg:BinaryPath", "BinaryPath", "Settings.Hint.FfBinary"),
+            new("Ffmpeg:TimeoutSeconds", "TimeoutSeconds", "Settings.Hint.FfTimeout", FieldKind.Int),
+            new("Ffmpeg:RtspTransport", "RtspTransport", "Settings.Hint.FfTransport"),
+        ]
+    };
+
+    private readonly Group _llm = new()
+    {
+        Title = "LLM",
+        Fields =
+        [
+            new("Llm:Backend", "Backend", "Settings.Hint.LlmBackend"),
+            new("Llm:BaseUrl", "BaseUrl", "Settings.Hint.LlmBaseUrl"),
+            new("Llm:ApiKey", "ApiKey", "Settings.Hint.LlmApiKey", FieldKind.Password, Secret: true),
+            new("Llm:DefaultModel", "DefaultModel", "Settings.Hint.LlmModel"),
+            new("Llm:TimeoutSeconds", "TimeoutSeconds", null, FieldKind.Int),
+        ]
+    };
+
+    private readonly Group _smtp = new()
+    {
+        Title = "SMTP / e-mail",
+        Fields =
+        [
+            new("Notifications:Smtp:Enabled", "Enabled", "Settings.Hint.SmtpEnabled", FieldKind.Bool),
+            new("Notifications:Smtp:Host", "Host"),
+            new("Notifications:Smtp:Port", "Port", null, FieldKind.Int),
+            new("Notifications:Smtp:UseStartTls", "UseStartTls", null, FieldKind.Bool),
+            new("Notifications:Smtp:Username", "Username"),
+            new("Notifications:Smtp:Password", "Password", null, FieldKind.Password, Secret: true),
+            new("Notifications:Smtp:From", "From", "Settings.Hint.SmtpFrom"),
+            new("Notifications:Smtp:SubjectTemplate", "SubjectTemplate", "Settings.Hint.SmtpSubject"),
+        ]
+    };
+
+    private readonly Group _storage = new()
+    {
+        Title = "Storage",
+        Fields =
+        [
+            new("Storage:Root", "Root", "Settings.Hint.StorageRoot"),
+            new("Storage:Frames", "Frames"),
+            new("Storage:Clips", "Clips"),
+            new("Storage:Reports", "Reports"),
+            new("Storage:Models", "Models"),
+            new("Storage:Uploads", "Uploads"),
+            new("Storage:Licenses", "Licenses"),
+            new("Storage:CameraMedia", "CameraMedia", "Settings.Hint.CameraMedia"),
+        ]
+    };
+
+    private readonly Group _license = new()
+    {
+        Title = "License",
+        Fields =
+        [
+            new("License:FilePath", "FilePath", "Settings.Hint.LicFile"),
+            new("License:RevalidateIntervalMinutes", "RevalidateIntervalMinutes", null, FieldKind.Int),
+            new("License:ExpiryWarningDays", "ExpiryWarningDays", null, FieldKind.Int),
+            new("License:AllowReadOnlyOnInvalid", "AllowReadOnlyOnInvalid", "Settings.Hint.LicReadOnly", FieldKind.Bool),
+            new("License:DevBypass", "DevBypass", "Settings.Hint.LicDevBypass", FieldKind.Bool),
+        ]
+    };
+
+    private readonly Group _sampler = new()
+    {
+        Title = "Sampler",
+        Fields =
+        [
+            new("Cameras:Sampler:Enabled", "Enabled", null, FieldKind.Bool),
+            new("Cameras:Sampler:MinTickMilliseconds", "MinTickMilliseconds", null, FieldKind.Int),
+            new("Cameras:Sampler:MaxConcurrentCaptures", "MaxConcurrentCaptures", null, FieldKind.Int),
+            new("Cameras:Sampler:StartupDelaySeconds", "StartupDelaySeconds", null, FieldKind.Int),
+        ]
+    };
+
+    private readonly Group _diagnostics = new()
+    {
+        Title = "Diagnostics",
+        Fields =
+        [
+            new("Diagnostics:Enabled", "Enabled", "Settings.Hint.DiagEnabled", FieldKind.Bool),
+            new("Diagnostics:MinimumLevel", "MinimumLevel", "Settings.Hint.DiagMinLevel", FieldKind.Int),
+            new("Diagnostics:RetentionDays", "RetentionDays", "Settings.Hint.DiagRetention", FieldKind.Int),
+        ]
+    };
+
+    private readonly Group _ml = new()
+    {
+        Title = "ML",
+        Fields =
+        [
+            new("ML:UseGpu", "UseGpu", "Settings.Hint.MLUseGpu", FieldKind.Bool),
+            new("ML:GpuDeviceId", "GpuDeviceId", "Settings.Hint.MLGpuDeviceId", FieldKind.Int),
+            new("ML:FallbackProvider", "FallbackProvider", "Settings.Hint.MLFallback"),
+        ]
+    };
+
+    private IEnumerable<Group> AllGroups()
+    {
+        yield return _mongo;
+        yield return _mediaMtx;
+        yield return _ffmpeg;
+        yield return _llm;
+        yield return _smtp;
+        yield return _storage;
+        yield return _license;
+        yield return _sampler;
+        yield return _diagnostics;
+        yield return _ml;
+    }
+
+    private string _rawJson = "{}";
+    private bool _saving;
+    private JsonObject _runtimeRoot = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRaw();
+    }
+
+    private async Task LoadRaw()
+    {
+        _runtimeRoot = await Runtime.LoadAsync();
+        _rawJson = _runtimeRoot.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+        foreach (var g in AllGroups())
+        {
+            g.Inputs.Clear();
+            foreach (var f in g.Fields)
+            {
+                var node = RuntimeConfigService.GetByPath(_runtimeRoot, f.Path);
+                g.Inputs[f.Path] = node?.ToString();
+            }
+        }
+        StateHasChanged();
+    }
+
+    private async Task SaveRaw()
+    {
+        try
+        {
+            var parsed = JsonNode.Parse(_rawJson) as JsonObject
+                         ?? throw new JsonException(L["Settings.RawJsonMustBeObject"]);
+            await Runtime.SaveAsync(parsed);
+            Snackbar.Add(L["Settings.SavedRawOk"], Severity.Success);
+            await LoadRaw();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"{L["Common.Save"]}: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task SaveAll()
+    {
+        _saving = true;
+        try
+        {
+            var map = new Dictionary<string, JsonNode?>();
+            foreach (var g in AllGroups())
+            {
+                foreach (var f in g.Fields)
+                {
+                    var raw = g.Inputs.TryGetValue(f.Path, out var v) ? v : null;
+                    map[f.Path] = ToJson(raw, f.Kind);
+                }
+            }
+            await Runtime.SetManyAndSaveAsync(map);
+            Snackbar.Add(L["Settings.SavedOk"], Severity.Success);
+            await LoadRaw();
+
+            // Validate storage directories after save
+            await ValidateStorageDirectories();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"{L["Common.Save"]}: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    /// <summary>
+    /// After saving, resolve all Storage:* paths the same way LocalDiskFileStore does,
+    /// try to create them, and report per-path success/failure via Snackbar.
+    /// </summary>
+    private Task ValidateStorageDirectories()
+    {
+        // Resolve the effective root (from combined configuration)
+        var root = Config["Storage:Root"] ?? "storage";
+        var rootAbsolute = Path.IsPathRooted(root) ? root : Path.GetFullPath(root, AppContext.BaseDirectory);
+
+        // Map of field label → configured value
+        var storagePaths = new (string Label, string ConfigKey, string Default)[]
+        {
+            ("Frames",      "Storage:Frames",      "frames"),
+            ("Clips",       "Storage:Clips",        "clips"),
+            ("Reports",     "Storage:Reports",      "reports"),
+            ("Models",      "Storage:Models",       "models"),
+            ("Uploads",     "Storage:Uploads",      "uploads"),
+            ("Licenses",    "Storage:Licenses",     "licenses"),
+            ("CameraMedia", "Storage:CameraMedia",  "camera-media"),
+        };
+
+        var errors = new List<string>();
+
+        // First check root itself
+        try
+        {
+            if (!Directory.Exists(rootAbsolute))
+            {
+                Directory.CreateDirectory(rootAbsolute);
+                Snackbar.Add(string.Format(L["Settings.StorageCreated"], rootAbsolute), Severity.Info);
+            }
+        }
+        catch (Exception ex)
+        {
+            errors.Add(string.Format(L["Settings.StorageError"], rootAbsolute, "Root", ex.Message));
+        }
+
+        // Check each sub-directory
+        foreach (var (label, configKey, defaultVal) in storagePaths)
+        {
+            var value = Config[configKey] ?? defaultVal;
+            var absPath = Path.IsPathRooted(value) ? value : Path.Combine(rootAbsolute, value);
+
+            try
+            {
+                if (!Directory.Exists(absPath))
+                {
+                    Directory.CreateDirectory(absPath);
+                    Snackbar.Add(string.Format(L["Settings.StorageCreated"], absPath), Severity.Info);
+                }
+                // Test write access: create and delete a temp file
+                var testFile = Path.Combine(absPath, $".safeview_write_test_{Guid.NewGuid():N}");
+                File.WriteAllText(testFile, "test");
+                File.Delete(testFile);
+            }
+            catch (Exception ex)
+            {
+                errors.Add(string.Format(L["Settings.StorageError"], absPath, label, ex.Message));
+            }
+        }
+
+        if (errors.Count > 0)
+        {
+            Snackbar.Add(L["Settings.StorageWarning"], Severity.Warning, config =>
+            {
+                config.VisibleStateDuration = 15000;
+                config.ShowCloseIcon = true;
+            });
+            foreach (var err in errors)
+            {
+                Snackbar.Add(err, Severity.Error, config =>
+                {
+                    config.VisibleStateDuration = 15000;
+                    config.ShowCloseIcon = true;
+                });
+            }
+        }
+        else
+        {
+            Snackbar.Add(L["Settings.StorageOk"], Severity.Success);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static JsonNode? ToJson(string? raw, FieldKind kind)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        return kind switch
+        {
+            FieldKind.Int => long.TryParse(raw, out var n) ? JsonValue.Create(n) : JsonValue.Create(raw),
+            FieldKind.Bool => bool.TryParse(raw, out var b) ? JsonValue.Create(b) : JsonValue.Create(raw),
+            _ => JsonValue.Create(raw),
+        };
+    }
+
+    private string? EffectiveValue(Field f)
+    {
+        var v = Config[f.Path];
+        if (f.Secret && !string.IsNullOrEmpty(v)) return "********";
+        return v;
+    }
+
+    private RenderFragment RenderGroup(Group g) => builder =>
+    {
+        var seq = 0;
+        builder.OpenComponent<MudStack>(seq++);
+        builder.AddAttribute(seq++, "Spacing", 2);
+        builder.AddAttribute(seq++, "ChildContent", (RenderFragment)(inner =>
+        {
+            var i = 0;
+            foreach (var f in g.Fields)
+            {
+                var eff = EffectiveValue(f);
+                var hasOverride = !string.IsNullOrEmpty(g.Inputs.GetValueOrDefault(f.Path));
+                var hintText = f.HintKey is not null ? L[f.HintKey].Value : null;
+                var currentValueLabel = L["Settings.CurrentValue"].Value;
+                var defaultPlaceholder = L["Settings.DefaultPlaceholder"].Value;
+                var defaultPlaceholderBool = L["Settings.DefaultPlaceholderBool"].Value;
+
+                inner.OpenComponent<MudPaper>(i++);
+                inner.AddAttribute(i++, "Elevation", 0);
+                inner.AddAttribute(i++, "Class", "pa-3");
+                inner.AddAttribute(i++, "Style", "border:1px solid var(--mud-palette-lines-default); border-radius:8px;");
+                inner.AddAttribute(i++, "ChildContent", (RenderFragment)(cell =>
+                {
+                    var j = 0;
+                    cell.OpenComponent<MudStack>(j++);
+                    cell.AddAttribute(j++, "Row", true);
+                    cell.AddAttribute(j++, "AlignItems", AlignItems.Center);
+                    cell.AddAttribute(j++, "ChildContent", (RenderFragment)(hdr =>
+                    {
+                        var k = 0;
+                        hdr.OpenComponent<MudText>(k++);
+                        hdr.AddAttribute(k++, "Typo", Typo.subtitle2);
+                        hdr.AddAttribute(k++, "ChildContent", (RenderFragment)(t => t.AddContent(0, f.Label)));
+                        hdr.CloseComponent();
+
+                        hdr.OpenComponent<MudText>(k++);
+                        hdr.AddAttribute(k++, "Typo", Typo.caption);
+                        hdr.AddAttribute(k++, "Class", "mono ms-2");
+                        hdr.AddAttribute(k++, "Style", "color:var(--mud-palette-text-secondary);");
+                        hdr.AddAttribute(k++, "ChildContent", (RenderFragment)(t => t.AddContent(0, f.Path)));
+                        hdr.CloseComponent();
+
+                        hdr.OpenComponent<MudSpacer>(k++);
+                        hdr.CloseComponent();
+
+                        if (hasOverride)
+                        {
+                            hdr.OpenComponent<MudChip<string>>(k++);
+                            hdr.AddAttribute(k++, "Size", Size.Small);
+                            hdr.AddAttribute(k++, "Color", Color.Primary);
+                            hdr.AddAttribute(k++, "Variant", Variant.Outlined);
+                            hdr.AddAttribute(k++, "ChildContent", (RenderFragment)(t => t.AddContent(0, "override")));
+                            hdr.CloseComponent();
+                        }
+                    }));
+                    cell.CloseComponent();
+
+                    if (f.Kind == FieldKind.Bool)
+                    {
+                        cell.OpenComponent<MudSelect<string>>(j++);
+                        cell.AddAttribute(j++, "Value", g.Inputs.GetValueOrDefault(f.Path));
+                        cell.AddAttribute(j++, "ValueChanged",
+                            Microsoft.AspNetCore.Components.EventCallback.Factory.Create<string>(this, v => g.Inputs[f.Path] = v));
+                        cell.AddAttribute(j++, "Variant", Variant.Outlined);
+                        cell.AddAttribute(j++, "Dense", true);
+                        cell.AddAttribute(j++, "Clearable", true);
+                        cell.AddAttribute(j++, "Placeholder", defaultPlaceholderBool);
+                        cell.AddAttribute(j++, "ChildContent", (RenderFragment)(opts =>
+                        {
+                            var m = 0;
+                            opts.OpenComponent(m++, typeof(MudSelectItem<string>));
+                            opts.AddAttribute(m++, "Value", "true");
+                            opts.AddAttribute(m++, "ChildContent", (RenderFragment)(t => t.AddContent(0, "true")));
+                            opts.CloseComponent();
+                            opts.OpenComponent(m++, typeof(MudSelectItem<string>));
+                            opts.AddAttribute(m++, "Value", "false");
+                            opts.AddAttribute(m++, "ChildContent", (RenderFragment)(t => t.AddContent(0, "false")));
+                            opts.CloseComponent();
+                        }));
+                        cell.CloseComponent();
+                    }
+                    else
+                    {
+                        cell.OpenComponent<MudTextField<string>>(j++);
+                        cell.AddAttribute(j++, "Value", g.Inputs.GetValueOrDefault(f.Path));
+                        cell.AddAttribute(j++, "ValueChanged",
+                            Microsoft.AspNetCore.Components.EventCallback.Factory.Create<string>(this, v => g.Inputs[f.Path] = v));
+                        cell.AddAttribute(j++, "Variant", Variant.Outlined);
+                        cell.AddAttribute(j++, "Margin", Margin.Dense);
+                        cell.AddAttribute(j++, "Placeholder", defaultPlaceholder);
+                        if (f.Kind == FieldKind.Password)
+                        {
+                            cell.AddAttribute(j++, "InputType", InputType.Password);
+                        }
+                        cell.CloseComponent();
+                    }
+
+                    cell.OpenComponent<MudText>(j++);
+                    cell.AddAttribute(j++, "Typo", Typo.caption);
+                    cell.AddAttribute(j++, "Style", "color:var(--mud-palette-text-secondary); display:block; margin-top:4px;");
+                    cell.AddAttribute(j++, "ChildContent", (RenderFragment)(t =>
+                    {
+                        if (!string.IsNullOrEmpty(hintText)) t.AddContent(0, hintText + " · ");
+                        t.AddContent(1, currentValueLabel);
+                        t.AddMarkupContent(2, $"<b class=\"mono\">{System.Net.WebUtility.HtmlEncode(eff ?? "(null)")}</b>");
+                    }));
+                    cell.CloseComponent();
+                }));
+                inner.CloseComponent();
+            }
+        }));
+        builder.CloseComponent();
+    };
+}

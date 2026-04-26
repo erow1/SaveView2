@@ -1,0 +1,171 @@
+@page "/admin/actions"
+@attribute [Authorize(Policy = "perm:admin:actions")]
+@using SafeView.Domain.Detection
+@inject SafeView.Application.Abstractions.Persistence.IActionRepository ActionRepo
+@inject SafeView.Application.Abstractions.Detection.IActionDispatcher Dispatcher
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@L["Nav.Actions"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@Icons.Material.Filled.FlashOn" Size="Size.Large" Style="color:var(--mud-palette-primary);" />
+        <div>
+            <MudText Typo="Typo.h4">@L["Nav.Actions"]</MudText>
+            <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                @L["Actions.Description"]
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.History" OnClick="@(() => Nav.NavigateTo("/admin/actions/history"))" Variant="Variant.Outlined">
+            @L["Actions.HistoryLink"]
+        </MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Add" OnClick="AddAction" Variant="Variant.Filled" Color="Color.Primary">
+            @L["Actions.Add"]
+        </MudButton>
+    </MudStack>
+
+    <MudTable Items="_actions" Dense="true" Hover="true" Loading="_loading" Elevation="0" Class="sv-card">
+        <HeaderContent>
+            <MudTh>@L["Table.Name"]</MudTh>
+            <MudTh>@L["Actions.Type"]</MudTh>
+            <MudTh>@L["Actions.RateLimit"]</MudTh>
+            <MudTh>@L["Table.Active"]</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                <strong>@context.Name</strong>
+                @if (!string.IsNullOrEmpty(context.Description))
+                {
+                    <div class="sv-text-muted" style="font-size:11px;">@context.Description</div>
+                }
+            </MudTd>
+            <MudTd class="mono">@context.Type</MudTd>
+            <MudTd class="mono">@(context.RateLimitPerMinute > 0 ? $"{context.RateLimitPerMinute}/min" : "—")</MudTd>
+            <MudTd>
+                @if (context.Enabled) {<MudChip T="string" Size="Size.Small" Style="background:#0E2A1E; color:#2EC27E;">ON</MudChip>}
+                else {<MudChip T="string" Size="Size.Small" Class="sv-chip-muted">OFF</MudChip>}
+            </MudTd>
+            <MudTd>
+                <MudTooltip Text="@L["Test.Fire"]">
+                    <MudIconButton Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" Color="Color.Success"
+                                   OnClick="() => TestFire(context)" />
+                </MudTooltip>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditAction(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteAction(context)" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudStack>
+
+@code {
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+    [SupplyParameterFromQuery(Name = "edit")] public string? EditId { get; set; }
+    [SupplyParameterFromQuery(Name = "returnTo")] public string? ReturnTo { get; set; }
+
+    private List<DetectionAction> _actions = new();
+    private bool _loading = true;
+    private string? _openedEditId;
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(EditId) && EditId != _openedEditId && _actions.Count > 0)
+        {
+            var target = _actions.FirstOrDefault(a => a.Id == EditId);
+            if (target is not null)
+            {
+                _openedEditId = EditId;
+                await OpenDialog(target, isNew: false);
+                if (!string.IsNullOrEmpty(ReturnTo)) Nav.NavigateTo(ReturnTo);
+            }
+        }
+    }
+
+    private async Task Reload()
+    {
+        _loading = true;
+        _actions = (await ActionRepo.ListAsync()).OrderBy(a => a.Name, StringComparer.Ordinal).ToList();
+        _loading = false;
+
+        // Jeśli strona została otwarta z ?edit={id} i dopiero teraz mamy listę — otwórz dialog.
+        if (!string.IsNullOrEmpty(EditId) && EditId != _openedEditId)
+        {
+            var target = _actions.FirstOrDefault(a => a.Id == EditId);
+            if (target is not null)
+            {
+                _openedEditId = EditId;
+                await OpenDialog(target, isNew: false);
+                if (!string.IsNullOrEmpty(ReturnTo)) Nav.NavigateTo(ReturnTo);
+            }
+        }
+    }
+
+    private async Task AddAction()
+    {
+        await OpenDialog(new DetectionAction(), isNew: true);
+    }
+
+    private async Task EditAction(DetectionAction a) => await OpenDialog(a, isNew: false);
+
+    private async Task OpenDialog(DetectionAction action, bool isNew)
+    {
+        var parameters = new DialogParameters { ["Action"] = action, ["IsNew"] = isNew };
+        var dlg = await Dialog.ShowAsync<ActionDialog>(
+            isNew ? L["Actions.AddTitle"] : L["Actions.EditTitle"],
+            parameters, new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: DetectionAction saved })
+        {
+            try
+            {
+                if (isNew) await ActionRepo.InsertAsync(saved);
+                else await ActionRepo.UpdateAsync(saved);
+                Snackbar.Add(L["Actions.Saved"], Severity.Success);
+                await Reload();
+            }
+            catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        }
+    }
+
+    private async Task TestFire(DetectionAction a)
+    {
+        var ctx = new SafeView.Application.Abstractions.Detection.ActionContext
+        {
+            CameraId = "manual-test",
+            CameraName = "Manual test",
+            ZoneId = "-",
+            ZoneName = "-",
+            TriggerId = "-",
+            TriggerName = "Manual test",
+            FrameSnapshotPath = string.Empty,
+            Detections = Array.Empty<SafeView.Application.Abstractions.Detection.DetectionResult>(),
+            OccurredAt = DateTime.UtcNow
+        };
+        try
+        {
+            var exec = await Dispatcher.TestFireAsync(a, ctx);
+            if (exec.Status == ActionExecutionStatus.Success)
+                Snackbar.Add(string.Format(L["Test.Succeeded"], exec.DurationMs), Severity.Success);
+            else
+                Snackbar.Add(string.Format(L["Test.Failed"], exec.ErrorMessage ?? "?"), Severity.Error);
+        }
+        catch (Exception ex) { Snackbar.Add(string.Format(L["Test.Failed"], ex.Message), Severity.Error); }
+    }
+
+    private async Task DeleteAction(DetectionAction a)
+    {
+        var ok = await Dialog.ShowMessageBox(L["Actions.DeleteTitle"],
+            string.Format(L["Actions.DeleteMessage"], a.Name),
+            yesText: L["Common.Delete"], cancelText: L["Common.Cancel"]);
+        if (ok != true) return;
+        await ActionRepo.DeleteAsync(a.Id);
+        Snackbar.Add(L["Actions.Deleted"], Severity.Success);
+        await Reload();
+    }
+}

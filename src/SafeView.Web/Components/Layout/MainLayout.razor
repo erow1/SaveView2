@@ -1,0 +1,135 @@
+@inherits LayoutComponentBase
+@inject IStringLocalizer<SharedResource> L
+@inject SafeView.Web.Theme.ThemeState Theme
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@inject SafeView.Application.Abstractions.Notifications.IInAppNotificationBroker InAppBroker
+@implements IDisposable
+
+<MudThemeProvider Theme="SafeViewTheme.Dark" IsDarkMode="@Theme.IsDark" />
+<MudPopoverProvider />
+<MudDialogProvider CloseButton="true"
+                   CloseOnEscapeKey="true"
+                   BackdropClick="true"
+                   Position="DialogPosition.Center"
+                   MaxWidth="MaxWidth.Small"
+                   FullWidth="true" />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0" Dense="true" Style="border-bottom: 1px solid var(--mud-palette-lines-default);">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                       OnClick="@((_) => _drawerOpen = !_drawerOpen)" />
+        <MudText Typo="Typo.h5" Style="font-weight:800; letter-spacing:-0.02em;">
+            <span style="color:var(--mud-palette-primary);">Safe</span><span>View</span>
+        </MudText>
+        <MudText Typo="Typo.caption" Class="ms-3 d-none d-md-flex" Style="color:var(--mud-palette-text-secondary); font-family:'JetBrains Mono',monospace;">
+            @L["AppTagline"]
+        </MudText>
+        <MudSpacer />
+        <MudTooltip Text="@(Theme.IsDark ? L["Theme.SwitchToLight"] : L["Theme.SwitchToDark"])">
+            <MudIconButton Icon="@(Theme.IsDark ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                           Color="Color.Inherit" OnClick="ToggleThemeAsync" />
+        </MudTooltip>
+        <LanguageSwitcher />
+        <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit" />
+        <AuthorizeView>
+            <Authorized>
+                <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                    <MudMenuItem>
+                        <MudText Typo="Typo.body2">@context.User.Identity?.Name</MudText>
+                        <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">@string.Join(", ", context.User.FindAll(System.Security.Claims.ClaimTypes.Role).Select(c => c.Value))</MudText>
+                    </MudMenuItem>
+                    <MudDivider />
+                    <MudMenuItem Href="/account/password" Icon="@Icons.Material.Filled.Lock">@L["ChangePassword.Title"]</MudMenuItem>
+                    <form method="post" action="/auth/logout" style="margin:0;">
+                        <button type="submit" style="width:100%; text-align:left; background:none; border:none; color:inherit; padding:8px 16px; cursor:pointer; font:inherit;">
+                            @L["Auth.SignOut"]
+                        </button>
+                    </form>
+                </MudMenu>
+            </Authorized>
+        </AuthorizeView>
+    </MudAppBar>
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="0" Variant="@DrawerVariant.Mini" OpenMiniOnHover="true" ClipMode="DrawerClipMode.Always">
+        <NavMenu />
+    </MudDrawer>
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="py-4">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private bool _drawerOpen = true;
+
+    protected override void OnInitialized()
+    {
+        Theme.Changed += OnThemeChanged;
+        InAppBroker.Published += OnInAppNotification;
+    }
+
+    private void OnInAppNotification(SafeView.Application.Abstractions.Notifications.InAppNotificationMessage msg)
+    {
+        var sev = msg.Severity switch
+        {
+            SafeView.Application.Abstractions.Notifications.InAppNotificationSeverity.Success => Severity.Success,
+            SafeView.Application.Abstractions.Notifications.InAppNotificationSeverity.Warning => Severity.Warning,
+            SafeView.Application.Abstractions.Notifications.InAppNotificationSeverity.Error => Severity.Error,
+            _ => Severity.Info
+        };
+        InvokeAsync(() =>
+        {
+            try { Snackbar.Add(msg.Message, sev, cfg => cfg.VisibleStateDuration = 6000); }
+            catch { /* circuit może być zamknięte */ }
+        });
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            var saved = await JS.InvokeAsync<string?>("safeviewTheme.get");
+            bool isDark;
+            if (saved is "light") isDark = false;
+            else if (saved is "dark") isDark = true;
+            else isDark = await JS.InvokeAsync<bool>("safeviewTheme.prefersDark");
+
+            if (Theme.IsDark != isDark)
+            {
+                Theme.Set(isDark);
+                // Changed handler wywoła StateHasChanged
+            }
+            // zsynchronizuj klasę body (na wypadek gdyby JS nie ustawił jeszcze)
+            await JS.InvokeVoidAsync("safeviewTheme.apply", isDark ? "dark" : "light");
+        }
+        catch (Microsoft.JSInterop.JSDisconnectedException) { /* circuit closed */ }
+        catch { /* nie blokujemy UI */ }
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        Theme.Toggle();
+        try
+        {
+            await JS.InvokeVoidAsync("safeviewTheme.set", Theme.IsDark ? "dark" : "light");
+        }
+        catch { /* ignore */ }
+    }
+
+    private void OnThemeChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Theme.Changed -= OnThemeChanged;
+        InAppBroker.Published -= OnInAppNotification;
+    }
+}

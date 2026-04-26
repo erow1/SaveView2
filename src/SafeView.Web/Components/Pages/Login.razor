@@ -1,0 +1,62 @@
+@page "/login"
+@layout EmptyLayout
+@attribute [AllowAnonymous]
+@inject IStringLocalizer<SharedResource> L
+@inject SafeView.Application.Abstractions.Persistence.IUserRepository UserRepo
+@inject NavigationManager Nav
+
+<PageTitle>@L["Auth.SignIn"] — @L["AppName"]</PageTitle>
+
+<div class="sv-auth-page">
+    <div class="sv-auth-card">
+        <div class="sv-auth-header">
+            <div class="sv-auth-logo">SAFE<span>VIEW</span></div>
+            <div class="sv-auth-title">@L["Auth.SignIn"]</div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Error))
+        {
+            <div class="sv-auth-error">
+                @ErrorMessage(Error)
+            </div>
+        }
+
+        <form method="post" action="/auth/login">
+            <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+
+            <label class="sv-auth-label">@L["Auth.Username"]</label>
+            <input name="username" type="text" required autocomplete="username" autofocus class="sv-auth-input" />
+
+            <label class="sv-auth-label">@L["Auth.Password"]</label>
+            <input name="password" type="password" required autocomplete="current-password" class="sv-auth-input" />
+
+            <button type="submit" class="sv-auth-button">@L["Auth.SignIn"]</button>
+        </form>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] public string? Setup { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Pierwsze uruchomienie — brak użytkowników → kieruj na setup
+        try
+        {
+            var count = await UserRepo.CountAsync();
+            if (count == 0) Nav.NavigateTo("/setup", forceLoad: true);
+        }
+        catch { /* Mongo niedostępne — pozwól zobaczyć formularz */ }
+    }
+
+    private static string ErrorMessage(string code) => code switch
+    {
+        "unknown_user" or "bad_password" => "Nieprawidłowy login lub hasło.",
+        "inactive" => "Konto jest nieaktywne.",
+        "locked" => "Konto zablokowane po 5 nieudanych próbach logowania.",
+        "invalid_input" => "Podaj nazwę użytkownika i hasło.",
+        _ => "Logowanie nie powiodło się."
+    };
+}

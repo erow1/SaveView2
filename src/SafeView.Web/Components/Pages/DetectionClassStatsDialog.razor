@@ -1,0 +1,124 @@
+@namespace SafeView.Web.Components.Pages
+@using SafeView.Domain.Detection
+@using SafeView.Application.Abstractions.Persistence
+@inject IIncidentRepository IncidentRepo
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3" Style="min-width:640px;">
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">
+                    @Class.Kind
+                </MudChip>
+                <MudText Typo="Typo.subtitle1">@Class.Name</MudText>
+            </MudStack>
+            @if (!string.IsNullOrEmpty(Class.Description))
+            {
+                <MudText Typo="Typo.caption" Class="sv-text-muted">@Class.Description</MudText>
+            }
+
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.caption" Class="sv-text-muted">@L["DetectionClassStats.Window"]:</MudText>
+                <MudSelect T="int" Value="_windowDays" ValueChanged="OnWindowChanged"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:160px;">
+                    <MudSelectItem Value="7">7 @L["DetectionClassStats.Days"]</MudSelectItem>
+                    <MudSelectItem Value="30">30 @L["DetectionClassStats.Days"]</MudSelectItem>
+                    <MudSelectItem Value="90">90 @L["DetectionClassStats.Days"]</MudSelectItem>
+                </MudSelect>
+            </MudStack>
+
+            @if (_stats is null)
+            {
+                <MudProgressLinear Indeterminate="true" />
+            }
+            else
+            {
+                <MudStack Row="true" Spacing="2">
+                    <MudPaper Class="pa-3 sv-card-alt" Elevation="0" Style="flex:1;">
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["DetectionClassStats.FireCount"]</MudText>
+                        <MudText Typo="Typo.h5" Class="mono">@_stats.FireCount</MudText>
+                    </MudPaper>
+                    <MudPaper Class="pa-3 sv-card-alt" Elevation="0" Style="flex:1;">
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["DetectionClassStats.FpRate"]</MudText>
+                        <MudText Typo="Typo.h5" Class="mono">
+                            @($"{_stats.FalsePositiveRate * 100:F0}%")
+                        </MudText>
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">
+                            @($"{_stats.FalsePositiveCount} / {_stats.FireCount}")
+                        </MudText>
+                    </MudPaper>
+                    <MudPaper Class="pa-3 sv-card-alt" Elevation="0" Style="flex:1;">
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["DetectionClassStats.AvgConf"]</MudText>
+                        <MudText Typo="Typo.h5" Class="mono">
+                            @(_stats.AvgConfidence is { } ac ? $"{ac * 100:F0}%" : "—")
+                        </MudText>
+                    </MudPaper>
+                </MudStack>
+
+                @if (_stats.FireCount > 0)
+                {
+                    <div>
+                        <MudText Typo="Typo.subtitle2" Class="mb-1">@L["DetectionClassStats.Histogram"]</MudText>
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["DetectionClassStats.HistogramHint"]</MudText>
+                        <MudChart ChartType="ChartType.Bar" ChartSeries="@_series" XAxisLabels="@_labels"
+                                  Width="100%" Height="220px" />
+                    </div>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined"
+                              Icon="@Icons.Material.Filled.Info">
+                        @L["DetectionClassStats.NoData"]
+                    </MudAlert>
+                }
+
+                @if (_stats.LastFireAt is { } last)
+                {
+                    <MudText Typo="Typo.caption" Class="sv-text-muted mono">
+                        @L["DetectionClassStats.LastFire"]: @last.ToString("yyyy-MM-dd HH:mm")
+                    </MudText>
+                }
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Close(DialogResult.Ok(true))" Color="Color.Primary">
+            @L["Common.Close"]
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public DetectionClass Class { get; set; } = new();
+
+    private DetectionClassStats? _stats;
+    private int _windowDays = 30;
+    private readonly string[] _labels = ["0-10", "10-20", "20-30", "30-40", "40-50",
+                                         "50-60", "60-70", "70-80", "80-90", "90-100"];
+    private List<MudBlazor.ChartSeries> _series = new();
+
+    protected override async Task OnInitializedAsync() => await LoadStats();
+
+    private async Task OnWindowChanged(int days)
+    {
+        _windowDays = days;
+        await LoadStats();
+    }
+
+    private async Task LoadStats()
+    {
+        var from = DateTime.UtcNow.AddDays(-_windowDays);
+        _stats = await IncidentRepo.GetStatsByDetectionClassAsync(Class.Id, from);
+
+        _series = _stats.FireCount > 0
+            ? new List<MudBlazor.ChartSeries>
+            {
+                new() { Name = L["DetectionClassStats.FireCount"], Data = _stats.ConfidenceHistogram.Select(x => (double)x).ToArray() }
+            }
+            : new();
+
+        StateHasChanged();
+    }
+}

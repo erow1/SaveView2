@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>SafeView.Admin</RootNamespace>
+    <AssemblyName>safeview-admin</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SafeView.Domain\SafeView.Domain.csproj" />
+    <ProjectReference Include="..\..\src\SafeView.Application\SafeView.Application.csproj" />
+    <ProjectReference Include="..\..\src\SafeView.Infrastructure\SafeView.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\SafeView.Security\SafeView.Security.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MongoDB.Driver" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+</Project>

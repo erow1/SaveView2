@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-2ZZKT26QRH"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-2ZZKT26QRH');
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bezpieczeństwo — SafeView.ai</title>
+    <meta name="description" content="Praktyki bezpieczeństwa SafeView.ai — architektura zero-trust, szyfrowanie AES-256, kontrola dostępu, audyty penetracyjne i reagowanie na incydenty.">
+    <link rel="canonical" href="https://safeview.ai/security.html">
+    <link rel="alternate" hreflang="pl" href="https://safeview.ai/security.html">
+    <link rel="alternate" hreflang="en" href="https://safeview.ai/security.html">
+    <link rel="alternate" hreflang="x-default" href="https://safeview.ai/security.html">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="SafeView.ai">
+    <meta property="og:title" content="Bezpieczeństwo — SafeView.ai">
+    <meta property="og:description" content="Praktyki bezpieczeństwa SafeView.ai — architektura zero-trust, szyfrowanie i reagowanie na incydenty.">
+    <meta property="og:url" content="https://safeview.ai/security.html">
+    <meta property="og:image" content="https://safeview.ai/media/photos/logo1200x630.png">
+    <meta property="og:locale" content="pl_PL">
+    <meta property="og:locale:alternate" content="en_US">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Bezpieczeństwo — SafeView.ai">
+    <meta name="twitter:description" content="Praktyki bezpieczeństwa SafeView.ai — architektura zero-trust, szyfrowanie i reagowanie na incydenty.">
+    <meta name="twitter:image" content="https://safeview.ai/media/photos/logo1200x630.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="preload" href="styles.css" as="style">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/svg+xml" href="media/logo-300x300.svg">
+    <link rel="apple-touch-icon" href="media/logo-300x300.svg">
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Przejdź do treści</a>
+    <div class="video-bg"><video autoplay muted loop playsinline poster="media/logo-300x300.svg"><source src="media/videos/background.webm" type="video/webm"></video></div>
+    <header>
+    <!-- Navbar -->
+    <nav class="navbar scrolled" id="navbar">
+        <div class="container navbar-container">
+            <div class="nav-left">
+                <a href="index.html" class="logo">
+                    <span class="logo-icon"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="#FFD600" stroke-width="2.5"/><circle class="eye-pupil" cx="16" cy="16" r="6" fill="#FFD600"/><path class="eye-lid" d="M4 16C4 16 9 6 16 6C23 6 28 16 28 16C28 16 23 26 16 26C9 26 4 16 4 16Z" stroke="#FFD600" stroke-width="2" fill="none"/></svg></span>
+                    <span class="logo-text">Safe<span class="logo-highlight">View</span><span class="logo-dot">.ai</span></span>
+                </a>
+            </div>
+            <div class="nav-center">
+                <ul class="nav-links" id="navLinks">
+                    <li><a href="index.html" data-i18n="nav.home">Home</a></li>
+                    <li><a href="solutions.html" data-i18n="nav.solutions">Rozwiązania</a></li>
+                    <li><a href="case-studies.html" data-i18n="nav.cases">Case Studies</a></li>
+                    <li><a href="pricing.html" data-i18n="nav.pricing">Cennik</a></li>
+                    <li><a href="about.html" data-i18n="nav.about">O nas</a></li>
+                    <li><a href="blog.html" data-i18n="nav.blog">Blog</a></li>
+                    <li class="nav-mobile-only"><a href="contact.html" class="btn btn-nav" data-i18n="nav.contact">Kontakt</a></li>
+                </ul>
+                <div class="lang-toggle" onclick="i18n.toggle()">
+                    <span class="lang-label lang-label--pl active">PL</span>
+                    <span class="lang-switch"><span class="lang-knob"></span></span>
+                    <span class="lang-label lang-label--en">EN</span>
+                </div>
+            </div>
+            <div class="nav-right">
+                <a href="contact.html" class="btn btn-nav" data-i18n="nav.contact">Kontakt</a>
+                <button class="nav-toggle" id="navToggle" aria-label="Menu"><span></span><span></span><span></span></button>
+            </div>
+        </div>
+    </nav>
+    </header>
+
+    <main id="main-content">
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <a href="index.html" class="back-link" data-i18n="nav.back">← Wróć</a>
+            <span class="section-tag" data-i18n="legal.tag">Prawne</span>
+            <h1 class="page-title" data-i18n="security.title"><span class="text-gradient">Bezpieczeństwo</span> danych i infrastruktury</h1>
+            <p class="page-description" data-i18n="security.desc">Jak SafeView.ai chroni dane, systemy i infrastrukturę naszych klientów</p>
+        </div>
+    </section>
+
+    <!-- Content -->
+    <section class="legal-section">
+        <div class="container">
+            <div class="legal-content" data-i18n-html="security.content">
+
+                <h2>1. Architektura bezpieczeństwa</h2>
+                <p>SafeView.ai stosuje wielowarstwowe podejście do bezpieczeństwa (defense in depth), obejmujące zarówno zabezpieczenia techniczne, jak i procesy organizacyjne.</p>
+                <h3>1.1. Przetwarzanie brzegowe (Edge Computing)</h3>
+                <ul>
+                    <li>Analiza wideo odbywa się na dedykowanych urządzeniach brzegowych w lokalizacji Klienta</li>
+                    <li>Surowe nagrania wideo nie opuszczają infrastruktury Klienta</li>
+                    <li>Do chmury przesyłane są wyłącznie metadane, zdarzenia i zagregowane statystyki</li>
+                    <li>Minimalizacja powierzchni ataku dzięki ograniczonej komunikacji sieciowej</li>
+                </ul>
+                <h3>1.2. Wdrożenia on-premise</h3>
+                <ul>
+                    <li>Pełna izolacja danych — cały system działa w sieci wewnętrznej Klienta</li>
+                    <li>Brak komunikacji z serwerami zewnętrznymi (air-gapped deployment)</li>
+                    <li>Dedykowane serwery z zaszyfrowanymi dyskami</li>
+                </ul>
+
+                <h2>2. Szyfrowanie</h2>
+                <table class="legal-table">
+                    <thead>
+                        <tr>
+                            <th>Warstwa</th>
+                            <th>Standard</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Transmisja danych (in transit)</td>
+                            <td>TLS 1.3 z certyfikatami X.509</td>
+                        </tr>
+                        <tr>
+                            <td>Dane spoczynkowe (at rest)</td>
+                            <td>AES-256-GCM</td>
+                        </tr>
+                        <tr>
+                            <td>Komunikacja API</td>
+                            <td>HTTPS z mutual TLS (mTLS) — opcjonalne</td>
+                        </tr>
+                        <tr>
+                            <td>Klucze szyfrujące</td>
+                            <td>Zarządzanie kluczami z rotacją co 90 dni</td>
+                        </tr>
+                        <tr>
+                            <td>Bazy danych</td>
+                            <td>Transparent Data Encryption (TDE)</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2>3. Kontrola dostępu</h2>
+                <h3>3.1. Uwierzytelnianie</h3>
+                <ul>
+                    <li>Uwierzytelnianie wieloskładnikowe (MFA) wymagane dla wszystkich kont administracyjnych</li>
+                    <li>Obsługa SSO (Single Sign-On) z protokołami SAML 2.0 i OpenID Connect</li>
+                    <li>Tokeny API z ograniczonym czasem życia i możliwością natychmiastowego unieważnienia</li>
+                    <li>Automatyczne blokowanie konta po 5 nieudanych próbach logowania</li>
+                </ul>
+                <h3>3.2. Autoryzacja</h3>
+                <ul>
+                    <li>Model RBAC (Role-Based Access Control) — uprawnienia przydzielane na podstawie ról</li>
+                    <li>Zasada najmniejszych uprawnień (Principle of Least Privilege)</li>
+                    <li>Granularna kontrola dostępu do poszczególnych kamer, stref i funkcji</li>
+                    <li>Regularne przeglądy uprawnień (co najmniej kwartalnie)</li>
+                </ul>
+
+                <h2>4. Bezpieczeństwo infrastruktury</h2>
+                <h3>4.1. Segmentacja sieci</h3>
+                <ul>
+                    <li>Izolacja środowisk produkcyjnych, testowych i deweloperskich</li>
+                    <li>Mikrosegmentacja z dedykowanymi VLAN-ami dla różnych komponentów systemu</li>
+                    <li>Firewalle warstwy aplikacji (WAF) chroniące punkty końcowe API</li>
+                </ul>
+                <h3>4.2. Monitoring bezpieczeństwa</h3>
+                <ul>
+                    <li>Ciągły monitoring logów systemowych i sieciowych (24/7 SIEM)</li>
+                    <li>Automatyczne wykrywanie anomalii w ruchu sieciowym</li>
+                    <li>Alerty w czasie rzeczywistym o podejrzanej aktywności</li>
+                    <li>Pełny audit trail wszystkich operacji administracyjnych</li>
+                </ul>
+
+                <h2>5. Bezpieczeństwo aplikacji</h2>
+                <ul>
+                    <li><strong>Bezpieczny SDLC</strong> — przeglądy kodu (code review), statyczna analiza bezpieczeństwa (SAST), dynamiczne testy (DAST)</li>
+                    <li><strong>Zarządzanie zależnościami</strong> — automatyczne skanowanie bibliotek pod kątem znanych podatności (CVE)</li>
+                    <li><strong>Testy penetracyjne</strong> — regularne testy przeprowadzane przez niezależnych audytorów</li>
+                    <li><strong>Zarządzanie podatnościami</strong> — proces priorytetyzacji i łatania podatności (krytyczne: &lt;24h, wysokie: &lt;72h)</li>
+                    <li><strong>Bezpieczeństwo modeli AI</strong> — ochrona przed atakami adversarial, walidacja wejść, izolacja procesów inferencji</li>
+                </ul>
+
+                <h2>6. Bezpieczeństwo fizyczne</h2>
+                <ul>
+                    <li>Centra danych w certyfikowanych obiektach (Tier III+) na terenie EOG</li>
+                    <li>Kontrola dostępu biometrycznego do serwerowni</li>
+                    <li>Monitoring CCTV i rejestracja wejść/wyjść</li>
+                    <li>Redundantne zasilanie (UPS + generatory) i klimatyzacja</li>
+                </ul>
+
+                <h2>7. Reagowanie na incydenty</h2>
+                <p>SafeView.ai posiada formalny plan reagowania na incydenty bezpieczeństwa (Incident Response Plan):</p>
+                <table class="legal-table">
+                    <thead>
+                        <tr>
+                            <th>Faza</th>
+                            <th>Działania</th>
+                            <th>SLA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Wykrycie</strong></td>
+                            <td>Automatyczne wykrycie przez SIEM + alerty</td>
+                            <td>Ciągły monitoring</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Klasyfikacja</strong></td>
+                            <td>Ocena severity, wpływu i zasięgu</td>
+                            <td>&lt;1 godzina</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Izolacja</strong></td>
+                            <td>Ograniczenie zasięgu incydentu</td>
+                            <td>&lt;2 godziny</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Powiadomienie</strong></td>
+                            <td>Informacja do Klienta + IOD + organy (jeśli wymagane)</td>
+                            <td>&lt;24 godziny</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Naprawa</strong></td>
+                            <td>Usunięcie przyczyny i przywrócenie usługi</td>
+                            <td>Zależne od severity</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Analiza</strong></td>
+                            <td>Post-mortem i wnioski na przyszłość</td>
+                            <td>&lt;5 dni roboczych</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2>8. Ciągłość działania</h2>
+                <ul>
+                    <li><strong>RTO (Recovery Time Objective):</strong> &lt;4 godziny dla komponentów chmurowych</li>
+                    <li><strong>RPO (Recovery Point Objective):</strong> &lt;1 godzina dla danych analitycznych</li>
+                    <li>Automatyczny failover między strefami dostępności</li>
+                    <li>Regularne testy procedur odtwarzania (disaster recovery drills) — co najmniej raz na kwartał</li>
+                    <li>Urządzenia brzegowe działają autonomicznie w przypadku utraty łączności z chmurą</li>
+                </ul>
+
+                <h2>9. Zgodność i certyfikacje</h2>
+                <ul>
+                    <li><strong>RODO</strong> — pełna zgodność z Rozporządzeniem (UE) 2016/679</li>
+                    <li><strong>Ustawa o ochronie danych osobowych</strong> — zgodność z ustawą z dnia 10 maja 2018 r.</li>
+                    <li><strong>NIS2</strong> — przygotowanie do wymogów Dyrektywy NIS2 dla dostawców usług ICT</li>
+                    <li><strong>AI Act</strong> — monitorowanie i dostosowywanie się do wymogów Rozporządzenia w sprawie AI</li>
+                </ul>
+
+                <h2>10. Szkolenia i świadomość</h2>
+                <ul>
+                    <li>Obowiązkowe szkolenia z cyberbezpieczeństwa dla wszystkich pracowników (co najmniej raz w roku)</li>
+                    <li>Dedykowane szkolenia dla zespołów deweloperskich (Secure Coding Practices)</li>
+                    <li>Symulowane ataki phishingowe w celu weryfikacji poziomu świadomości</li>
+                    <li>Onboarding bezpieczeństwa dla nowych pracowników i podwykonawców</li>
+                </ul>
+
+                <h2>11. Zgłaszanie podatności</h2>
+                <p>SafeView.ai prowadzi program odpowiedzialnego ujawniania podatności (Responsible Disclosure). Jeśli odkryjesz potencjalną lukę w zabezpieczeniach, prosimy o kontakt:</p>
+                <ul>
+                    <li><strong>E-mail:</strong> office@safeview.ai</li>
+                    <li><strong>PGP:</strong> Klucz publiczny dostępny na życzenie</li>
+                </ul>
+                <p>Zobowiązujemy się do potwierdzenia zgłoszenia w ciągu 48 godzin i regulowania współpracy przy naprawie.</p>
+
+                <h2>12. Kontakt</h2>
+                <p>Pytania dotyczące bezpieczeństwa prosimy kierować na adres: <strong>office@safeview.ai</strong></p>
+                <p>Ostatnia aktualizacja: <strong>1 stycznia 2026 r.</strong></p>
+
+            </div>
+        </div>
+    </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="index.html" class="logo">
+                        <span class="logo-icon"><svg width="28" height="28" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="#FFD600" stroke-width="2.5"/><circle class="eye-pupil" cx="16" cy="16" r="6" fill="#FFD600"/><path class="eye-lid" d="M4 16C4 16 9 6 16 6C23 6 28 16 28 16C28 16 23 26 16 26C9 26 4 16 4 16Z" stroke="#FFD600" stroke-width="2" fill="none"/></svg></span>
+                        <span class="logo-text">Safe<span class="logo-highlight">View</span><span class="logo-dot">.ai</span></span>
+                    </a>
+                    <p data-i18n="footer.desc">Zaawansowane systemy rozpoznawania wizyjnego oparte na AI. Tworzymy bezpieczniejszą przyszłość.</p>
+                </div>
+                <div class="footer-links">
+                    <span class="footer-heading" data-i18n="footer.product">Produkt</span>
+                    <ul>
+                        <li><a href="solutions.html" data-i18n="footer.solutions">Rozwiązania</a></li>
+                        <li><a href="pricing.html" data-i18n="footer.pricing">Cennik</a></li>
+                        <li><a href="solutions.html#api">API Docs</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <span class="footer-heading" data-i18n="footer.company">Firma</span>
+                    <ul>
+                        <li><a href="about.html" data-i18n="footer.about">O nas</a></li>
+                        <li><a href="blog.html" data-i18n="nav.blog">Blog</a></li>
+                        <li><a href="contact.html" data-i18n="footer.contact">Kontakt</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <span class="footer-heading" data-i18n="footer.legal">Prawne</span>
+                    <ul>
+                        <li><a href="privacy.html" data-i18n="footer.privacy">Polityka prywatności</a></li>
+                        <li><a href="terms.html" data-i18n="footer.terms">Regulamin</a></li>
+                        <li><a href="gdpr.html" data-i18n="footer.gdpr">RODO</a></li>
+                        <li><a href="security.html" data-i18n="footer.security">Bezpieczeństwo</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p data-i18n="footer.copyright">&copy; 2026 SafeView.ai — Wszelkie prawa zastrzeżone.</p>
+                <div class="footer-social">
+                    <a href="https://www.linkedin.com/company/safeviewai-software" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 8v8M4 4v.01M8 16v-5a3 3 0 016 0v5M8 8v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+                    <a href="https://www.instagram.com/safeviewai" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="4" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="10" r="3.5" stroke="currentColor" stroke-width="1.5"/><circle cx="14.5" cy="5.5" r="1" fill="currentColor"/></svg></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+    <script src="i18n.js" defer></script>
+    <script src="main.js" defer></script>
+    <script src="cookies.js" defer></script>
+</body>
+</html>

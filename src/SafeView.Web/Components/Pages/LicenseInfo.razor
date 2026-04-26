@@ -1,0 +1,67 @@
+@page "/license"
+@attribute [Authorize(Policy = "perm:admin:license")]
+@inject SafeView.Licensing.ILicenseService LicenseSvc
+@inject IStringLocalizer<SharedResource> L
+
+<PageTitle>@L["Nav.License"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="4">
+    <MudText Typo="Typo.h4">@L["Nav.License"]</MudText>
+
+    @{
+        var status = LicenseSvc.Status;
+        var lic = LicenseSvc.Current;
+        var (chipCss, label) = status.State switch
+        {
+            SafeView.Licensing.LicenseState.Valid => ("sv-chip-ok", L["License.Active"].Value),
+            SafeView.Licensing.LicenseState.Expired => ("sv-chip-warn", L["License.Expired"].Value),
+            SafeView.Licensing.LicenseState.Invalid => ("sv-chip-err", L["License.Invalid"].Value),
+            _ => ("sv-chip-err", L["License.None"].Value)
+        };
+    }
+
+    <MudPaper Class="pa-6 sv-card" Elevation="0">
+        <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
+            <MudChip T="string" Size="Size.Large" Class="@chipCss">@label</MudChip>
+            <MudText Typo="Typo.body2" Class="sv-text-secondary">@status.Message</MudText>
+        </MudStack>
+
+        @if (lic is not null)
+        {
+            <MudDivider Class="my-4" />
+            <MudGrid>
+                <MudItem xs="12" md="6"><Field Label="@L["License.Client"]" Value="@lic.CustomerName" /></MudItem>
+                <MudItem xs="12" md="6"><Field Label="CustomerId" Value="@lic.CustomerId" Mono="true" /></MudItem>
+                <MudItem xs="12" md="6"><Field Label="@L["License.IssuedAt"]" Value="@lic.IssuedAt.ToString("yyyy-MM-dd HH:mm UTC")" /></MudItem>
+                <MudItem xs="12" md="6"><Field Label="@L["License.ExpiresAt"]" Value="@lic.ExpiresAt.ToString("yyyy-MM-dd HH:mm UTC")" /></MudItem>
+                <MudItem xs="12" md="6"><Field Label="@L["License.DaysRemaining"]" Value="@(status.DaysRemaining?.ToString() ?? "-")" Mono="true" /></MudItem>
+                <MudItem xs="12" md="6"><Field Label="Fingerprint" Value="@(status.Fingerprint ?? "-")" Mono="true" /></MudItem>
+            </MudGrid>
+
+            <MudDivider Class="my-4" />
+            <MudText Typo="Typo.subtitle2" Class="mb-2">@L["License.ActiveModules"]</MudText>
+            <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1">
+                @foreach (var m in lic.Modules.OrderBy(x => x, StringComparer.Ordinal))
+                {
+                    <MudChip T="string" Size="Size.Small" Class="sv-chip-accent">@m</MudChip>
+                }
+            </MudStack>
+
+            @if (lic.Limits.Count > 0)
+            {
+                <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">@L["License.Limits"]</MudText>
+                <MudSimpleTable Dense="true" Hover="false" Style="background:transparent;">
+                    <tbody>
+                        @foreach (var kv in lic.Limits.OrderBy(x => x.Key, StringComparer.Ordinal))
+                        {
+                            <tr>
+                                <td class="sv-table-muted">@kv.Key</td>
+                                <td class="mono sv-table-accent">@kv.Value</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        }
+    </MudPaper>
+</MudStack>

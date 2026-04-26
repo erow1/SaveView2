@@ -1,0 +1,66 @@
+# SafeView — produkcyjny docker-compose.
+# Uruchomienie:
+#   docker compose up -d --build
+# Pierwszy start kieruje na /setup, gdzie tworzysz konto admina.
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: safeview-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - safeview
+
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: safeview-mediamtx
+    restart: unless-stopped
+    ports:
+      - "8554:8554"  # RTSP
+      - "8888:8888"  # HLS
+    networks:
+      - safeview
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: safeview-app
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_URLS: "http://+:8080"
+      ASPNETCORE_ENVIRONMENT: "Production"
+      Mongo__ConnectionString: "mongodb://mongo:27017"
+      Mongo__DatabaseName: "safeview"
+      MediaMtx__Enabled: "true"
+      MediaMtx__Host: "mediamtx"
+      Llm__Backend: "vllm"
+      Llm__BaseUrl: "http://vllm:8000/v1"
+      License__FilePath: "/app/storage/licenses/safeview.lic"
+      Notifications__MinSeverity: "1"
+    volumes:
+      - safeview_storage:/app/storage
+      - safeview_logs:/app/logs
+    networks:
+      - safeview
+
+volumes:
+  mongo_data:
+  safeview_storage:
+  safeview_logs:
+
+networks:
+  safeview:
+    driver: bridge

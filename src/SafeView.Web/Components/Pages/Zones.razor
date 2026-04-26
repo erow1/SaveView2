@@ -1,0 +1,155 @@
+@page "/zones"
+@attribute [Authorize(Policy = "perm:zones:view")]
+@inject SafeView.Application.Abstractions.Persistence.IZoneRepository ZoneRepo
+@inject SafeView.Application.Abstractions.Persistence.ICameraRepository CameraRepo
+@inject SafeView.Application.Abstractions.Persistence.IRoiRepository RoiRepo
+@inject SafeView.Application.Abstractions.Persistence.ITriggerRepository TriggerRepo
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@L["Nav.Zones"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudText Typo="Typo.h4">@L["Nav.Zones"]</MudText>
+        <MudSpacer />
+        <AuthorizeView Policy="perm:zones:edit">
+            <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary" OnClick="AddZone">
+                @L["Zones.AddZone"]
+            </MudButton>
+        </AuthorizeView>
+    </MudStack>
+
+    <MudTable Items="_zones" Dense="true" Hover="true" Loading="_loading" Elevation="0"
+              Class="sv-card">
+        <HeaderContent>
+            <MudTh>@L["Table.Name"]</MudTh>
+            <MudTh>@L["Table.Camera"]</MudTh>
+            <MudTh>@L["Zones.Roi"]</MudTh>
+            <MudTh>@L["Table.Vertices"]</MudTh>
+            <MudTh>@L["Zones.TriggersCount"]</MudTh>
+            <MudTh>@L["Table.Active"]</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="display:inline-block; width:10px; height:10px; border-radius:2px; background:@context.Color;"></span>
+                    <span>@context.Name</span>
+                </div>
+                @if (!string.IsNullOrEmpty(context.Description))
+                {
+                    <div class="sv-text-muted" style="font-size:11px;">@context.Description</div>
+                }
+            </MudTd>
+            <MudTd>@(_cameras.FirstOrDefault(c => c.Id == context.CameraId)?.Name ?? "—")</MudTd>
+            <MudTd>@(_rois.FirstOrDefault(r => r.Id == context.RoiId)?.Name ?? "—")</MudTd>
+            <MudTd class="mono">@context.Polygon.Count</MudTd>
+            <MudTd class="mono">@context.TriggerIds.Count</MudTd>
+            <MudTd>
+                @if (context.Enabled)
+                {
+                    <MudChip T="string" Size="Size.Small" Style="background:#0E2A1E; color:#2EC27E;">ON</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Class="sv-chip-muted">OFF</MudChip>
+                }
+            </MudTd>
+            <MudTd>
+                <AuthorizeView Policy="perm:zones:edit" Context="_auth">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditZone(context)" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteZone(context)" />
+                </AuthorizeView>
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudStack>
+
+@code {
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+    [SupplyParameterFromQuery(Name = "edit")] public string? EditId { get; set; }
+    [SupplyParameterFromQuery(Name = "returnTo")] public string? ReturnTo { get; set; }
+
+    private List<SafeView.Domain.Zones.Zone> _zones = new();
+    private List<SafeView.Domain.Cameras.Camera> _cameras = new();
+    private List<SafeView.Domain.Detection.Roi> _rois = new();
+    private List<SafeView.Domain.Detection.Trigger> _triggers = new();
+    private bool _loading = true;
+    private string? _openedEditId;
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        _loading = true;
+        _cameras = (await CameraRepo.ListAsync()).OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
+        _rois = (await RoiRepo.ListAsync()).OrderBy(r => r.Name, StringComparer.Ordinal).ToList();
+        _triggers = (await TriggerRepo.ListAsync()).OrderBy(t => t.Name, StringComparer.Ordinal).ToList();
+        _zones = (await ZoneRepo.ListAsync()).OrderBy(z => z.Name, StringComparer.Ordinal).ToList();
+        _loading = false;
+
+        if (!string.IsNullOrEmpty(EditId) && EditId != _openedEditId)
+        {
+            var target = _zones.FirstOrDefault(z => z.Id == EditId);
+            if (target is not null)
+            {
+                _openedEditId = EditId;
+                await OpenEditor(target, isNew: false);
+                if (!string.IsNullOrEmpty(ReturnTo)) Nav.NavigateTo(ReturnTo);
+            }
+        }
+    }
+
+    private async Task AddZone()
+    {
+        if (_cameras.Count == 0) { Snackbar.Add(L["Zones.AddCameraFirst"], Severity.Warning); return; }
+        if (_rois.Count == 0) { Snackbar.Add(L["Zones.AddRoiFirst"], Severity.Warning); return; }
+
+        var zone = new SafeView.Domain.Zones.Zone { CameraId = _cameras[0].Id };
+        await OpenEditor(zone, isNew: true);
+    }
+
+    private async Task EditZone(SafeView.Domain.Zones.Zone z) => await OpenEditor(z, isNew: false);
+
+    private async Task OpenEditor(SafeView.Domain.Zones.Zone z, bool isNew)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Zone"] = z,
+            ["IsNew"] = isNew,
+            ["Cameras"] = _cameras,
+            ["Rois"] = _rois,
+            ["AvailableTriggers"] = _triggers
+        };
+        var dialog = await Dialog.ShowAsync<ZoneEditorDialog>(
+            isNew ? L["ZoneDialog.AddTitle"] : L["ZoneDialog.EditTitle"],
+            parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true });
+        var res = await dialog.Result;
+        if (res is { Canceled: false, Data: SafeView.Domain.Zones.Zone saved })
+        {
+            try
+            {
+                if (isNew) await ZoneRepo.InsertAsync(saved);
+                else await ZoneRepo.UpdateAsync(saved);
+                Snackbar.Add(L["Zones.Saved"], Severity.Success);
+                await Reload();
+            }
+            catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        }
+    }
+
+    private async Task DeleteZone(SafeView.Domain.Zones.Zone z)
+    {
+        var ok = await Dialog.ShowMessageBox(L["Zones.DeleteTitle"],
+            string.Format(L["Zones.DeleteMessage"], z.Name),
+            yesText: L["Common.Delete"], cancelText: L["Common.Cancel"]);
+        if (ok != true) return;
+        await ZoneRepo.DeleteAsync(z.Id);
+        Snackbar.Add(L["Zones.Deleted"], Severity.Success);
+        await Reload();
+    }
+}

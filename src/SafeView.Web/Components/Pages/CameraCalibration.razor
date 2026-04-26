@@ -1,0 +1,332 @@
+@page "/cameras/{CameraId}/calibration"
+@attribute [Authorize(Policy = "perm:cameras:edit")]
+@inject SafeView.Application.Abstractions.Persistence.ICameraRepository CameraRepo
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@L["Calibration.Title"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" OnClick="@(() => Nav.NavigateTo("/cameras"))" />
+        <MudIcon Icon="@Icons.Material.Filled.SquareFoot" Size="Size.Large" Style="color:var(--mud-palette-primary);" />
+        <div>
+            <MudText Typo="Typo.h5">@L["Calibration.Title"] — @(_camera?.Name ?? "…")</MudText>
+            <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                @L["Calibration.Description"]
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Save" Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="Save" Disabled="_busy || _points.Count < 4">@L["Common.Save"]</MudButton>
+    </MudStack>
+
+    <MudPaper Class="pa-3 sv-card" Elevation="0">
+        <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.subtitle2">@L["Calibration.Mode"]:</MudText>
+            <MudRadioGroup T="CalibrationMode" Value="_mode" ValueChanged="OnModeChanged">
+                <MudRadio T="CalibrationMode" Value="CalibrationMode.Rectangle" Color="Color.Primary">
+                    @L["Calibration.ModeRectangle"]
+                </MudRadio>
+                <MudRadio T="CalibrationMode" Value="CalibrationMode.Points" Color="Color.Primary">
+                    @L["Calibration.ModePoints"]
+                </MudRadio>
+            </MudRadioGroup>
+        </MudStack>
+    </MudPaper>
+
+    @if (_mode == CalibrationMode.Rectangle)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true" NoIcon="false" Variant="Variant.Outlined">
+            @L["Calibration.RectangleInstructions"]
+        </MudAlert>
+
+        <MudPaper Class="pa-3 sv-card" Elevation="0">
+            <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
+                <MudNumericField T="double" @bind-Value="_rectWidth" Label="@L["Calibration.RectWidth"]"
+                                 Min="0.1" Max="500" Step="0.5" Immediate="true"
+                                 Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;" />
+                <MudNumericField T="double" @bind-Value="_rectDepth" Label="@L["Calibration.RectDepth"]"
+                                 Min="0.1" Max="500" Step="0.5" Immediate="true"
+                                 Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;" />
+                <MudSpacer />
+                <MudText Typo="Typo.body2" Class="sv-text-muted mono">
+                    @L["Calibration.NextCorner"]: <b>@NextCornerLabel()</b>
+                </MudText>
+                <MudButton Size="Size.Small" OnClick="ClearRectangle"
+                           StartIcon="@Icons.Material.Filled.Clear" Variant="Variant.Outlined">
+                    @L["Calibration.Reset"]
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info" Dense="true" NoIcon="false" Variant="Variant.Outlined">
+            @L["Calibration.PointsInstructions"]
+        </MudAlert>
+    }
+
+    <MudGrid>
+        <MudItem xs="12" md="8">
+            <MudPaper Class="pa-0 sv-card" Elevation="0"
+                      Style="position:relative; background:#000; display:flex; align-items:center; justify-content:center; overflow:hidden; border-radius:8px;">
+                <div id="sv-cal-wrap" @onclick="OnImageClick" style="position:relative; width:100%; cursor:crosshair;">
+                    <img id="sv-cal-frame" src="@($"/cameras/{CameraId}/snapshot.jpg?t=" + _imgCacheBust)" alt="frame"
+                         style="width:100%; max-height:75vh; display:block; object-fit:contain; user-select:none; pointer-events:none;" />
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1" preserveAspectRatio="none"
+                         style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;">
+                        @* Krawędzie prostokąta (gdy w trybie Rectangle i są min. 2 punkty) *@
+                        @if (_mode == CalibrationMode.Rectangle && _points.Count >= 2)
+                        {
+                            for (var i = 0; i < _points.Count; i++)
+                            {
+                                var a = _points[i];
+                                var b = _points[(i + 1) % _points.Count];
+                                if (i + 1 >= _points.Count && _points.Count < 4) continue;
+                                <line x1="@Num(a.PixelX)" y1="@Num(a.PixelY)"
+                                      x2="@Num(b.PixelX)" y2="@Num(b.PixelY)"
+                                      stroke="#F5A524" stroke-width="2" vector-effect="non-scaling-stroke" />
+                            }
+                        }
+                        @* Punkty *@
+                        @for (var i = 0; i < _points.Count; i++)
+                        {
+                            var p = _points[i];
+                            <circle cx="@Num(p.PixelX)" cy="@Num(p.PixelY)" r="0.008"
+                                    fill="#F5A524" stroke="#fff" stroke-width="0.0015"
+                                    vector-effect="non-scaling-stroke" />
+                        }
+                    </svg>
+                    <div style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;">
+                        @for (var i = 0; i < _points.Count; i++)
+                        {
+                            var p = _points[i];
+                            var idx = i;
+                            var label = _mode == CalibrationMode.Rectangle
+                                ? CornerName(idx)
+                                : $"#{idx + 1} · {p.WorldX.ToString("F1")},{p.WorldY.ToString("F1")} m";
+                            <div style="@($"position:absolute; left:calc({p.PixelX * 100:0.##}% + 8px); top:calc({p.PixelY * 100:0.##}% + 8px); background:rgba(245,165,36,0.85); color:#000; font:600 10px 'JetBrains Mono',monospace; padding:2px 6px; border-radius:3px; pointer-events:none;")">
+                                @label
+                            </div>
+                        }
+                    </div>
+                </div>
+            </MudPaper>
+            <MudButton StartIcon="@Icons.Material.Filled.Refresh" Size="Size.Small" OnClick="RefreshFrame" Class="mt-2">
+                @L["Calibration.RefreshFrame"]
+            </MudButton>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-3 sv-card" Elevation="0">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">@L["Calibration.PointsTitle"] (@_points.Count)</MudText>
+                @if (_points.Count == 0)
+                {
+                    <MudText Typo="Typo.caption" Class="sv-text-muted">
+                        @(_mode == CalibrationMode.Rectangle ? L["Calibration.RectangleStart"] : L["Calibration.NoPoints"])
+                    </MudText>
+                }
+                else
+                {
+                    <MudStack Spacing="2">
+                        @for (var i = 0; i < _points.Count; i++)
+                        {
+                            var idx = i; var p = _points[idx];
+                            <MudPaper Class="pa-2 sv-card-alt" Elevation="0">
+                                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                    <MudText Typo="Typo.body2" Class="mono" Style="min-width:40px;">
+                                        @(_mode == CalibrationMode.Rectangle ? CornerName(idx) : $"#{idx + 1}")
+                                    </MudText>
+                                    @if (_mode == CalibrationMode.Points)
+                                    {
+                                        <MudNumericField T="double" Value="@p.WorldX"
+                                                         ValueChanged="@((double v) => p.WorldX = Math.Round(v, 2))"
+                                                         Label="X (m)" Step="0.5" Immediate="true"
+                                                         Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                                         Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:100px;" />
+                                        <MudNumericField T="double" Value="@p.WorldY"
+                                                         ValueChanged="@((double v) => p.WorldY = Math.Round(v, 2))"
+                                                         Label="Y (m)" Step="0.5" Immediate="true"
+                                                         Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                                         Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:100px;" />
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.caption" Class="mono sv-text-muted">
+                                            @p.WorldX.ToString("F1"), @p.WorldY.ToString("F1") m
+                                        </MudText>
+                                    }
+                                    <MudSpacer />
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                   OnClick="() => RemovePoint(idx)" />
+                                </MudStack>
+                            </MudPaper>
+                        }
+                    </MudStack>
+                }
+                <MudDivider Class="my-3" />
+                <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Calibration.MinPointsHint"]</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudStack>
+
+@code {
+    public enum CalibrationMode { Rectangle, Points }
+
+    [Parameter] public string CameraId { get; set; } = string.Empty;
+
+    private SafeView.Domain.Cameras.Camera? _camera;
+    private List<SafeView.Domain.Cameras.CalibrationPoint> _points = new();
+    private bool _busy;
+    private long _imgCacheBust = DateTime.UtcNow.Ticks;
+    private CalibrationMode _mode = CalibrationMode.Rectangle;
+    private double _rectWidth = 3.0;
+    private double _rectDepth = 2.0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _camera = await CameraRepo.GetByIdAsync(CameraId);
+        if (_camera is null) { Nav.NavigateTo("/cameras"); return; }
+        _points = _camera.CalibrationPoints.Select(p => new SafeView.Domain.Cameras.CalibrationPoint
+        {
+            PixelX = p.PixelX, PixelY = p.PixelY, WorldX = p.WorldX, WorldY = p.WorldY
+        }).ToList();
+
+        // Heurystyka: jeśli istniejące punkty wyglądają jak prostokąt (świat to 2 unikalne X i 2 Y),
+        // ustaw rectangle mode i odczytaj wymiary. Inaczej — points mode.
+        if (_points.Count == 4)
+        {
+            var xs = _points.Select(p => p.WorldX).Distinct().OrderBy(v => v).ToList();
+            var ys = _points.Select(p => p.WorldY).Distinct().OrderBy(v => v).ToList();
+            if (xs.Count == 2 && ys.Count == 2 && xs[0] == 0 && ys[0] == 0)
+            {
+                _mode = CalibrationMode.Rectangle;
+                _rectWidth = xs[1];
+                _rectDepth = ys[1];
+                return;
+            }
+        }
+        if (_points.Count > 0) _mode = CalibrationMode.Points;
+    }
+
+    private void OnModeChanged(CalibrationMode mode)
+    {
+        // Zmiana trybu zeruje aktualne punkty — konwersja między modelami nie ma sensu.
+        _mode = mode;
+        _points.Clear();
+    }
+
+    private void ClearRectangle() => _points.Clear();
+
+    private void RemovePoint(int idx)
+    {
+        if (idx < 0 || idx >= _points.Count) return;
+        _points.RemoveAt(idx);
+        if (_mode == CalibrationMode.Rectangle) ReassignRectangleCoords();
+    }
+
+    private void RefreshFrame() => _imgCacheBust = DateTime.UtcNow.Ticks;
+
+    private async Task OnImageClick(MouseEventArgs e)
+    {
+        // W trybie Rectangle zbieramy max 4 kliknięcia; dalsze ignorujemy.
+        if (_mode == CalibrationMode.Rectangle && _points.Count >= 4) return;
+
+        var pos = await JS.InvokeAsync<double[]>("eval", @"
+            (function() {
+                var img = document.getElementById('sv-cal-frame');
+                if (!img) return [0,0,1,1];
+                var r = img.getBoundingClientRect();
+                return [r.left, r.top, r.width, r.height];
+            })()
+        ");
+        if (pos is null || pos.Length < 4) return;
+        double relX = (e.ClientX - pos[0]) / pos[2];
+        double relY = (e.ClientY - pos[1]) / pos[3];
+        if (relX < 0 || relX > 1 || relY < 0 || relY > 1) return;
+
+        var p = new SafeView.Domain.Cameras.CalibrationPoint
+        {
+            PixelX = Math.Round(relX, 4),
+            PixelY = Math.Round(relY, 4),
+            WorldX = 0, WorldY = 0
+        };
+        _points.Add(p);
+
+        if (_mode == CalibrationMode.Rectangle) ReassignRectangleCoords();
+    }
+
+    /// <summary>
+    /// W trybie Rectangle rogi są dodawane w kolejności: 1=LT, 2=RT, 3=RB, 4=LB.
+    /// Świat przypisujemy: LT=(0,0), RT=(W,0), RB=(W,D), LB=(0,D).
+    /// </summary>
+    private void ReassignRectangleCoords()
+    {
+        (double x, double y)[] coords =
+        {
+            (0, 0),
+            (_rectWidth, 0),
+            (_rectWidth, _rectDepth),
+            (0, _rectDepth)
+        };
+        for (int i = 0; i < _points.Count && i < 4; i++)
+        {
+            _points[i].WorldX = coords[i].x;
+            _points[i].WorldY = coords[i].y;
+        }
+    }
+
+    private string CornerName(int idx) => idx switch
+    {
+        0 => L["Calibration.CornerTL"],
+        1 => L["Calibration.CornerTR"],
+        2 => L["Calibration.CornerBR"],
+        3 => L["Calibration.CornerBL"],
+        _ => $"#{idx + 1}"
+    };
+
+    private string NextCornerLabel()
+    {
+        if (_points.Count >= 4) return L["Calibration.RectangleDone"];
+        return CornerName(_points.Count);
+    }
+
+    private async Task Save()
+    {
+        if (_camera is null) return;
+        if (_points.Count < 4)
+        {
+            Snackbar.Add(L["Calibration.NeedFourPoints"], Severity.Warning);
+            return;
+        }
+        if (_mode == CalibrationMode.Rectangle)
+        {
+            // Final sync — user mógł zmienić W/D po ostatnim kliku.
+            ReassignRectangleCoords();
+        }
+        var H = SafeView.Domain.Cameras.HomographyCalculator.Compute(_points);
+        if (H is null)
+        {
+            Snackbar.Add(L["Calibration.InvalidGeometry"], Severity.Error);
+            return;
+        }
+        _busy = true;
+        try
+        {
+            _camera.CalibrationPoints = _points.ToList();
+            await CameraRepo.UpdateAsync(_camera);
+            Snackbar.Add(L["Calibration.Saved"], Severity.Success);
+        }
+        catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        finally { _busy = false; }
+    }
+
+    private static string Num(double v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+}

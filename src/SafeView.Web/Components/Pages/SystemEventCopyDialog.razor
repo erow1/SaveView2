@@ -1,0 +1,31 @@
+@namespace SafeView.Web.Components.Pages
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined"
+                      Icon="@Icons.Material.Filled.Info">
+                @L["SystemEvents.CopyManualHint"]
+            </MudAlert>
+            <textarea readonly
+                      style="width:100%; min-height:400px; font-family:'JetBrains Mono',monospace; font-size:12px;
+                             background:var(--mud-palette-surface); color:var(--mud-palette-text-primary);
+                             border:1px solid var(--mud-palette-lines-default); border-radius:4px; padding:8px;
+                             white-space:pre; resize:vertical;"
+                      @ref="_textAreaRef">@Text</textarea>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Close(DialogResult.Ok(true))" Color="Color.Primary">
+            @L["Common.Close"]
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string Text { get; set; } = string.Empty;
+
+    private ElementReference _textAreaRef;
+}

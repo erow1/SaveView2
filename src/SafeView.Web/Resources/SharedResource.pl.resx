@@ -1,0 +1,1168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+
+  <!-- App -->
+  <data name="AppName"><value>SafeView</value></data>
+  <data name="AppTagline"><value>Wizyjna AI dla bezpieczeństwa przemysłowego</value></data>
+
+  <!-- Navigation -->
+  <data name="Nav.Dashboard"><value>Pulpit</value></data>
+  <data name="Nav.LiveView"><value>Podgląd na żywo</value></data>
+  <data name="Nav.Incidents"><value>Incydenty</value></data>
+  <data name="Nav.Monitor"><value>Podgląd</value></data>
+  <data name="Nav.Flow"><value>Flow pipeline</value></data>
+  <data name="Nav.VllmTemplates"><value>Szablony VLLM</value></data>
+  <data name="Nav.LlmProviders"><value>Dostawcy LLM</value></data>
+  <data name="LlmProviders.Title"><value>Dostawcy LLM</value></data>
+  <data name="LlmProviders.Description"><value>Konfiguracje modeli LLM na różnych hostach/platformach (Ollama, LM Studio, vLLM, OpenAI, …). Trigger może wybrać który ma być użyty — np. szybki lokalny dla pożaru, większy chmurowy dla analiz intruza.</value></data>
+  <data name="LlmProviders.Add"><value>Dodaj providera</value></data>
+  <data name="LlmProviders.AddTitle"><value>Nowy dostawca LLM</value></data>
+  <data name="LlmProviders.EditTitle"><value>Edytuj dostawcę LLM</value></data>
+  <data name="LlmProviders.DeleteTitle"><value>Usunąć dostawcę?</value></data>
+  <data name="LlmProviders.DeleteMessage"><value>Dostawca „{0}" zostanie usunięty. Triggery używające go przełączą się na default.</value></data>
+  <data name="LlmProviders.Saved"><value>Dostawca zapisany.</value></data>
+  <data name="LlmProviders.Deleted"><value>Dostawca usunięty.</value></data>
+  <data name="LlmProviders.Kind"><value>Typ</value></data>
+  <data name="LlmProviders.KindHint"><value>Wybór typu ustawia domyślne BaseUrl i model. Większość opartych na OpenAI API jest wymienna.</value></data>
+  <data name="LlmProviders.BaseUrl"><value>Endpoint URL</value></data>
+  <data name="LlmProviders.BaseUrlHint"><value>Pełny adres z /v1 na końcu. Ollama: http://host:11434/v1, LM Studio: http://host:1234/v1, OpenAI: https://api.openai.com/v1</value></data>
+  <data name="LlmProviders.ApiKey"><value>API key</value></data>
+  <data name="LlmProviders.ApiKeyHint"><value>Lokalne (Ollama, LM Studio) zwykle nie wymagają. Chmura — obowiązkowy.</value></data>
+  <data name="LlmProviders.DefaultModel"><value>Domyślny model</value></data>
+  <data name="LlmProviders.Timeout"><value>Timeout (s)</value></data>
+  <data name="LlmProviders.IsDefault"><value>Domyślny</value></data>
+  <data name="LlmProviders.DefaultBadge"><value>DOMYŚLNY</value></data>
+  <data name="LlmProviders.NameHint"><value>Np. "Ollama lokalna (dev)", "GPT-4o cloud", "vLLM firmowy 32B"</value></data>
+  <data name="LlmProviders.DescriptionLabel"><value>Opis (gdzie host, dla jakich triggerów planowany)</value></data>
+  <data name="LlmProviders.TestConnection"><value>Test połączenia</value></data>
+  <data name="LlmProviders.PingOk"><value>{0}: połączenie OK</value></data>
+  <data name="LlmProviders.PingFailed"><value>{0}: brak odpowiedzi (endpoint zwrócił błąd)</value></data>
+  <data name="LlmProviders.PingError"><value>Błąd testu: {0}</value></data>
+  <data name="Triggers.VllmProvider"><value>Dostawca LLM</value></data>
+  <data name="Triggers.VllmProviderHint"><value>Wybór konkretnego providera (Ollama / vLLM / OpenAI). Puste = użyj domyślnego z /admin/llm-providers.</value></data>
+  <data name="Triggers.VllmProviderDefault"><value>Domyślny provider</value></data>
+  <data name="VllmPlayground.Provider"><value>Dostawca LLM</value></data>
+  <data name="VllmPlayground.ProviderHint"><value>Wybór providera (Ollama / vLLM / OpenAI). Puste = domyślny.</value></data>
+  <data name="VllmPlayground.ProviderDefault"><value>Domyślny provider</value></data>
+  <data name="Nav.VllmPlayground"><value>Playground VLLM</value></data>
+  <data name="VllmPlayground.Title"><value>Playground VLLM</value></data>
+  <data name="VllmPlayground.Description"><value>Wgraj zdjęcie, wybierz szablon lub napisz własny prompt — sprawdź co VLLM odpowie, zanim włączysz go na produkcji.</value></data>
+  <data name="VllmPlayground.Run"><value>Uruchom test</value></data>
+  <data name="VllmPlayground.Running"><value>Trwa…</value></data>
+  <data name="VllmPlayground.Config"><value>Konfiguracja</value></data>
+  <data name="VllmPlayground.LoadTemplate"><value>Wczytaj z szablonu</value></data>
+  <data name="VllmPlayground.Model"><value>Nazwa modelu</value></data>
+  <data name="VllmPlayground.ModelHint"><value>Puste = użyj domyślnego z ustawień LLM. Np. qwen2.5-vl:7b, qwen2.5-vl:32b, gemma3:27b</value></data>
+  <data name="VllmPlayground.SystemPrompt"><value>System prompt (EN)</value></data>
+  <data name="VllmPlayground.UserPrompt"><value>User prompt (PL)</value></data>
+  <data name="VllmPlayground.UserPromptHint"><value>Placeholders: {camera}, {zone}, {trigger}, {labels}, {detections}, {time_of_day}</value></data>
+  <data name="VllmPlayground.Context"><value>Kontekst zdarzenia (dane testowe)</value></data>
+  <data name="VllmPlayground.Gates"><value>Progi i gate'y</value></data>
+  <data name="VllmPlayground.Schema"><value>JSON schema odpowiedzi</value></data>
+  <data name="VllmPlayground.CameraName"><value>Nazwa kamery</value></data>
+  <data name="VllmPlayground.ZoneName"><value>Nazwa strefy</value></data>
+  <data name="VllmPlayground.TriggerName"><value>Nazwa triggera</value></data>
+  <data name="VllmPlayground.DetectedLabels"><value>Etykiety detekcji (comma-separated)</value></data>
+  <data name="VllmPlayground.DetectedLabelsHint"><value>Np. "person, helmet" — trafi do {labels} w promptcie</value></data>
+  <data name="VllmPlayground.Image"><value>Obraz testowy</value></data>
+  <data name="VllmPlayground.UploadImage"><value>Wgraj obraz (JPG/PNG)</value></data>
+  <data name="VllmPlayground.ReplaceImage"><value>Zmień obraz</value></data>
+  <data name="VllmPlayground.NoImageYet"><value>Wgraj obraz aby uruchomić test.</value></data>
+  <data name="VllmPlayground.FileTooLarge"><value>Plik za duży (max 20 MB).</value></data>
+  <data name="VllmPlayground.Result"><value>Wynik</value></data>
+  <data name="VllmPlayground.NoResultYet"><value>Wgraj obraz i kliknij "Uruchom test".</value></data>
+  <data name="VllmPlayground.Confirmed"><value>POTWIERDZONE</value></data>
+  <data name="VllmPlayground.NotConfirmed"><value>NIEPOTWIERDZONE</value></data>
+  <data name="VllmPlayground.ErrorBadge"><value>BŁĄD</value></data>
+  <data name="VllmPlayground.Confidence"><value>Pewność</value></data>
+  <data name="VllmPlayground.Observations"><value>Obserwacje</value></data>
+  <data name="VllmPlayground.Alternatives"><value>Alternatywne wyjaśnienia</value></data>
+  <data name="VllmPlayground.Duration"><value>Czas</value></data>
+  <data name="VllmPlayground.RawResponse"><value>Surowa odpowiedź LLM</value></data>
+  <data name="VllmPlayground.GenerateBtn"><value>Wygeneruj z opisu</value></data>
+  <data name="VllmPlayground.Generating"><value>Generuję…</value></data>
+  <data name="VllmPlayground.GenerateTitle"><value>Generator promptu VLLM</value></data>
+  <data name="VllmPlayground.GenerateSuccess"><value>Prompt wygenerowany. Przetestuj na zdjęciu, potem ewentualnie "Zapisz jako szablon".</value></data>
+  <data name="VllmPlayground.SaveAsTemplate"><value>Zapisz jako szablon</value></data>
+  <data name="VllmGenerator.Hint"><value>Opisz własnymi słowami co chcesz wykrywać — LLM wygeneruje kompletny prompt z systemową rolą, polskim user-promptem, schematem odpowiedzi i rekomendowanymi progami. Dopracujesz ręcznie jeśli trzeba.</value></data>
+  <data name="VllmGenerator.DescriptionLabel"><value>Opis scenariusza</value></data>
+  <data name="VllmGenerator.DescriptionHint"><value>Bądź konkretny: kto, co, gdzie. Np. "operator wózka widłowego bez kasku w hali magazynowej" zamiast ogólnego "brak PPE".</value></data>
+  <data name="VllmGenerator.Examples"><value>Przykłady (kliknij aby wstawić)</value></data>
+  <data name="VllmGenerator.Generate"><value>Wygeneruj</value></data>
+  <data name="VllmTemplates.Title"><value>Szablony promptów VLLM</value></data>
+  <data name="VllmTemplates.Description"><value>Biblioteka gotowych promptów do walidacji wizyjnej zdarzeń BHP. Triggery używają ich jako bazy — edytujesz raz, działa w wielu triggerach.</value></data>
+  <data name="VllmTemplates.Add"><value>Nowy szablon</value></data>
+  <data name="VllmTemplates.AddTitle"><value>Nowy szablon VLLM</value></data>
+  <data name="VllmTemplates.EditTitle"><value>Edytuj szablon VLLM</value></data>
+  <data name="VllmTemplates.DeleteTitle"><value>Usunąć szablon?</value></data>
+  <data name="VllmTemplates.DeleteMessage"><value>Szablon „{0}" zostanie usunięty. Triggery które go używały zachowają swoje obecne ustawienia.</value></data>
+  <data name="VllmTemplates.Saved"><value>Szablon zapisany.</value></data>
+  <data name="VllmTemplates.Deleted"><value>Szablon usunięty.</value></data>
+  <data name="VllmTemplates.Category"><value>Kategoria</value></data>
+  <data name="VllmTemplates.Description.Col"><value>Opis</value></data>
+  <data name="VllmTemplates.DescriptionLabel"><value>Opis (1-3 zdania, po polsku)</value></data>
+  <data name="VllmTemplates.MinConfidence"><value>Min. pewność</value></data>
+  <data name="VllmTemplates.MinSeverity"><value>Min. severity</value></data>
+  <data name="VllmTemplates.MinSeverityHelp"><value>Severity poniżej tej wartości = trigger nie wypala.</value></data>
+  <data name="VllmTemplates.Source"><value>Źródło</value></data>
+  <data name="VllmTemplates.BuiltIn"><value>WBUDOWANY</value></data>
+  <data name="VllmTemplates.Custom"><value>WŁASNY</value></data>
+  <data name="VllmTemplates.SystemPrompt"><value>System prompt (EN)</value></data>
+  <data name="VllmTemplates.SystemPromptHelp"><value>Rola + zasady CoT + rubryka severity. Po angielsku — modele są stabilniejsze.</value></data>
+  <data name="VllmTemplates.UserTemplate"><value>User prompt (PL)</value></data>
+  <data name="VllmTemplates.UserTemplateHelp"><value>Placeholders: {camera}, {zone}, {trigger}, {labels}, {detections}, {time_of_day}</value></data>
+  <data name="VllmTemplates.SchemaJson"><value>JSON schema odpowiedzi</value></data>
+  <data name="VllmTemplates.SchemaJsonHelp"><value>Strict schema — VLLM musi zwrócić dokładnie taki JSON. Wymagane pola: confirmed, confidence, severity, reason, image_quality, recommended_action.</value></data>
+  <data name="VllmTemplates.RequireGoodImage"><value>Wymagaj dobrej jakości obrazu</value></data>
+  <data name="VllmTemplates.Hint"><value>Szablony wbudowane są tylko do odczytu — użyj "Duplikuj" aby stworzyć własną wersję.</value></data>
+  <data name="VllmTemplates.Stats30d"><value>Ostatnie 30 dni</value></data>
+  <data name="VllmTemplates.Fires"><value>wypaleń</value></data>
+  <data name="VllmTemplates.FpTooltip"><value>{0} z {1} alertów oznaczono jako false-positive — prompt prawdopodobnie wymaga korekty.</value></data>
+  <data name="VllmTemplates.AvgConfTooltip"><value>Średnia pewność zwracana przez VLLM</value></data>
+  <data name="VllmTemplates.Export"><value>Eksportuj</value></data>
+  <data name="VllmTemplates.ExportAll"><value>Eksportuj wszystkie</value></data>
+  <data name="VllmTemplates.Import"><value>Importuj</value></data>
+  <data name="VllmTemplates.ImportSuccess"><value>Szablony zaimportowane jako Custom.</value></data>
+  <data name="VllmTemplates.ImportFailed"><value>Import nieudany:</value></data>
+  <data name="VllmTemplates.ImportFileTooLarge"><value>Plik za duży (max 5 MB).</value></data>
+  <data name="VllmTemplates.ShowStats"><value>Statystyki i historia</value></data>
+  <data name="VllmTemplates.StatsTitle"><value>Statystyki szablonu</value></data>
+  <data name="VllmStats.FireCount"><value>Wypaleń (30 dni)</value></data>
+  <data name="VllmStats.FpRate"><value>False-positive rate</value></data>
+  <data name="VllmStats.AvgConf"><value>Średnia pewność</value></data>
+  <data name="VllmStats.Histogram"><value>Rozkład confidence</value></data>
+  <data name="VllmStats.HistogramHint"><value>Ile alertów miało confidence w danym przedziale. Rozkład przesunięty w lewo = model niepewny → rozważ mocniejszy prompt lub większy model.</value></data>
+  <data name="VllmStats.Count"><value>Liczba</value></data>
+  <data name="VllmStats.History"><value>Historia wersji</value></data>
+  <data name="VllmStats.HistoryEmpty"><value>Szablon nie był jeszcze edytowany — brak historii.</value></data>
+  <data name="VllmStats.When"><value>Kiedy</value></data>
+  <data name="VllmStats.Conf"><value>Conf</value></data>
+  <data name="VllmStats.Sev"><value>Severity</value></data>
+  <data name="VllmStats.Restore"><value>Przywróć</value></data>
+  <data name="VllmStats.Restored"><value>Szablon przywrócony z historii (poprzedni stan zapisany w historii jako nowa wersja).</value></data>
+  <data name="VllmPlayground.RefineBtn"><value>Popraw z feedbackiem</value></data>
+  <data name="VllmPlayground.RefineTitle"><value>Poprawa promptu</value></data>
+  <data name="VllmPlayground.RefineSuccess"><value>Prompt zaktualizowany. Przetestuj ponownie.</value></data>
+  <data name="VllmRefine.Hint"><value>Podaj konkretnie co jest nie tak z obecnym promptem. LLM zwróci tylko zmienione fragmenty, reszta zostaje nienaruszona.</value></data>
+  <data name="VllmRefine.FeedbackLabel"><value>Co poprawić</value></data>
+  <data name="VllmRefine.FeedbackHint"><value>Im konkretniej, tym lepiej. "Bądź bardziej rygorystyczny" jest słabe; "odrzucaj gdy osoba trzyma narzędzie w ręku — to nie palenie" jest dobre.</value></data>
+  <data name="VllmRefine.Examples"><value>Przykłady (klik wstawia)</value></data>
+  <data name="VllmRefine.Submit"><value>Popraw</value></data>
+  <data name="IncidentDetail.MarkFalsePositive"><value>Fałszywy alarm</value></data>
+  <data name="IncidentDetail.MarkFalsePositiveHint"><value>Oznacz że VLLM niesłusznie potwierdził ten alert. Feedback trafia do statystyk szablonu — łatwiej zobaczyć które prompty są słabe.</value></data>
+  <data name="IncidentDetail.FalsePositiveBadge"><value>FAŁSZYWY ALARM</value></data>
+  <data name="IncidentDetail.FalsePositiveMarked"><value>Oznaczono jako fałszywy alarm. Dzięki.</value></data>
+  <data name="IncidentDetail.AnalyzeLlm"><value>Analiza LLM</value></data>
+  <data name="IncidentDetail.AnalyzeLlmHint"><value>Zapytaj LLM o ocenę tego incydentu — ryzyko false-positive, rekomendowana akcja, uzasadnienie.</value></data>
+  <data name="IncidentDetail.Analyzing"><value>Analizuję…</value></data>
+  <data name="IncidentDetail.AnalyzeNoResult"><value>LLM nie zwrócił wyniku.</value></data>
+  <data name="IncidentDetail.Acknowledge"><value>Potwierdź</value></data>
+  <data name="IncidentDetail.Acknowledged"><value>Potwierdzono.</value></data>
+  <data name="IncidentDetail.Resolve"><value>Rozwiąż</value></data>
+  <data name="IncidentDetail.Resolved"><value>Rozwiązano.</value></data>
+  <data name="IncidentDetail.ResolveAsFalse"><value>Rozwiąż jako fałszywy</value></data>
+  <data name="IncidentDetail.ResolvedAsFalse"><value>Oznaczono jako fałszywy alarm (zamknięte).</value></data>
+  <data name="IncidentDetail.ResolveTitle"><value>Rozwiązać?</value></data>
+  <data name="IncidentDetail.ResolveMsg"><value>Oznaczyć incydent „{0}" jako rozwiązany?</value></data>
+  <data name="IncidentDetail.ResolveFalseTitle"><value>Fałszywy alarm?</value></data>
+  <data name="IncidentDetail.ResolveFalseMsg"><value>Oznaczyć incydent „{0}" jako fałszywy i zamknąć?</value></data>
+  <data name="Common.Yes"><value>Tak</value></data>
+  <data name="Triggers.VllmLoadTemplate"><value>Wczytaj z szablonu</value></data>
+  <data name="Triggers.VllmLoadTemplateHint"><value>Pre-populuje pola poniżej konfiguracją z wybranego szablonu.</value></data>
+  <data name="Triggers.VllmBoundToTemplate"><value>Oparty na szablonie</value></data>
+  <data name="Triggers.VllmMinSeverity"><value>Min. severity</value></data>
+  <data name="Triggers.VllmMinSeverityHint"><value>VLLM musi zwrócić severity co najmniej tej wartości żeby trigger wypalił.</value></data>
+  <data name="Triggers.VllmRequireGoodImage"><value>Wymagaj dobrej jakości obrazu</value></data>
+  <data name="Flow.Title"><value>Flow pipeline</value></data>
+  <data name="Flow.Description"><value>Topologia systemu z live-animacją zdarzeń. Kliknij node aby przejść do edytora.</value></data>
+  <data name="Flow.Relayout"><value>Ułóż ponownie</value></data>
+  <data name="Flow.Fit"><value>Dopasuj</value></data>
+  <data name="Flow.Legend.Camera"><value>Kamera</value></data>
+  <data name="Flow.Legend.Roi"><value>ROI</value></data>
+  <data name="Flow.Legend.Zone"><value>Strefa</value></data>
+  <data name="Flow.Legend.Trigger"><value>Trigger</value></data>
+  <data name="Flow.Legend.Action"><value>Akcja</value></data>
+  <data name="Flow.Legend.Model"><value>Model ML</value></data>
+  <data name="Flow.LiveLegend"><value>Linia żółta = trigger fire, zielona = akcja OK, czerwona = błąd / VLLM rejected</value></data>
+  <data name="Triggers.ModelIncompatible"><value>Wybrany model nie jest przypisany do żadnego ROI w strefach używających tego triggera — detekcja się nie wykona. Dodaj ten model do ROI albo zmień wybór.</value></data>
+  <data name="Triggers.SpatialSection"><value>Filtry przestrzenne (dystans w metrach)</value></data>
+  <data name="Triggers.SpatialHint"><value>Sprawdza dystans między parami obiektów po rzutowaniu na podłogę. Wymaga skalibrowanej kamery (min. 4 punkty kalibracji).</value></data>
+  <data name="Triggers.MinDistanceM"><value>Min (m)</value></data>
+  <data name="Triggers.MaxDistanceM"><value>Max (m)</value></data>
+  <data name="Triggers.OptionalMeters"><value>Opcjonalne</value></data>
+  <data name="Triggers.PairMode"><value>Tryb par</value></data>
+  <data name="Triggers.PairMode.Any"><value>Wystarczy jedna para</value></data>
+  <data name="Triggers.PairMode.All"><value>Wszystkie pary</value></data>
+  <data name="Triggers.AddSpatialFilter"><value>Dodaj filtr przestrzenny</value></data>
+  <data name="Triggers.SpatialRequiresCalibration"><value>Trigger nie wypali dla kamer bez kalibracji homografii (strona Kalibracja dla kamery).</value></data>
+  <data name="Calibration.Title"><value>Kalibracja kamery</value></data>
+  <data name="Calibration.Description"><value>Kliknij min. 4 punkty na podłodze i wpisz ich współrzędne w metrach. Punkty powinny być rozrzucone (nie w linii).</value></data>
+  <data name="Calibration.Instructions"><value>Kliknij punkt na obrazie (np. narożnik siatki podłogi, znacznik), potem wpisz jego X i Y w metrach względem dowolnego punktu odniesienia. Powtórz dla min. 4 punktów.</value></data>
+  <data name="Calibration.RefreshFrame"><value>Odśwież klatkę</value></data>
+  <data name="Calibration.PointsTitle"><value>Punkty kalibracji</value></data>
+  <data name="Calibration.NoPoints"><value>Kliknij na obrazie aby dodać pierwszy punkt.</value></data>
+  <data name="Calibration.MinPointsHint"><value>Minimum 4 punkty nie-koliniarne. Więcej punktów = lepsze dopasowanie (least-squares).</value></data>
+  <data name="Calibration.NeedFourPoints"><value>Potrzeba co najmniej 4 punktów.</value></data>
+  <data name="Calibration.InvalidGeometry"><value>Punkty są koliniarne lub zduplikowane — homografia niemożliwa do wyliczenia.</value></data>
+  <data name="Calibration.Saved"><value>Kalibracja zapisana.</value></data>
+  <data name="Calibration.Mode"><value>Tryb kalibracji</value></data>
+  <data name="Calibration.ModeRectangle"><value>Prostokąt na podłodze</value></data>
+  <data name="Calibration.ModePoints"><value>Punkty ze współrzędnymi (zaawansowane)</value></data>
+  <data name="Calibration.RectangleInstructions"><value>Zaznacz na podłodze dobrze widoczny prostokąt o znanych wymiarach (płytka, miejsce parkingowe, obrys maszyny). Podaj szerokość i głębokość w metrach, potem kliknij 4 rogi w kolejności: lewy-górny, prawy-górny, prawy-dolny, lewy-dolny.</value></data>
+  <data name="Calibration.PointsInstructions"><value>Kliknij dowolny punkt na podłodze i wpisz jego X, Y w metrach względem dowolnego punktu odniesienia. Minimum 4 punkty nie-koliniarne.</value></data>
+  <data name="Calibration.RectWidth"><value>Szerokość (m)</value></data>
+  <data name="Calibration.RectDepth"><value>Głębokość (m)</value></data>
+  <data name="Calibration.NextCorner"><value>Kliknij</value></data>
+  <data name="Calibration.Reset"><value>Wyczyść</value></data>
+  <data name="Calibration.CornerTL"><value>LG</value></data>
+  <data name="Calibration.CornerTR"><value>PG</value></data>
+  <data name="Calibration.CornerBR"><value>PD</value></data>
+  <data name="Calibration.CornerBL"><value>LD</value></data>
+  <data name="Calibration.RectangleDone"><value>Gotowe</value></data>
+  <data name="Calibration.RectangleStart"><value>Kliknij lewy-górny róg prostokąta na obrazie.</value></data>
+  <data name="Nav.Group.Operator"><value>Operator</value></data>
+  <data name="Nav.Group.Configuration"><value>Konfiguracja</value></data>
+  <data name="Nav.Group.Settings"><value>Ustawienia</value></data>
+  <data name="Nav.Group.Advanced"><value>Zaawansowane</value></data>
+  <data name="Nav.Group.Administration"><value>Administracja</value></data>
+  <data name="Nav.SetupWizard"><value>Kreator konfiguracji</value></data>
+  <data name="Nav.WhatToDetect"><value>Co wykrywać</value></data>
+  <data name="Nav.ActionHistory"><value>Historia akcji</value></data>
+  <data name="Monitor.Title"><value>Podgląd na żywo</value></data>
+  <data name="Monitor.Description"><value>Klatka z kamery + ROI, strefy i wykryte obiekty nałożone jako overlay.</value></data>
+  <data name="Monitor.WallDescription"><value>Ściana kamer z live-overlayem. Klik w kafel otwiera edycję kamery.</value></data>
+  <data name="Monitor.CamerasCount"><value>{0} kamer</value></data>
+  <data name="Monitor.TileDisabled"><value>WYŁĄCZONA</value></data>
+  <data name="Monitor.CameraSaved"><value>Kamera zapisana.</value></data>
+  <data name="Monitor.Camera"><value>Kamera</value></data>
+  <data name="Monitor.NoCameras"><value>Brak skonfigurowanych kamer.</value></data>
+  <data name="Monitor.SelectCamera"><value>Wybierz kamerę aby rozpocząć podgląd.</value></data>
+  <data name="Monitor.ShowRois"><value>ROI</value></data>
+  <data name="Monitor.ShowZones"><value>Strefy</value></data>
+  <data name="Monitor.ShowDetections"><value>Detekcje</value></data>
+  <data name="Monitor.ShowDistances"><value>Dystanse (m)</value></data>
+  <data name="Monitor.ShowDistancesHint"><value>Linie między wykrytymi obiektami z odległością w metrach. Wymaga skalibrowanej kamery (strona Kalibracja dla kamery). Gdy brak kalibracji — nic się nie pojawi.</value></data>
+  <data name="Monitor.MaxPairs"><value>Pary</value></data>
+  <data name="Monitor.SyncFrame"><value>Synchronizuj z detekcjami</value></data>
+  <data name="Monitor.SyncFrameHint"><value>WŁ: obraz pokazywany jest z dokładnie tej klatki, na której liczono detekcje — bboxy zgadzają się z obiektami. Obraz może być lekko "opóźniony" (o czas inferencji pipeline'u). WYŁ: obraz na żywo z kamery, ale bboxy mogą "odstawać" od ruchomych obiektów (poruszają się szybciej niż pipeline przetwarza).</value></data>
+  <data name="Monitor.ShowAllClasses"><value>Wszystkie klasy (debug)</value></data>
+  <data name="Monitor.ShowAllClassesHint"><value>Domyślnie pokazujemy tylko klasy obiektów które wybrałeś w triggerach tej kamery. Włącz żeby zobaczyć wszystko co model wykrywa — przydatne przy konfiguracji lub diagnostyce dlaczego trigger nie odpala.</value></data>
+  <data name="Monitor.Interval"><value>Interwał</value></data>
+  <data name="Monitor.Starting"><value>uruchamianie…</value></data>
+  <data name="Monitor.DetectionsCount"><value>{0} detekcji w ostatniej klatce</value></data>
+  <data name="Monitor.LastFrame"><value>Ostatnia klatka</value></data>
+  <data name="Nav.Cameras"><value>Kamery</value></data>
+  <data name="Nav.Zones"><value>Strefy</value></data>
+  <data name="Nav.Rois"><value>ROI (regiony zainteresowania)</value></data>
+  <data name="Nav.Triggers"><value>Triggery</value></data>
+  <data name="Nav.Actions"><value>Akcje</value></data>
+  <!-- Detection pipeline — ROI/Trigger/Action -->
+  <data name="Rois.Description"><value>Prostokątne regiony kamery, w których uruchamiane są modele ML. Optymalizuje detekcję na kamerach 4K.</value></data>
+  <data name="Rois.Add"><value>Dodaj ROI</value></data>
+  <data name="Rois.AddTitle"><value>Dodaj region zainteresowania</value></data>
+  <data name="Rois.EditTitle"><value>Edytuj region zainteresowania</value></data>
+  <data name="Rois.Rectangle"><value>Prostokąt (X, Y, szer., wys.)</value></data>
+  <data name="Rois.Models"><value>Modele ML</value></data>
+  <data name="Rois.ModelsHint"><value>Wybierz modele ML które mają działać na tym ROI.</value></data>
+  <data name="Rois.Mode"><value>Tryb inferencji</value></data>
+  <data name="Rois.ModeHint"><value>Native/Resize = Faza 1. Sliced/Adaptive = Faza 2 (zachowuje czułość detekcji dla 4K).</value></data>
+  <data name="Rois.Inference"><value>Strategia inferencji</value></data>
+  <data name="Rois.PreviewHint"><value>Podgląd klatki — ROI pokazane jako linia przerywana.</value></data>
+  <data name="Rois.DrawHint"><value>Naciśnij i przeciągnij myszką na podglądzie aby narysować prostokąt ROI. Puść przycisk aby zatwierdzić.</value></data>
+  <data name="Rois.FullFrame"><value>Cała klatka</value></data>
+  <data name="Rois.FineTune"><value>Precyzyjna regulacja (opcjonalnie)</value></data>
+  <!-- Faza 5: Cascade mode -->
+  <data name="Rois.PrescanSection"><value>Szybki pre-skan (oszczędność CPU)</value></data>
+  <data name="Rois.PrescanExplain"><value>Gdy zdarzenia są rzadkie (pożar, intruz, brak kasku), ciężkie modele wyżej mielą CPU bez sensu na każdej klatce. Włącz pre-skan: najpierw szybki lekki model patrzy czy w ogóle coś się dzieje. Dopiero gdy coś zauważy — uruchamia ciężkie modele, i to tylko na małym wycinku z kandydatem, nie na całym ROI. Typowa oszczędność: 50-80% CPU przy rzadkich zdarzeniach.</value></data>
+  <data name="Rois.PrescanEnable"><value>Włącz szybki pre-skan</value></data>
+  <data name="Rois.PrescanModel"><value>Szybki model skanujący</value></data>
+  <data name="Rois.PrescanModelHelp"><value>Najlepszy: lekki YOLO (yolov8n). Ma tylko zauważyć że coś się dzieje — dokładność nie jest kluczowa, bo ciężki model i tak zweryfikuje.</value></data>
+  <data name="Rois.PrescanSensitivity"><value>Czułość pre-skanu</value></data>
+  <data name="Rois.SensLow"><value>Niska (40%) — rzadziej uruchamia ciężki model, ryzyko pominięcia</value></data>
+  <data name="Rois.SensMedium"><value>Średnia (25%) — domyślna, balans</value></data>
+  <data name="Rois.SensHigh"><value>Wysoka (15%) — łapie więcej, ale więcej false-positive pre-skanu</value></data>
+  <data name="Rois.SensExplain"><value>Niska czułość = mniejszy koszt CPU, ale możesz przegapić drobny/daleki obiekt. Wysoka = więcej wywołań ciężkiego modelu na "niby-kandydatach".</value></data>
+  <data name="Rois.PrescanPadding"><value>Margines wokół wycinka</value></data>
+  <data name="Rois.PrescanPaddingHelp"><value>Ile kontekstu wokół znalezionego obiektu dostać ciężki model. 20% zwykle wystarcza — za duży margines niweluje oszczędność.</value></data>
+  <data name="Rois.NoModels"><value>Brak modeli ML — najpierw dodaj model w „Modele".</value></data>
+  <data name="Rois.InvalidRectangle"><value>Nieprawidłowy prostokąt — musi mieścić się w [0..1] i być niepusty.</value></data>
+  <data name="Rois.AddCameraFirst"><value>Najpierw dodaj kamerę.</value></data>
+  <data name="Rois.Saved"><value>ROI zapisane.</value></data>
+  <data name="Rois.Deleted"><value>ROI usunięte.</value></data>
+  <data name="Rois.DeleteTitle"><value>Usunąć ROI?</value></data>
+  <data name="Rois.DeleteMessage"><value>ROI „{0}" zostanie usunięte.</value></data>
+  <data name="Triggers.Description"><value>Współdzielone triggery — reguły wyzwalające akcje. Przypinaj je do stref w widoku Strefy.</value></data>
+  <data name="Triggers.Add"><value>Dodaj trigger</value></data>
+  <data name="Triggers.AddTitle"><value>Dodaj trigger</value></data>
+  <data name="Triggers.EditTitle"><value>Edytuj trigger</value></data>
+  <data name="Triggers.Conditions"><value>Warunki</value></data>
+  <data name="Triggers.AddCondition"><value>Dodaj warunek</value></data>
+  <data name="Triggers.Model"><value>Model</value></data>
+  <data name="Triggers.Labels"><value>Etykiety (po przecinku)</value></data>
+  <data name="Triggers.LabelsHint"><value>np. person,no_helmet. Pusto = wszystkie klasy modelu.</value></data>
+  <data name="Triggers.MinCount"><value>Min liczba</value></data>
+  <data name="Triggers.MinConfidence"><value>Min confidence</value></data>
+  <data name="Triggers.BboxRule"><value>Reguła bbox</value></data>
+  <data name="Triggers.BboxRule.CenterInZone"><value>Środek w strefie</value></data>
+  <data name="Triggers.BboxRule.AnyCorner"><value>Dowolny narożnik</value></data>
+  <data name="Triggers.BboxRule.AllCorners"><value>Wszystkie narożniki</value></data>
+  <data name="Triggers.BboxRule.NCorners"><value>N narożników</value></data>
+  <data name="Triggers.BboxRule.Iou"><value>Przecięcie IoU</value></data>
+  <data name="Triggers.IouTooltip"><value>IoU (Intersection over Union) = pole przecięcia / pole sumy bbox i strefy. Wartość 0..1: 0.3 = luźne dopasowanie (30% pokrycia), 0.5 = standard, 0.7+ = ścisłe. Używaj gdy „Środek w strefie" jest za luźne.</value></data>
+  <data name="Triggers.UseModelDefault"><value>użyj domyślnej modelu</value></data>
+  <data name="Triggers.VllmSection"><value>Walidacja VLLM (opcjonalna)</value></data>
+  <data name="Triggers.VllmHint"><value>Pozwól modelowi VLLM zweryfikować trigger zanim odpali akcje. Redukuje false-positive (np. „czy to naprawdę ogień czy tylko lampa?"). Wymaga skonfigurowanego LLM w Ustawienia → LLM. Dodaje ~1-3s opóźnienia.</value></data>
+  <data name="Triggers.VllmEnabled"><value>Włącz walidację VLLM</value></data>
+  <data name="Triggers.VllmPrompt"><value>Szablon promptu</value></data>
+  <data name="Triggers.VllmPromptHint"><value>Placeholdery: {camera}, {zone}, {trigger}, {labels}, {detections}. VLLM zwraca JSON: {confirmed, confidence, reason}.</value></data>
+  <data name="Triggers.VllmSystemPrompt"><value>System prompt (rola)</value></data>
+  <data name="Triggers.VllmIncludeFrame"><value>Dołącz klatkę (wymaga vision model)</value></data>
+  <data name="Triggers.VllmRejectOnError"><value>Odrzucaj przy błędzie LLM (fail-closed)</value></data>
+  <data name="Triggers.VllmModelName"><value>Nazwa modelu (override)</value></data>
+  <data name="Triggers.VllmModelNameHint"><value>Pusto = użyj domyślnego z Ustawienia → LLM (np. gpt-4o, llava-1.6, qwen2-vl)</value></data>
+  <data name="Triggers.VllmMinConfidence"><value>Min. pewność aby potwierdzić</value></data>
+  <data name="Actions.EmailHint"><value>Wyślij email przez SMTP gdy trigger wypali. Konfiguracja SMTP per akcja dla izolacji.</value></data>
+  <data name="Actions.Email.To"><value>Do (oddzielone przecinkami)</value></data>
+  <data name="Actions.Email.ToHint"><value>Jeden lub więcej adresów oddzielonych przecinkami</value></data>
+  <data name="Actions.Email.From"><value>Od</value></data>
+  <data name="Actions.Email.Host"><value>Host SMTP</value></data>
+  <data name="Actions.Email.Port"><value>Port</value></data>
+  <data name="Actions.Email.Username"><value>Użytkownik</value></data>
+  <data name="Actions.Email.Password"><value>Hasło</value></data>
+  <data name="Actions.Email.UseTls"><value>STARTTLS</value></data>
+  <data name="Actions.Email.AttachFrame"><value>Dołącz klatkę z kamery</value></data>
+  <data name="Actions.Email.Subject"><value>Szablon tematu</value></data>
+  <data name="Actions.Email.Body"><value>Szablon treści</value></data>
+  <data name="Actions.WebhookHint"><value>POST JSON do endpoint HTTP (Zapier, Make.com, custom webhook, Slack/Discord przez integrację).</value></data>
+  <data name="Actions.Webhook.Url"><value>URL webhooka</value></data>
+  <data name="Actions.Webhook.Secret"><value>Bearer token (opcjonalny)</value></data>
+  <data name="Actions.Webhook.SecretHint"><value>Wysyłany w nagłówku Authorization: Bearer {secret}</value></data>
+  <data name="Actions.Webhook.Template"><value>Szablon payloadu (JSON)</value></data>
+  <data name="Actions.Webhook.TemplateHint"><value>Pusto = domyślny structured payload. Custom = JSON z placeholderami {camera}, {zone}, {trigger}, {labels}.</value></data>
+  <data name="Triggers.CornersRequired"><value>Wymagane narożniki</value></data>
+  <data name="Triggers.Cooldown"><value>Cooldown [s]</value></data>
+  <data name="Triggers.CooldownHint"><value>Minimalna liczba sekund między dwoma odpaleniami dla tej samej strefy.</value></data>
+  <data name="Triggers.Persistent"><value>Persistent frames</value></data>
+  <data name="Triggers.PersistentHint"><value>Wymagaj N klatek z rzędu ze spełnionymi warunkami.</value></data>
+  <data name="Triggers.Schedule"><value>Harmonogram</value></data>
+  <data name="Triggers.ScheduleEnabled"><value>Ograniczenie czasowe</value></data>
+  <data name="Triggers.ScheduleStart"><value>Godzina start</value></data>
+  <data name="Triggers.ScheduleEnd"><value>Godzina koniec</value></data>
+  <data name="Triggers.Actions"><value>Liczba akcji</value></data>
+  <data name="Triggers.ActionsToFire"><value>Akcje do wywołania</value></data>
+  <data name="Triggers.ActionsHint"><value>Kliknij akcje aby przypiąć/odpiąć. Wszystkie wybrane zostaną wywołane.</value></data>
+  <data name="Triggers.NoActionsAvailable"><value>Brak akcji — najpierw utwórz w widoku Akcje.</value></data>
+  <data name="Triggers.Saved"><value>Trigger zapisany.</value></data>
+  <data name="Triggers.Deleted"><value>Trigger usunięty.</value></data>
+  <data name="Triggers.DeleteTitle"><value>Usunąć trigger?</value></data>
+  <data name="Triggers.DeleteMessage"><value>Trigger „{0}" zostanie usunięty.</value></data>
+  <data name="Actions.Description"><value>Akcje wywoływane przez triggery — LogAlert, powiadomienia w aplikacji. Kolejne typy w Fazie 4.</value></data>
+  <data name="Actions.Add"><value>Dodaj akcję</value></data>
+  <data name="Actions.AddTitle"><value>Dodaj akcję</value></data>
+  <data name="Actions.EditTitle"><value>Edytuj akcję</value></data>
+  <data name="Actions.Type"><value>Typ</value></data>
+  <data name="Actions.RateLimit"><value>Limit / min</value></data>
+  <data name="Actions.RateLimitHint"><value>Maks. wywołań tej akcji na minutę. 0 = bez limitu.</value></data>
+  <data name="Actions.Config"><value>Konfiguracja</value></data>
+  <data name="Actions.Template"><value>Szablon komunikatu</value></data>
+  <data name="Actions.TemplateHint"><value>Placeholdery: {camera}, {zone}, {trigger}, {labels}, {detections}.</value></data>
+  <data name="Actions.DescriptionLabel"><value>Opis</value></data>
+  <data name="Actions.HistoryLink"><value>Historia wywołań</value></data>
+  <data name="Actions.Saved"><value>Akcja zapisana.</value></data>
+  <data name="Actions.Deleted"><value>Akcja usunięta.</value></data>
+  <data name="Actions.DeleteTitle"><value>Usunąć akcję?</value></data>
+  <data name="Actions.DeleteMessage"><value>Akcja „{0}" zostanie usunięta.</value></data>
+  <data name="Test.Fire"><value>Uruchom test</value></data>
+  <data name="Test.Succeeded"><value>Test zakończony sukcesem ({0} ms).</value></data>
+  <data name="Test.Failed"><value>Test nieudany: {0}</value></data>
+  <data name="Test.NoActions"><value>Trigger nie ma przypisanych akcji.</value></data>
+  <data name="Test.TriggerResult"><value>Test triggera: {0} OK, {1} nieudanych.</value></data>
+  <data name="ActionHistory.Title"><value>Historia wykonań akcji</value></data>
+  <data name="ActionHistory.Description"><value>Audit log każdego wypalenia triggera i wykonania akcji. Retencja 30 dni.</value></data>
+  <data name="ActionHistory.Status"><value>Status</value></data>
+  <data name="ActionHistory.ActionCol"><value>Akcja</value></data>
+  <data name="ActionHistory.TriggerCol"><value>Trigger</value></data>
+  <data name="ActionHistory.ZoneCol"><value>Strefa</value></data>
+  <data name="ActionHistory.DetailsCol"><value>Szczegóły</value></data>
+  <data name="ActionHistory.Empty"><value>Brak wykonań w historii.</value></data>
+  <data name="ActionHistory.TotalLabel"><value>Razem: {0} · pokazano: {1}</value></data>
+  <data name="ZoneDialog.Roi"><value>ROI (region zainteresowania)</value></data>
+  <data name="ZoneDialog.NoRoisForCamera"><value>Brak ROI dla tej kamery — najpierw utwórz w widoku ROI.</value></data>
+  <data name="ZoneDialog.Triggers"><value>Triggery</value></data>
+  <data name="ZoneDialog.TriggersHint"><value>Kliknij aby przypiąć/odpiąć. Wybrane triggery są ewaluowane dla tej strefy na każdej klatce.</value></data>
+  <data name="ZoneDialog.NoTriggersAvailable"><value>Brak triggerów — najpierw utwórz w widoku Triggery.</value></data>
+  <data name="ZoneDialog.GeometryOutsideRoi"><value>{0} punkt(y) wielokąta wychodzi poza ROI „{1}". Popraw wielokąt lub zmień ROI.</value></data>
+  <data name="Zones.Roi"><value>ROI</value></data>
+  <data name="Zones.TriggersCount"><value>Triggery</value></data>
+  <data name="Zones.AddCameraFirst"><value>Najpierw dodaj kamerę.</value></data>
+  <data name="Zones.AddRoiFirst"><value>Najpierw dodaj ROI.</value></data>
+  <data name="Zones.Saved"><value>Strefa zapisana.</value></data>
+  <data name="Zones.Deleted"><value>Strefa usunięta.</value></data>
+  <data name="Zones.DeleteTitle"><value>Usunąć strefę?</value></data>
+  <data name="Zones.DeleteMessage"><value>Strefa „{0}" zostanie usunięta.</value></data>
+  <data name="Nav.Models"><value>Modele</value></data>
+  <data name="Nav.Reports"><value>Raporty</value></data>
+  <data name="Nav.Assistant"><value>Asystent</value></data>
+  <data name="Nav.Users"><value>Użytkownicy i role</value></data>
+  <data name="Nav.Settings"><value>Ustawienia</value></data>
+  <data name="Nav.License"><value>Licencja</value></data>
+  <data name="Nav.AuditLog"><value>Dziennik audytu</value></data>
+  <data name="Nav.SystemEvents"><value>Logi systemowe</value></data>
+  <data name="Nav.Performance"><value>Wydajność</value></data>
+  <data name="Performance.Description"><value>Real-time opóźnienia i przepustowość pipeline-u per kamera, ROI, model. In-memory rolling window, resetuje się przy restarcie aplikacji.</value></data>
+  <data name="Performance.Window"><value>Okno</value></data>
+  <data name="Performance.AutoRefresh"><value>Auto (5s)</value></data>
+  <data name="Performance.FramesPerMin"><value>Klatki / min</value></data>
+  <data name="Performance.AvgLatency"><value>Śr. latency</value></data>
+  <data name="Performance.P95Latency"><value>P95 latency</value></data>
+  <data name="Performance.TotalSamples"><value>Próbki</value></data>
+  <data name="Performance.Errors"><value>Błędy</value></data>
+  <data name="Performance.NoData"><value>Brak danych w tym oknie — pipeline jeszcze nie przetwarzał klatek. Sprawdź czy kamery mają aktywowane ROI + modele.</value></data>
+  <data name="Performance.NoEntries"><value>Brak wpisów.</value></data>
+  <data name="Performance.PerCamera"><value>Per kamera</value></data>
+  <data name="Performance.PerRoi"><value>Per ROI</value></data>
+  <data name="Performance.PerModel"><value>Per model</value></data>
+  <data name="Performance.PerStage"><value>Per etap pipeline</value></data>
+  <data name="Performance.Name"><value>Nazwa</value></data>
+  <data name="Performance.Count"><value>Licznik</value></data>
+  <data name="Performance.ErrorsShort"><value>Błędy</value></data>
+  <data name="Performance.AvgMs"><value>Śr ms</value></data>
+  <data name="Performance.P50Ms"><value>P50 ms</value></data>
+  <data name="Performance.P95Ms"><value>P95 ms</value></data>
+  <data name="Performance.MaxMs"><value>Max ms</value></data>
+  <data name="Performance.AvgDet"><value>Śr det</value></data>
+  <data name="Performance.GeneratedAt"><value>Wygenerowano {0}</value></data>
+  <data name="SystemEvents.Description"><value>Zdarzenia techniczne aplikacji — błędy, ostrzeżenia, crashy procesów. Retencja 7 dni (automatycznie).</value></data>
+  <data name="SystemEvents.AutoRefresh"><value>Auto-odświeżanie (10s)</value></data>
+  <data name="SystemEvents.MinSeverity"><value>Min. poziom</value></data>
+  <data name="SystemEvents.Source"><value>Źródło</value></data>
+  <data name="SystemEvents.Category"><value>Kategoria</value></data>
+  <data name="SystemEvents.Search"><value>Szukaj w komunikacie</value></data>
+  <data name="SystemEvents.SearchPlaceholder"><value>np. stimeout, Permission denied, code=137</value></data>
+  <data name="SystemEvents.SeverityCol"><value>Poziom</value></data>
+  <data name="SystemEvents.Message"><value>Komunikat</value></data>
+  <data name="SystemEvents.NoEvents"><value>Brak zdarzeń pasujących do filtrów — system jest zdrowy 🎉</value></data>
+  <data name="SystemEvents.TotalLabel"><value>Wszystkich zdarzeń: {0} · pokazanych: {1}</value></data>
+  <data name="SystemEvents.CopyTooltip"><value>Skopiuj zdarzenie do schowka</value></data>
+  <data name="SystemEvents.CopyFull"><value>Skopiuj pełne zdarzenie</value></data>
+  <data name="SystemEvents.Details"><value>Szczegóły</value></data>
+  <data name="SystemEvents.Copied"><value>Zdarzenie skopiowane do schowka</value></data>
+  <data name="SystemEvents.CopyFailed"><value>Schowek niedostępny (insecure context?) — otwórz devtools przeglądarki i skopiuj ręcznie</value></data>
+  <data name="SystemEvents.CopyManualHint"><value>Schowek zablokowany przez przeglądarkę — zaznacz tekst poniżej (Cmd+A / Ctrl+A) i skopiuj (Cmd+C / Ctrl+C) ręcznie.</value></data>
+  <data name="Settings.Tab.Diagnostics"><value>Diagnostyka</value></data>
+  <data name="Settings.Hint.DiagEnabled"><value>Czy zapisywać zdarzenia systemowe do bazy (widoczne w Logi systemowe)</value></data>
+  <data name="Settings.Hint.DiagMinLevel"><value>Minimalny poziom zdarzeń: Debug (0), Info (1), Warning (2), Error (3), Critical (4). Zalecane: 2 (Warning)</value></data>
+  <data name="Settings.Hint.DiagRetention"><value>Liczba dni retencji — starsze są automatycznie usuwane (TTL index MongoDB)</value></data>
+  <data name="Settings.Tab.ML"><value>ML (GPU)</value></data>
+  <data name="Settings.Hint.MLUseGpu"><value>Włącz akcelerację GPU CUDA (wymaga karty NVIDIA + pakiet Microsoft.ML.OnnxRuntime.Gpu, patrz CLAUDE.md)</value></data>
+  <data name="Settings.Hint.MLGpuDeviceId"><value>Device ID GPU dla systemów multi-GPU (domyślnie 0)</value></data>
+  <data name="Settings.Hint.MLFallback"><value>Fallback provider gdy CUDA niedostępne: "directml" (Win AMD/Intel), "coreml" (macOS), pusto = CPU</value></data>
+  <data name="Nav.ApiKeys"><value>Klucze API</value></data>
+  <data name="Nav.Llm"><value>LLM</value></data>
+  <data name="Nav.MediaMtx"><value>MediaMTX</value></data>
+
+  <!-- Auth -->
+  <data name="Auth.SignIn"><value>Zaloguj</value></data>
+  <data name="Auth.SignOut"><value>Wyloguj</value></data>
+  <data name="Auth.Username"><value>Użytkownik</value></data>
+  <data name="Auth.Password"><value>Hasło</value></data>
+
+  <!-- Common actions -->
+  <data name="Common.Save"><value>Zapisz</value></data>
+  <data name="Common.Cancel"><value>Anuluj</value></data>
+  <data name="Common.Delete"><value>Usuń</value></data>
+  <data name="Common.Edit"><value>Edytuj</value></data>
+  <data name="Common.Add"><value>Dodaj</value></data>
+  <data name="Common.Refresh"><value>Odśwież</value></data>
+  <data name="Common.Search"><value>Szukaj</value></data>
+  <data name="Common.Saving"><value>Zapisuję…</value></data>
+  <data name="Common.SaveAll"><value>Zapisz wszystko</value></data>
+  <data name="Common.Close"><value>Zamknij</value></data>
+  <data name="Common.Back"><value>Wróć</value></data>
+  <data name="Common.NoData"><value>Brak danych.</value></data>
+
+  <!-- Language -->
+  <data name="Language.Polish"><value>Polski</value></data>
+  <data name="Language.English"><value>English</value></data>
+
+  <!-- Table headers -->
+  <data name="Table.Name"><value>Nazwa</value></data>
+  <data name="Table.Location"><value>Lokalizacja</value></data>
+  <data name="Table.Status"><value>Status</value></data>
+  <data name="Table.When"><value>Kiedy</value></data>
+  <data name="Table.Camera"><value>Kamera</value></data>
+  <data name="Table.Category"><value>Kategoria</value></data>
+  <data name="Table.Severity"><value>Ważność</value></data>
+  <data name="Table.Summary"><value>Podsumowanie</value></data>
+  <data name="Table.Model"><value>Model</value></data>
+  <data name="Table.Email"><value>Email</value></data>
+  <data name="Table.Roles"><value>Role</value></data>
+  <data name="Table.Login"><value>Login</value></data>
+  <data name="Table.LastLogin"><value>Ostatnie logowanie</value></data>
+  <data name="Table.Active"><value>Aktywny</value></data>
+  <data name="Table.Vendor"><value>Producent</value></data>
+  <data name="Table.Stream"><value>Strumień</value></data>
+  <data name="Table.Host"><value>Host</value></data>
+  <data name="Table.Interval"><value>Interwał</value></data>
+  <data name="Table.LastFrame"><value>Ostatnia klatka</value></data>
+  <data name="Table.Vertices"><value>Wierzchołki</value></data>
+  <data name="Table.Rules"><value>Reguły</value></data>
+  <data name="Table.Backend"><value>Backend</value></data>
+  <data name="Table.Source"><value>Źródło</value></data>
+  <data name="Table.Labels"><value>Etykiety</value></data>
+  <data name="Table.Prefix"><value>Prefix</value></data>
+  <data name="Table.Scopes"><value>Zakresy</value></data>
+  <data name="Table.Created"><value>Utworzony</value></data>
+  <data name="Table.LastUsed"><value>Ostatnie użycie</value></data>
+  <data name="Table.Time"><value>Czas (UTC)</value></data>
+  <data name="Table.User"><value>Użytkownik</value></data>
+  <data name="Table.Action"><value>Akcja</value></data>
+  <data name="Table.Object"><value>Obiekt</value></data>
+  <data name="Table.IP"><value>IP</value></data>
+  <data name="Table.Details"><value>Szczegóły</value></data>
+  <data name="Table.Confidence"><value>Conf / IoU</value></data>
+  <data name="Table.Count"><value>Liczba</value></data>
+
+  <!-- Pages: Home / Dashboard -->
+  <data name="Home.Description"><value>Automatyczna detekcja zagrożeń BHP w środowisku produkcyjnym z wykorzystaniem ML (ONNX/Roboflow) i LLM (vLLM) hostowanych lokalnie.</value></data>
+  <data name="Home.CamerasActive"><value>Kamery aktywne</value></data>
+  <data name="Home.Incidents24h"><value>Incydenty (24h)</value></data>
+  <data name="Home.ActiveModels"><value>Aktywne modele</value></data>
+  <data name="Home.LicenseStatus"><value>Status licencji</value></data>
+  <data name="Home.Heatmap"><value>Heatmapa incydentów (7 dni, godz. UTC)</value></data>
+  <data name="Home.TopCategories"><value>Top kategorie (7 dni)</value></data>
+  <data name="Home.LatestIncidents"><value>Najnowsze incydenty</value></data>
+
+  <!-- Pages: Incidents -->
+  <data name="Incidents.Title"><value>Incydenty</value></data>
+  <data name="IncidentDetail.Title"><value>Szczegóły incydentu</value></data>
+  <data name="IncidentDetail.NoFrame"><value>Brak klatki dowodowej</value></data>
+  <data name="IncidentDetail.Camera"><value>Kamera</value></data>
+  <data name="IncidentDetail.Roi"><value>ROI</value></data>
+  <data name="IncidentDetail.Zone"><value>Strefa</value></data>
+  <data name="IncidentDetail.Trigger"><value>Trigger</value></data>
+  <data name="IncidentDetail.Category"><value>Kategoria</value></data>
+  <data name="IncidentDetail.Severity"><value>Waga</value></data>
+  <data name="IncidentDetail.Status"><value>Status</value></data>
+  <data name="IncidentDetail.DetectionsCount"><value>Liczba detekcji</value></data>
+  <data name="IncidentDetail.DetectionsList"><value>Detekcje</value></data>
+  <data name="IncidentDetail.Label"><value>Klasa</value></data>
+  <data name="IncidentDetail.Confidence"><value>Pewność</value></data>
+  <data name="IncidentDetail.Bbox"><value>Bbox</value></data>
+  <data name="IncidentDetail.LlmAnalysis"><value>Analiza LLM</value></data>
+  <data name="IncidentDetail.LlmRecommended"><value>Rekomendacja</value></data>
+  <data name="Incidents.FilterStatus"><value>Filtr statusu</value></data>
+  <data name="Incidents.All"><value>Wszystkie</value></data>
+  <data name="Incidents.Open"><value>Otwarte</value></data>
+  <data name="Incidents.Confirmed"><value>Potwierdzone</value></data>
+  <data name="Incidents.Resolved"><value>Rozwiązane</value></data>
+  <data name="Incidents.FalsePositive"><value>Fałszywe</value></data>
+  <data name="Incidents.FalsePositiveFlag"><value>FAŁSZYWY ALARM</value></data>
+  <data name="Incidents.FalsePositiveTooltip"><value>Operator oznaczył ten incident jako false-positive — trafia do statystyk szablonu VLLM.</value></data>
+
+  <!-- Pages: Camera detail -->
+  <data name="CameraDetail.Last24h"><value>Ostatnie 24h</value></data>
+  <data name="CameraDetail.Last7d"><value>Ostatnie 7 dni</value></data>
+  <data name="CameraDetail.FpRate"><value>False-positive (7d)</value></data>
+  <data name="CameraDetail.SnapshotHeatmap"><value>Snapshot + heatmapa detekcji (7d)</value></data>
+  <data name="CameraDetail.NoFrame"><value>Brak klatki — wykonaj snapshot lub poczekaj na pierwszy incydent.</value></data>
+  <data name="CameraDetail.Capturing"><value>Pobieram…</value></data>
+  <data name="CameraDetail.CaptureFrame"><value>Pobierz nową klatkę</value></data>
+  <data name="CameraDetail.LlmSummary"><value>Podsumowanie aktywności (LLM)</value></data>
+  <data name="CameraDetail.Analyzing"><value>Analizuję…</value></data>
+  <data name="CameraDetail.Analyze7d"><value>Analizuj 7d</value></data>
+  <data name="CameraDetail.LlmHint"><value>Kliknij "Analizuj 7d" aby otrzymać podsumowanie wzorców incydentów dla tej kamery.</value></data>
+  <data name="CameraDetail.CategoryBreakdown"><value>Rozkład kategorii (7d)</value></data>
+  <data name="CameraDetail.NoIncidents7d"><value>Brak incydentów w ostatnich 7 dniach.</value></data>
+  <data name="CameraDetail.RecentIncidents"><value>Ostatnie incydenty (max 50)</value></data>
+  <data name="CameraDetail.LivePreview"><value>Podgląd live</value></data>
+
+  <!-- Pages: Camera live -->
+  <data name="CameraLive.Title"><value>Podgląd na żywo</value></data>
+  <data name="CameraLive.CaptureFrame"><value>Pobierz klatkę</value></data>
+  <data name="CameraLive.Recording"><value>Nagrywam…</value></data>
+  <data name="CameraLive.ClipButton"><value>Klip {0}s</value></data>
+  <data name="CameraLive.ClipSaved"><value>Klip zapisany: {0} ({1:N2} MB)</value></data>
+  <data name="CameraLive.ClipError"><value>Błąd klipu: {0}</value></data>
+  <data name="CameraLive.SnapshotFailed"><value>Snapshot nieudany.</value></data>
+  <data name="CameraLive.HintCapture"><value>Kliknij „Pobierz klatkę" aby wykonać snapshot.</value></data>
+  <data name="CameraLive.HlsStream"><value>Strumień HLS</value></data>
+  <data name="CameraLive.LiveStream"><value>Obraz na żywo</value></data>
+  <data name="CameraLive.Snapshot"><value>Snapshot</value></data>
+  <data name="CameraLive.HlsNotAvailable"><value>Strumień HLS niedostępny — MediaMTX może być wyłączony.</value></data>
+
+  <!-- Pages: Camera dialog -->
+  <data name="CameraDialog.Connection"><value>Połączenie</value></data>
+  <data name="CameraDialog.Stream"><value>Strumień</value></data>
+  <data name="CameraDialog.Channel"><value>Kanał</value></data>
+  <data name="CameraDialog.HostIp"><value>Host / IP</value></data>
+  <data name="CameraDialog.Login"><value>Login</value></data>
+  <data name="CameraDialog.SourceUrl"><value>URL źródłowy (RTSP / HTTP / RTMP)</value></data>
+  <data name="CameraDialog.SnapshotInterval"><value>Interwał snapshot (s)</value></data>
+  <data name="CameraDialog.ClipDuration"><value>Długość klipu (s)</value></data>
+
+  <!-- Pages: Zones -->
+  <data name="Zones.AddZone"><value>Dodaj strefę</value></data>
+  <data name="Zones.EditZone"><value>Edytuj strefę</value></data>
+  <data name="Zones.DeleteZone"><value>Usunąć strefę?</value></data>
+
+  <!-- Pages: Zone editor -->
+  <data name="ZoneEditor.Rules"><value>Reguły</value></data>
+  <data name="ZoneEditor.NoRules"><value>Brak reguł — strefa nie wygeneruje incydentów.</value></data>
+
+  <!-- Pages: Models -->
+  <data name="Models.Title"><value>Modele ML</value></data>
+  <data name="Models.AddModel"><value>Dodaj model</value></data>
+  <data name="Models.Test"><value>Testuj na zdjęciu</value></data>
+  <data name="Models.TestTitle"><value>Szybki test</value></data>
+  <data name="ModelTest.PickImage"><value>Wybierz zdjęcie</value></data>
+  <data name="ModelTest.Running"><value>Wykrywanie…</value></data>
+  <data name="ModelTest.Hint"><value>Wgraj zdjęcie testowe (.jpg/.png, max 20MB). Model uruchomi detekcję i pokaże bboxy + raw output.</value></data>
+  <data name="ModelTest.Detections"><value>detekcji</value></data>
+  <data name="ModelTest.NoDetections"><value>Brak detekcji. Spróbuj innego zdjęcia, obniż próg confidence w edycji modelu, albo dla open-vocab: dodaj sensowne etykiety do modelu.</value></data>
+  <data name="ModelTest.Label"><value>Etykieta</value></data>
+  <data name="ModelTest.Confidence"><value>Pewność</value></data>
+  <data name="ModelTest.Bbox"><value>Bbox (x,y,w,h)</value></data>
+  <data name="ModelTest.RawOutput"><value>Raw output (JSON)</value></data>
+  <data name="ModelTest.Failed"><value>Detekcja nieudana:</value></data>
+  <data name="ModelTest.ImageTooLarge"><value>Zdjęcie za duże (max 20MB).</value></data>
+  <data name="ModelTest.Prompts"><value>Prompty tekstowe (open-vocab)</value></data>
+  <data name="ModelTest.PromptsHint"><value>Dla YOLO-World / YOLOE — opisz co model ma wykrywać. Pre-wypełnione etykietami modelu; edytuj dowolnie dla tego testu.</value></data>
+  <data name="ModelTest.PromptsPlaceholder"><value>np. "pracownik bez kasku"</value></data>
+  <data name="ModelTest.AddPrompt"><value>Dodaj</value></data>
+  <data name="ModelTest.PromptsEmpty"><value>Brak promptów — dodaj przynajmniej jeden albo kliknij 'Użyj etykiet modelu'.</value></data>
+  <data name="ModelTest.UseModelLabels"><value>Użyj etykiet modelu</value></data>
+  <data name="ModelTest.PromptsResetHint"><value>Przywróć model.Labels.</value></data>
+  <data name="ModelTest.FlowTextPrompts"><value>tryb text-prompts</value></data>
+  <data name="ModelTest.FlowDefault"><value>default / closed-set</value></data>
+  <data name="ModelTest.UsedPrompts"><value>Użyte prompty</value></data>
+
+  <!-- Pages: Users -->
+  <data name="Users.CountLabel"><value>{0} użytkowników</value></data>
+  <data name="Users.AddUser"><value>Dodaj użytkownika</value></data>
+
+  <!-- Pages: API keys -->
+  <data name="ApiKeys.GenerateNew"><value>Wygeneruj nowy</value></data>
+  <data name="ApiKeys.KeyCreated"><value>Klucz utworzony — skopiuj teraz!</value></data>
+  <data name="ApiKeys.KeyWarning"><value>Po opuszczeniu tej strony klucz nie będzie już dostępny.</value></data>
+  <data name="ApiKeys.Expires"><value>Wygasa (opcjonalne)</value></data>
+
+  <!-- Pages: Audit log -->
+  <data name="AuditLog.TotalLabel"><value>Łącznie: {0}</value></data>
+
+  <!-- Pages: Reports -->
+  <data name="Reports.Title"><value>Raporty</value></data>
+  <data name="Reports.From"><value>Od</value></data>
+  <data name="Reports.To"><value>Do (włącznie)</value></data>
+  <data name="Reports.MinSeverity"><value>Min. ważność</value></data>
+  <data name="Reports.CameraOptional"><value>Kamera (opcjonalnie)</value></data>
+  <data name="Reports.AllCameras"><value>Wszystkie</value></data>
+  <data name="Reports.Preview"><value>Podgląd</value></data>
+
+  <!-- Pages: LLM Admin -->
+  <data name="LlmAdmin.DefaultModel"><value>Domyślny model</value></data>
+
+  <!-- Pages: MediaMTX Admin -->
+  <data name="MediaMtx.ForceRestart"><value>Wymuś restart</value></data>
+  <data name="MediaMtx.ActiveCameras"><value>Aktywne kamery</value></data>
+  <data name="MediaMtx.GeneratedConfig"><value>Wygenerowany config</value></data>
+
+  <!-- Pages: Settings -->
+  <data name="Settings.Title"><value>Ustawienia aplikacji</value></data>
+  <data name="Settings.Description"><value>Edytuj plik appsettings.Runtime.json — nadpisania aplikowane bez restartu (IOptionsMonitor).</value></data>
+  <data name="Settings.RestartWarning"><value>Puste pole = użyj wartości domyślnej (z appsettings.json). Po zapisie nowa wartość pojawi się w kolumnie „Aktualna" w ciągu kilku sekund (plik jest hot-reloadowany). Zmiany w sekcjach Rate limiter, Auth i niektórych singletonach wymagają restartu aplikacji.</value></data>
+  <data name="Settings.RawJson"><value>Raw JSON</value></data>
+  <data name="Settings.DefaultPlaceholder"><value>(użyj domyślnej)</value></data>
+  <data name="Settings.DefaultPlaceholderBool"><value>(domyślna)</value></data>
+  <data name="Settings.CurrentValue"><value>Aktualna wartość: </value></data>
+  <data name="Settings.FilePath"><value>Plik: </value></data>
+  <data name="Settings.SaveRaw"><value>Zapisz raw</value></data>
+  <data name="Settings.ReloadFromDisk"><value>Przeładuj z dysku</value></data>
+  <data name="Settings.RawJsonHint"><value>Bezpośrednia edycja pliku. Zwróć uwagę na poprawność składni — nieprawidłowy JSON zostanie zignorowany.</value></data>
+  <data name="Settings.RawJsonMustBeObject"><value>Root musi być obiektem JSON.</value></data>
+  <data name="Settings.SavedOk"><value>Ustawienia zapisane. Aplikacja wkrótce podchwyci zmiany.</value></data>
+  <data name="Settings.SavedRawOk"><value>Zapisano plik runtime config.</value></data>
+  <data name="Settings.StorageValidating"><value>Sprawdzanie katalogów storage…</value></data>
+  <data name="Settings.StorageOk"><value>Wszystkie katalogi storage są dostępne.</value></data>
+  <data name="Settings.StorageCreated"><value>Utworzono katalog storage: {0}</value></data>
+  <data name="Settings.StorageError"><value>Brak dostępu do katalogu „{0}" ({1}): {2}</value></data>
+  <data name="Settings.StorageWarning"><value>Niektóre katalogi storage są niedostępne — ustawienia zostały zapisane, ale te ścieżki mogą powodować błędy:</value></data>
+  <data name="Settings.Tab.License"><value>Licencja</value></data>
+  <data name="Settings.Tab.CameraSampler"><value>Kamery (Sampler)</value></data>
+  <data name="Settings.Tab.SmtpEmail"><value>SMTP / e-mail</value></data>
+  <data name="Settings.Tab.Storage"><value>Dysk</value></data>
+  <data name="Settings.MongoRestartWarning"><value>Zmiana adresu/bazy MongoDB wymaga restartu aplikacji — klient Mongo jest singletonem i nie obsługuje hot-reloadu connection stringa.</value></data>
+  <!-- Settings field hints -->
+  <data name="Settings.Hint.MongoConn"><value>np. mongodb://localhost:27017 albo mongodb+srv://user:pass@cluster.mongodb.net</value></data>
+  <data name="Settings.Hint.MongoDb"><value>Nazwa bazy (domyślnie 'safeview')</value></data>
+  <data name="Settings.Hint.MtxEnabled"><value>Czy MediaMTX ma być używany do streamowania RTSP/HLS</value></data>
+  <data name="Settings.Hint.MtxAutoStart"><value>Aplikacja sama uruchamia binarkę mediamtx i odświeża config</value></data>
+  <data name="Settings.Hint.MtxBinary"><value>Ścieżka do binarki mediamtx (np. /usr/local/bin/mediamtx). Pusto = 'mediamtx' z PATH.</value></data>
+  <data name="Settings.Hint.MtxConfigDir"><value>Katalog na wygenerowany mediamtx.yml. Pusto = tmp.</value></data>
+  <data name="Settings.Hint.MtxReconcile"><value>Co ile sekund sprawdzać zmiany kamer</value></data>
+  <data name="Settings.Hint.MtxHost"><value>Host publicznego URL strumienia (np. localhost / 192.168.1.10)</value></data>
+  <data name="Settings.Hint.MtxRtsp"><value>Port RTSP (domyślnie 8554)</value></data>
+  <data name="Settings.Hint.MtxHls"><value>Port HLS (domyślnie 8888)</value></data>
+  <data name="Settings.Hint.FfBinary"><value>Ścieżka do binarki ffmpeg. Pusto = 'ffmpeg' z PATH.</value></data>
+  <data name="Settings.Hint.FfTimeout"><value>Timeout pojedynczego snapshotu</value></data>
+  <data name="Settings.Hint.FfTransport"><value>tcp (domyślnie, stabilniejszy) lub udp</value></data>
+  <data name="Settings.Hint.LlmBackend"><value>openai, vllm, ollama, lmstudio</value></data>
+  <data name="Settings.Hint.LlmBaseUrl"><value>Endpoint HTTP (np. http://localhost:11434 dla Ollama, http://localhost:8000/v1 dla vLLM)</value></data>
+  <data name="Settings.Hint.LlmApiKey"><value>Klucz API (openai) — puste dla lokalnych backendów</value></data>
+  <data name="Settings.Hint.LlmModel"><value>Nazwa modelu (np. gpt-4o-mini, llama3.1:8b)</value></data>
+  <data name="Settings.Hint.SmtpEnabled"><value>Czy wysyłać powiadomienia e-mail</value></data>
+  <data name="Settings.Hint.SmtpFrom"><value>Adres nadawcy</value></data>
+  <data name="Settings.Hint.SmtpSubject"><value>Szablon tematu — placeholdery: {severity}, {category}, {camera}</value></data>
+  <data name="Settings.Hint.StorageRoot"><value>Katalog bazowy (może być względny)</value></data>
+  <data name="Settings.Hint.LicFile"><value>Ścieżka do pliku .lic</value></data>
+  <data name="Settings.Hint.LicReadOnly"><value>Czy pozwolić odczyt przy niepoprawnej licencji</value></data>
+  <data name="Settings.Hint.LicDevBypass"><value>DEV: omiń walidację licencji</value></data>
+  <data name="Settings.Hint.CameraMedia"><value>Katalog na pliki wideo/obrazy wgrywane jako źródło kamery</value></data>
+
+  <!-- Pages: License -->
+  <data name="License.Active"><value>AKTYWNA</value></data>
+  <data name="License.Expired"><value>WYGASŁA</value></data>
+  <data name="License.Invalid"><value>NIEPRAWIDŁOWA</value></data>
+  <data name="License.None"><value>BRAK</value></data>
+  <data name="License.ActiveModules"><value>Aktywne moduły</value></data>
+  <data name="License.Limits"><value>Limity</value></data>
+  <data name="License.DaysRemaining"><value>Pozostało dni</value></data>
+  <data name="License.Client"><value>Klient</value></data>
+  <data name="License.IssuedAt"><value>Wydano</value></data>
+  <data name="License.ExpiresAt"><value>Wygasa</value></data>
+
+  <!-- Pages: Change password -->
+  <data name="ChangePassword.Title"><value>Zmiana hasła</value></data>
+  <data name="ChangePassword.Current"><value>Aktualne hasło</value></data>
+  <data name="ChangePassword.New"><value>Nowe hasło</value></data>
+  <data name="ChangePassword.Confirm"><value>Potwierdź nowe hasło</value></data>
+
+  <!-- Pages: Setup -->
+  <data name="Setup.Title"><value>Konfiguracja początkowa</value></data>
+  <data name="Setup.Description"><value>Utwórz pierwsze konto administratora. Ten formularz jest dostępny tylko raz — do momentu utworzenia pierwszego użytkownika.</value></data>
+  <data name="Setup.DisplayName"><value>Nazwa wyświetlana</value></data>
+  <data name="Setup.PasswordHint"><value>Hasło (min. 8 znaków)</value></data>
+  <data name="Setup.PasswordConfirm"><value>Powtórz hasło</value></data>
+  <data name="Setup.Submit"><value>Utwórz administratora</value></data>
+
+  <!-- Pages: Assistant -->
+  <data name="Assistant.Title"><value>Asystent BHP</value></data>
+  <data name="Assistant.Placeholder"><value>Zapytaj o incydent, zasady bezpieczeństwa, raport…</value></data>
+
+  <!-- Pages: Error / Forbidden / NotFound -->
+  <data name="Error.Title"><value>Wystąpił błąd</value></data>
+  <data name="Error.Description"><value>Podczas przetwarzania żądania wystąpił nieoczekiwany błąd.</value></data>
+  <data name="Forbidden.Title"><value>403 — Brak dostępu</value></data>
+  <data name="Forbidden.Description"><value>Nie masz uprawnień do tej strony.</value></data>
+  <data name="NotFound.Title"><value>404 — Nie znaleziono strony</value></data>
+
+  <!-- Dialog: Camera -->
+  <data name="CameraDialog.AddTitle"><value>Dodaj kamerę</value></data>
+  <data name="CameraDialog.EditTitle"><value>Edytuj kamerę</value></data>
+  <data name="CameraDialog.Name"><value>Nazwa</value></data>
+  <data name="CameraDialog.Description"><value>Opis</value></data>
+  <data name="CameraDialog.LocationZone"><value>Lokalizacja / strefa</value></data>
+  <data name="CameraDialog.Vendor"><value>Producent</value></data>
+  <data name="CameraDialog.CustomUrl"><value>Custom (ręczny URL)</value></data>
+  <data name="CameraDialog.StreamMain"><value>Main (HD)</value></data>
+  <data name="CameraDialog.StreamSub"><value>Sub (LD)</value></data>
+  <data name="CameraDialog.Port"><value>Port</value></data>
+  <data name="CameraDialog.Template"><value>Szablon</value></data>
+  <data name="CameraDialog.ComputedUrl"><value>Wyliczony URL:</value></data>
+  <data name="CameraDialog.FillHostLogin"><value>(uzupełnij host/login)</value></data>
+  <data name="CameraDialog.Sampling"><value>Próbkowanie</value></data>
+  <data name="CameraDialog.EnabledLabel"><value>Aktywna (sampler + MediaMTX)</value></data>
+  <data name="CameraDialog.FileSource"><value>Plik (MP4 / obraz)</value></data>
+  <data name="CameraDialog.FileSourcePath"><value>Ścieżka do pliku</value></data>
+  <data name="CameraDialog.FileSourceHint"><value>np. /data/video/test.mp4, /data/img/snapshot.jpg</value></data>
+  <data name="CameraDialog.FileSourceInfo"><value>Film MP4/MKV/AVI będzie odtwarzany w pętli jako symulowany strumień kamery. Obraz JPG/PNG będzie serwowany jako statyczna klatka. Idealne do testów i demonstracji.</value></data>
+  <data name="CameraDialog.FileNotSelected"><value>nie wybrano pliku</value></data>
+  <data name="CameraDialog.FileSelectButton"><value>Wybierz plik</value></data>
+  <data name="CameraDialog.FileUploading"><value>Wgrywam…</value></data>
+  <data name="CameraDialog.FileUploaded"><value>Wgrano: {0}</value></data>
+  <data name="CameraDialog.FileUploadError"><value>Błąd uploadu: {0}</value></data>
+  <data name="CameraDialog.FileTooLarge"><value>Plik za duży ({0} MB, max 2 GB)</value></data>
+  <data name="CameraDialog.SourceUrlHint"><value>np. rtsp://user:pass@192.168.1.10:554/Streaming/Channels/101</value></data>
+
+  <!-- Dialog: Zone -->
+  <data name="ZoneDialog.AddTitle"><value>Nowa strefa</value></data>
+  <data name="ZoneDialog.EditTitle"><value>Edytuj strefę</value></data>
+  <data name="ZoneDialog.Name"><value>Nazwa</value></data>
+  <data name="ZoneDialog.Camera"><value>Kamera</value></data>
+  <data name="ZoneDialog.Color"><value>Kolor</value></data>
+  <data name="ZoneDialog.Active"><value>Aktywna</value></data>
+  <data name="ZoneDialog.Description"><value>Opis</value></data>
+  <data name="ZoneDialog.ClickHint"><value>Kliknij na podglądzie, aby dodać wierzchołek. Min. 3 punkty.</value></data>
+  <data name="ZoneDialog.LoadingFrame"><value>Ładowanie klatki…</value></data>
+  <data name="ZoneDialog.NoPreview"><value>Brak podglądu. Kliknij „Pobierz klatkę".</value></data>
+  <data name="ZoneDialog.Capturing"><value>Pobieram…</value></data>
+  <data name="ZoneDialog.CaptureFrame"><value>Pobierz klatkę</value></data>
+  <data name="ZoneDialog.UndoPoint"><value>Cofnij punkt</value></data>
+  <data name="ZoneDialog.ClearPolygon"><value>Wyczyść poligon</value></data>
+  <data name="ZoneDialog.PointCount"><value>{0} pkt.</value></data>
+  <data name="ZoneDialog.AddRule"><value>Dodaj regułę</value></data>
+  <data name="ZoneDialog.Labels"><value>Etykiety</value></data>
+  <data name="ZoneDialog.LabelsHint"><value>przecinkami, puste = dowolna klasa</value></data>
+  <data name="ZoneDialog.Mode"><value>Tryb</value></data>
+  <data name="ZoneDialog.ModeInside"><value>W strefie</value></data>
+  <data name="ZoneDialog.ModeOutside"><value>Poza strefą</value></data>
+  <data name="ZoneDialog.Severity"><value>Ważność</value></data>
+  <data name="ZoneDialog.Category"><value>Kategoria</value></data>
+  <data name="ZoneDialog.TemplateLabel"><value>Szablon</value></data>
+  <data name="ZoneDialog.TemplateHint"><value>{label},{zone},{conf}</value></data>
+  <data name="ZoneDialog.SelectCamera"><value>Wybierz kamerę.</value></data>
+  <data name="ZoneDialog.FrameError"><value>Nie udało się pobrać klatki: {0}</value></data>
+
+  <!-- Dialog: Model -->
+  <data name="ModelDialog.AddTitle"><value>Dodaj model</value></data>
+  <data name="ModelDialog.EditTitle"><value>Edytuj model</value></data>
+  <data name="ModelDialog.Name"><value>Nazwa</value></data>
+  <data name="ModelDialog.Description"><value>Opis</value></data>
+  <data name="ModelDialog.Backend"><value>Backend</value></data>
+  <data name="ModelDialog.OnnxFile"><value>Plik ONNX:</value></data>
+  <data name="ModelDialog.OnnxNotLoaded"><value>nie załadowano</value></data>
+  <data name="ModelDialog.Uploading"><value>Wgrywam…</value></data>
+  <data name="ModelDialog.UploadOnnx"><value>Wgraj .onnx</value></data>
+  <data name="ModelDialog.InputSize"><value>Input size (px, kwadrat)</value></data>
+  <data name="ModelDialog.RoboflowModelId"><value>Roboflow Model ID (np. 'ppe-safety/3')</value></data>
+  <data name="ModelDialog.RoboflowApiKey"><value>API key</value></data>
+  <data name="ModelDialog.LabelsLabel"><value>Etykiety (po przecinku, w kolejności classId)</value></data>
+  <data name="ModelDialog.LabelsHint"><value>np. helmet,no_helmet,vest,no_vest</value></data>
+  <data name="ModelDialog.Confidence"><value>Confidence</value></data>
+  <data name="ModelDialog.Iou"><value>IoU (NMS)</value></data>
+  <data name="ModelDialog.InputSizeHelp"><value>Rozmiar wejścia modelu w pikselach (kwadrat). YOLO: zwykle 640. Zmieniaj tylko jeśli model był eksportowany z innym wymiarem.</value></data>
+  <data name="ModelDialog.ConfidenceHelp"><value>Próg pewności detekcji — wszystko poniżej jest odrzucane zanim wynik opuści model. Trigger ma własny, opcjonalny override.</value></data>
+  <data name="ModelDialog.IouHelp"><value>Próg IoU dla Non-Max Suppression — usuwa duplikaty bboxów oraz scala detekcje między kafelkami SAHI. To NIE jest IoU strefy w triggerze.</value></data>
+  <data name="ModelDialog.Active"><value>Aktywny</value></data>
+  <data name="ModelDialog.FileTooLarge"><value>Plik za duży ({0} MB, max 500 MB)</value></data>
+  <data name="ModelDialog.Uploaded"><value>Wgrano: {0}</value></data>
+  <data name="ModelDialog.UploadError"><value>Błąd uploadu: {0}</value></data>
+  <data name="ModelDialog.Capabilities"><value>Kapabilitety</value></data>
+  <data name="ModelDialog.CapabilitiesHint"><value>Jakie tryby inferencji obsługuje model. Auto-sugerowane z backendu; przełącz żeby zmienić.</value></data>
+  <data name="ModelDialog.Cap.ClosedSet"><value>Closed-set</value></data>
+  <data name="ModelDialog.Cap.ClosedSetHint"><value>Stały vocabulary zapieczony w wagach.</value></data>
+  <data name="ModelDialog.Cap.TextPrompts"><value>Prompty tekstowe</value></data>
+  <data name="ModelDialog.Cap.TextPromptsHint"><value>Open-vocab przez tekst (YOLO-World / YOLOE).</value></data>
+  <data name="ModelDialog.Cap.VisualPrompts"><value>Prompty wizualne</value></data>
+  <data name="ModelDialog.Cap.VisualPromptsHint"><value>Open-vocab przez cropy referencyjne (YOLOE).</value></data>
+  <data name="ModelDialog.Cap.WarnNone"><value>Musi być zaznaczony co najmniej jeden kapabilitet.</value></data>
+  <data name="ModelDialog.Cap.WarnYoloWorldText"><value>YOLO-World bez 'Prompty tekstowe' traci swoją główną wartość.</value></data>
+  <data name="ModelDialog.Cap.WarnYoloEVisual"><value>YOLOE bez 'Prompty wizualne' — detekcja po cropach referencyjnych nie zadziała.</value></data>
+  <data name="ModelDialog.OnnxBundled"><value>bundled</value></data>
+  <data name="ModelDialog.BundledHint"><value>YOLO-World / YOLOE są bundled z dodatkowymi plikami (text-encoder, tokenizer). Zarządzanie przez /admin/prompt-packs albo runtime/models/ + Rescan.</value></data>
+  <data name="ModelDialog.LicenseDepends"><value>licencja zależy od źródła</value></data>
+  <data name="ModelDialog.LabelsAsPrompts"><value>Domyślne prompty (po przecinku)</value></data>
+  <data name="ModelDialog.LabelsAsPromptsHint"><value>Najlepiej działają frazy po angielsku. Przykład: "worker wearing hard hat, forklift truck".</value></data>
+  <data name="ModelDialog.CompiledFrom"><value>Skompilowany pack z modelu źródłowego {0}</value></data>
+  <data name="ModelDialog.CompiledClasses"><value>{0} klas zamrożonych</value></data>
+
+  <!-- Dialog: User -->
+  <data name="UserDialog.AddTitle"><value>Dodaj użytkownika</value></data>
+  <data name="UserDialog.EditTitle"><value>Edytuj użytkownika</value></data>
+  <data name="UserDialog.DisplayName"><value>Nazwa wyświetlana</value></data>
+  <data name="UserDialog.PasswordNew"><value>Hasło</value></data>
+  <data name="UserDialog.PasswordEdit"><value>Nowe hasło (opcj.)</value></data>
+  <data name="UserDialog.PasswordHint"><value>Minimum 10 znaków.</value></data>
+  <data name="UserDialog.Roles"><value>Role</value></data>
+  <data name="UserDialog.Active"><value>Aktywny</value></data>
+  <data name="UserDialog.UiLanguage"><value>Język UI</value></data>
+
+  <!-- Dialog: API key -->
+  <data name="ApiKeyDialog.Title"><value>Nowy klucz API</value></data>
+  <data name="ApiKeyDialog.Name"><value>Nazwa (np. 'ERP integration')</value></data>
+  <data name="ApiKeyDialog.Scopes"><value>Zakresy</value></data>
+  <data name="ApiKeyDialog.Warning"><value>Klucz zostanie wygenerowany po zapisaniu i pokazany TYLKO RAZ.</value></data>
+  <data name="ApiKeyDialog.Create"><value>Utwórz</value></data>
+
+  <!-- Theme toggle -->
+  <data name="Theme.SwitchToLight"><value>Przełącz na tryb jasny</value></data>
+  <data name="Theme.SwitchToDark"><value>Przełącz na tryb ciemny</value></data>
+
+  <!-- Detection classes library -->
+  <data name="Nav.DetectionClasses"><value>Klasy detekcji</value></data>
+  <data name="DetectionClasses.Title"><value>Klasy detekcji</value></data>
+  <data name="DetectionClasses.Description"><value>Biblioteka klas detekcji — prompty tekstowe, referencje wizualne lub binding do klasycznych modeli. Reużywalne w triggerach.</value></data>
+  <data name="DetectionClasses.Hint"><value>Rodzaj klasy określa jak jest dopasowywana. Text = prompt open-vocab (YOLO-World). ClosedSetBinding = wiąże z konkretną etykietą klasycznego YOLO. Visual = crop-y referencyjne (YOLOE / OWLv2).</value></data>
+  <data name="DetectionClasses.Add"><value>Nowa klasa</value></data>
+  <data name="DetectionClasses.AddTitle"><value>Nowa klasa detekcji</value></data>
+  <data name="DetectionClasses.EditTitle"><value>Edycja klasy detekcji</value></data>
+  <data name="DetectionClasses.Saved"><value>Klasa zapisana.</value></data>
+  <data name="DetectionClasses.Deleted"><value>Klasa usunięta.</value></data>
+  <data name="DetectionClasses.DeleteTitle"><value>Usunąć klasę?</value></data>
+  <data name="DetectionClasses.DeleteMessage"><value>Usunąć klasę '{0}'? Triggery używające tej klasy będą wymagały aktualizacji.</value></data>
+  <data name="DetectionClasses.Category"><value>Kategoria</value></data>
+  <data name="DetectionClasses.DescriptionLabel"><value>Opis</value></data>
+  <data name="DetectionClasses.Kind"><value>Rodzaj</value></data>
+  <data name="DetectionClasses.KindSelect"><value>Rodzaj klasy</value></data>
+  <data name="DetectionClasses.KindHelp"><value>Determinuje który backend detektora obsłuży tę klasę.</value></data>
+  <data name="DetectionClasses.Kind.ClosedSet"><value>Binding do closed-set</value></data>
+  <data name="DetectionClasses.Kind.Text"><value>Prompt tekstowy</value></data>
+  <data name="DetectionClasses.Kind.Visual"><value>Prompt wizualny</value></data>
+  <data name="DetectionClasses.Kind.TextAndVisual"><value>Text + Visual</value></data>
+  <data name="DetectionClasses.Detail"><value>Szczegóły</value></data>
+  <data name="DetectionClasses.MinConfidence"><value>Rekomendowany próg pewności</value></data>
+  <data name="DetectionClasses.Source"><value>Źródło</value></data>
+  <data name="DetectionClasses.BuiltIn"><value>Wbudowana</value></data>
+  <data name="DetectionClasses.Custom"><value>Własna</value></data>
+  <data name="DetectionClasses.TextPrompt"><value>Prompt tekstowy (EN)</value></data>
+  <data name="DetectionClasses.TextPromptHelp"><value>Angielski jest stabilniejszy dla modeli CLIP. Przykład: "construction worker wearing hard hat".</value></data>
+  <data name="DetectionClasses.TextPromptPl"><value>Prompt PL (tylko wyświetlanie)</value></data>
+  <data name="DetectionClasses.TextPromptPlHelp"><value>Polski opis pokazywany w UI. Nie jest używany przez model.</value></data>
+  <data name="DetectionClasses.ClosedSetModel"><value>Model</value></data>
+  <data name="DetectionClasses.ClosedSetModelHelp"><value>Klasyczny closed-set YOLO wytrenowany z tą etykietą.</value></data>
+  <data name="DetectionClasses.ClosedSetLabel"><value>Etykieta</value></data>
+  <data name="DetectionClasses.ClosedSetLabelHelp"><value>Dokładna nazwa etykiety z modelu (np. "person", "forklift").</value></data>
+  <data name="DetectionClasses.AvailableLabels"><value>Dostępne etykiety w wybranym modelu</value></data>
+  <data name="DetectionClasses.VisualRefs"><value>{0} obraz(-ów) referencyjnych</value></data>
+  <data name="DetectionClasses.VisualRefsCount"><value>Obecnie {0} referencji wizualnych.</value></data>
+  <data name="DetectionClasses.VisualRefsCountV2"><value>{0} wgranych</value></data>
+  <data name="DetectionClasses.VisualRefsSection"><value>Obrazy referencyjne</value></data>
+  <data name="DetectionClasses.VisualRefsSaveFirst"><value>Zapisz najpierw klasę, potem wgraj cropy referencyjne.</value></data>
+  <data name="DetectionClasses.VisualRefsEmpty"><value>Brak obrazów referencyjnych. Wgraj 3-5 przykładowych cropów obiektu który chcesz wykrywać.</value></data>
+  <data name="DetectionClasses.UploadRef"><value>Wgraj obraz</value></data>
+  <data name="DetectionClasses.RefUploaded"><value>Referencja wgrana.</value></data>
+  <data name="DetectionClasses.RefTooLarge"><value>Plik za duży (max 5MB).</value></data>
+  <data name="DetectionClasses.UploadFailed"><value>Upload nieudany:</value></data>
+  <data name="DetectionClasses.DeleteRefFailed"><value>Nie udało się usunąć referencji.</value></data>
+  <data name="DetectionClasses.VisualWipNote"><value>Visual prompts wymagają detektora z kapabilitetem VisualPrompts (backend YOLOE). Wgraj 3-5 przykładowych cropów — detektor policzy visual embeddings dla każdego.</value></data>
+
+  <!-- Detection class quality stats (Faza 7) -->
+  <data name="DetectionClasses.Stats30d"><value>Ostatnie 30 dni</value></data>
+  <data name="DetectionClasses.Fires"><value>wypaleń</value></data>
+  <data name="DetectionClasses.FpTooltip"><value>Fałszywy alarm: {0} z {1} wypaleń oznaczone przez operatorów jako FP</value></data>
+  <data name="DetectionClasses.ShowStats"><value>Pokaż statystyki + histogram</value></data>
+  <data name="DetectionClasses.StatsTitle"><value>Jakość klasy — ostatnie N dni</value></data>
+  <data name="DetectionClassStats.Window"><value>Okno</value></data>
+  <data name="DetectionClassStats.Days"><value>dni</value></data>
+  <data name="DetectionClassStats.FireCount"><value>Wypaleń</value></data>
+  <data name="DetectionClassStats.FpRate"><value>Wskaźnik fałszywych alarmów</value></data>
+  <data name="DetectionClassStats.AvgConf"><value>Średnie confidence detekcji</value></data>
+  <data name="DetectionClassStats.Histogram"><value>Histogram confidence</value></data>
+  <data name="DetectionClassStats.HistogramHint"><value>Rozkład confidence detekcji w 10 bucketach (0-10%…90-100%). Przechyłka w prawo = model pewny; w lewo = słabe dopasowania, rozważ zaostrzenie MinConfidence.</value></data>
+  <data name="DetectionClassStats.NoData"><value>Brak incydentów w wybranym oknie czasowym.</value></data>
+  <data name="DetectionClassStats.LastFire"><value>Ostatnie wypalenie</value></data>
+
+  <!-- Trigger dialog — DetectionClass integration -->
+  <data name="Triggers.DetectionClass"><value>Klasa detekcji</value></data>
+  <data name="Triggers.DetectionClassHint"><value>Wybierz klasę z biblioteki albo skonfiguruj ręcznie ModelId + Labels (legacy).</value></data>
+  <data name="Triggers.UseDetectionClass"><value>Użyj klasy z biblioteki</value></data>
+  <data name="Triggers.UseLegacyFields"><value>Skonfiguruj ręcznie (zaawansowane)</value></data>
+  <data name="Triggers.PickClassHint"><value>Wybierz klasę — albo przełącz na konfigurację ręczną dla ModelId + labels.</value></data>
+  <data name="Triggers.AdvancedManualConfig"><value>Konfiguracja ręczna (zaawansowane)</value></data>
+  <data name="Triggers.AdvancedHint"><value>Tryb ręczny: wiązanie z konkretnym modelem MLModel + dokładnymi etykietami. Preferuj bibliotekę klas gdy to możliwe — prostsze i działa z modelami open-vocabulary (YOLO-World, YOLOE).</value></data>
+
+  <!-- Compiled prompt packs -->
+  <data name="Nav.PromptPacks"><value>Packi promptów</value></data>
+  <data name="PromptPacks.Title"><value>Skompilowane packi promptów</value></data>
+  <data name="PromptPacks.Description"><value>Pre-liczony cache embeddings tekstowych dla YOLO-World — pomija koszt CLIP encode per klatka. Skompiluj raz, reużywaj.</value></data>
+  <data name="PromptPacks.Compile"><value>Kompiluj pack</value></data>
+  <data name="PromptPacks.CompileTitle"><value>Kompiluj nowy pack</value></data>
+  <data name="PromptPacks.CompileHint"><value>Wybierz model YOLO-World oraz klasy detekcji (tylko kind=Text). Compiler zenkoduje prompty raz przez CLIP i zapisze jako pack — kolejne inferencje pomijają encoding.</value></data>
+  <data name="PromptPacks.Compiling"><value>Kompiluję pack… może potrwać kilka sekund.</value></data>
+  <data name="PromptPacks.Compiled"><value>Pack '{0}' skompilowany.</value></data>
+  <data name="PromptPacks.PackName"><value>Nazwa packa (opcjonalnie)</value></data>
+  <data name="PromptPacks.PackNameHint"><value>Zostaw puste dla auto-generowanej nazwy.</value></data>
+  <data name="PromptPacks.SourceModel"><value>Model źródłowy</value></data>
+  <data name="PromptPacks.SourceModelHint"><value>Model YOLO-World który będzie używał tego cache przy inferencji.</value></data>
+  <data name="PromptPacks.SelectClasses"><value>Wybierz klasy detekcji</value></data>
+  <data name="PromptPacks.SelectClassesHint"><value>Listowane tylko klasy Text / TextAndVisual z TextPrompt.</value></data>
+  <data name="PromptPacks.SelectedCount"><value>Wybrane: {0} klas</value></data>
+  <data name="PromptPacks.Encoder"><value>Encoder</value></data>
+  <data name="PromptPacks.ClassCount"><value>Klas</value></data>
+  <data name="PromptPacks.Dim"><value>Wymiar</value></data>
+  <data name="PromptPacks.BlobSize"><value>Rozmiar</value></data>
+  <data name="PromptPacks.CompiledAt"><value>Skompilowany</value></data>
+  <data name="PromptPacks.Status"><value>Status</value></data>
+  <data name="PromptPacks.Fresh"><value>Świeży</value></data>
+  <data name="PromptPacks.Stale"><value>Nieaktualny — rekompilacja</value></data>
+  <data name="PromptPacks.CheckStaleness"><value>Sprawdź czy prompty klas się zmieniły</value></data>
+  <data name="PromptPacks.IsStale"><value>Pack jest nieaktualny — jeden z promptów klas się zmienił. Proszę rekompilować.</value></data>
+  <data name="PromptPacks.StillFresh"><value>Pack jest aktualny — brak zmian promptów.</value></data>
+  <data name="PromptPacks.DeleteTitle"><value>Usunąć pack?</value></data>
+  <data name="PromptPacks.DeleteMessage"><value>Usunąć pack '{0}'? Inferencja wróci do live CLIP encoding aż do rekompilacji.</value></data>
+  <data name="PromptPacks.Deleted"><value>Pack usunięty.</value></data>
+  <data name="PromptPacks.NoYoloWorldModel"><value>Brak aktywnego modelu YOLO-World. Pobierz bundled model Apache 2.0 jednym kliknięciem poniżej.</value></data>
+  <data name="PromptPacks.DownloadYoloWorld"><value>Pobierz YOLO-World v2-s</value></data>
+  <data name="PromptPacks.Downloading"><value>Pobieranie…</value></data>
+  <data name="PromptPacks.DownloadSize"><value>~200MB (ONNX + CLIP encoder). Trwa 1–3 minut przy dobrym łączu.</value></data>
+  <data name="PromptPacks.DownloadTitle"><value>Pobrać YOLO-World?</value></data>
+  <data name="PromptPacks.DownloadMessage"><value>Uruchomi skrypt download i auto-zarejestruje model jako aktywny. Request może trwać do 15 minut — nie zamykaj tej karty.</value></data>
+  <data name="PromptPacks.DownloadConfirm"><value>Pobierz</value></data>
+  <data name="PromptPacks.DownloadInProgress"><value>Proszę czekać — pobieram ~200MB i rejestruję model. Nie zamykaj tej karty.</value></data>
+  <data name="PromptPacks.DownloadSuccess"><value>YOLO-World pobrany i aktywowany. Możesz teraz kompilować packi promptów.</value></data>
+  <data name="PromptPacks.DownloadFailed"><value>Pobieranie nieudane:</value></data>
+  <data name="PromptPacks.RegisterExisting"><value>Zarejestruj pobrane pliki</value></data>
+  <data name="PromptPacks.Rescanning"><value>Skanowanie…</value></data>
+  <data name="PromptPacks.RescanSuccess"><value>Modele przeskanowane. Jeśli pliki były w miejscu, YOLO-World jest teraz zarejestrowany.</value></data>
+  <data name="PromptPacks.RescanFailed"><value>Skanowanie nieudane:</value></data>
+  <data name="PromptPacks.UploadFiles"><value>Wgraj pliki</value></data>
+  <data name="PromptPacks.Uploading"><value>Wgrywanie…</value></data>
+  <data name="PromptPacks.UploadSuccess"><value>Pliki wgrane i YOLO-World zarejestrowany. Możesz teraz kompilować packi promptów.</value></data>
+  <data name="PromptPacks.UploadFailed"><value>Wgrywanie nieudane:</value></data>
+  <data name="PromptPacks.UploadTooLarge"><value>Plik '{0}' za duży (max {1} MB) — pominięty.</value></data>
+  <data name="PromptPacks.UploadNothingToSend"><value>Brak plików do wysłania.</value></data>
+  <data name="PromptPacks.ManualHint"><value>Gdy 'Pobierz' zawodzi (HF zwraca 401 albo pliki są maleńkie = HTML error pages):
+1. Usuń uszkodzone pliki: rm -rf runtime/models/yolo-world-v2-s
+2. Ponów 'Pobierz' — używa teraz ultralytics CLI (pobiera oficjalne wagi z GitHub CDN, bez HuggingFace dla modelu detekcji).
+3. Gdy nadal nie działa, z terminala:
+   runtime/models/.venv/bin/yolo export model=yolov8s-worldv2.pt format=onnx imgsz=640 opset=12 dynamic=True
+   plus ręcznie pobierz CLIP text encoder z openai/clip-vit-base-patch32 na HF (to repo jest zawsze public).
+4. Kliknij 'Rescan' — auto-usuwa pliki &lt; 1MB i rejestruje prawidłowe modele.</value></data>
+
+  <!-- Setup wizard -->
+  <data name="Wizard.Title"><value>Kreator konfiguracji</value></data>
+  <data name="Wizard.Subtitle"><value>Flow od kamery do akcji. 5 kroków, ~2 minuty.</value></data>
+  <data name="Wizard.Help"><value>Pomoc</value></data>
+  <data name="Wizard.Back"><value>Wstecz</value></data>
+  <data name="Wizard.Next"><value>Dalej</value></data>
+  <data name="Wizard.CreateAndRun"><value>Utwórz i uruchom</value></data>
+  <data name="Wizard.Done"><value>Gotowe! Kamera '{0}' utworzona z {1} regułami. Przekierowuję na diagram flow...</value></data>
+  <data name="Wizard.Step1.Title"><value>Kamera</value></data>
+  <data name="Wizard.Step1.Subtitle"><value>Wybierz kamerę do skonfigurowania detekcji. Kamery dodaje technik IT w Zaawansowane → Kamery.</value></data>
+  <data name="Wizard.Step1.AvailableCount"><value>Dostępnych: {0} kamer</value></data>
+  <data name="Wizard.Step1.NoCameras"><value>Brak dostępnych kamer</value></data>
+  <data name="Wizard.Step1.NoCamerasHint"><value>Poproś technika IT o dodanie kamer (URL RTSP, login/hasło, producent). Detekcję możesz skonfigurować tylko dla kamer które już istnieją.</value></data>
+  <data name="Wizard.Step1.GoToCameras"><value>Otwórz stronę Kamery</value></data>
+  <data name="Wizard.Step1.Offline"><value>offline</value></data>
+  <data name="Wizard.Step2.Title"><value>Co wykrywać</value></data>
+  <data name="Wizard.Step2.Subtitle"><value>Wybierz jedną lub więcej klas. Każda wybrana klasa staje się regułą alertu.</value></data>
+  <data name="Wizard.Step2.NoClasses"><value>Brak klas w bibliotece. Wbudowane klasy powinny być seed-owane przy starcie — sprawdź że DetectionClassSeeder się uruchomił.</value></data>
+  <data name="Wizard.Step2.Selected"><value>Wybrane: {0} klas</value></data>
+  <data name="Wizard.Step2.NewClass"><value>Nowa klasa</value></data>
+  <data name="Wizard.Step2.NewClassTitle"><value>Nowa klasa detekcji (szybkie dodanie)</value></data>
+  <data name="Wizard.Step2.ClassAdded"><value>Klasa zapisana i auto-zaznaczona.</value></data>
+  <data name="Wizard.Step3.Title"><value>Zakres</value></data>
+  <data name="Wizard.Step3.Subtitle"><value>Gdzie w kadrze szukać detekcji.</value></data>
+  <data name="Wizard.Step3.MvpNote"><value>MVP: analiza obejmuje całą klatkę. Rysowanie konkretnych stref ("tylko przy bramie") — w następnej wersji lub w zaawansowanej stronie Strefy.</value></data>
+  <data name="Wizard.Step3.Name"><value>Nazwa strefy</value></data>
+  <data name="Wizard.Step3.FullFrame"><value>Cała klatka</value></data>
+  <data name="Wizard.Step3.FullFrameHint"><value>Każda detekcja w dowolnym miejscu kadru uruchomi regułę.</value></data>
+  <data name="Wizard.Step3.NameHint"><value>Widoczna nazwa nowej strefy (np. "Wejście", "Strefa maszyny"). Używana w alertach incydentów.</value></data>
+  <data name="Wizard.Step3.RoiLabel"><value>ROI</value></data>
+  <data name="Wizard.Step3.Vertices"><value>wierzchołków</value></data>
+  <data name="Wizard.Step3.AlreadyHasTriggers"><value>ma już {0} reguł</value></data>
+  <data name="Wizard.Step3.CreateNew"><value>Utwórz nowy ROI / strefę</value></data>
+  <data name="Wizard.Step3.CreateNewHint"><value>Otwórz zaawansowany edytor — narysuj strefy polygon, wróć tutaj żeby dokończyć kreator.</value></data>
+  <data name="Wizard.Step3.ExistingZone"><value>istniejąca strefa</value></data>
+
+  <!-- Kreator krok 2: ROI (prostokąt analizy ML) -->
+  <data name="Wizard.StepRoi.Title"><value>Obszar analizy (ROI)</value></data>
+  <data name="Wizard.StepRoi.Subtitle"><value>Wybierz prostokątny obszar analizowany przez model ML. Dla większości wdrożeń = cały kadr.</value></data>
+  <data name="Wizard.StepRoi.FullFrame"><value>Cały kadr</value></data>
+  <data name="Wizard.StepRoi.FullFrameHint"><value>Analiza całego widoku kamery. Najprostsze — rekomendowane jako domyślne.</value></data>
+  <data name="Wizard.StepRoi.Name"><value>Nazwa nowego ROI</value></data>
+  <data name="Wizard.StepRoi.NameHint"><value>Wewnętrzna etykieta (np. "Cały kadr", "Wejście"). Widoczna w Zaawansowane → ROI.</value></data>
+  <data name="Wizard.StepRoi.ZonesInRoi"><value>{0} stref w środku</value></data>
+  <data name="Wizard.StepRoi.CreateNew"><value>Utwórz nowy ROI</value></data>
+  <data name="Wizard.StepRoi.CreateNewHint"><value>Otwiera edytor dla wybranej kamery. Zapisz i kontynuuj w kreatorze.</value></data>
+  <data name="Wizard.StepRoi.CreateDialogTitle"><value>Nowy ROI dla wybranej kamery</value></data>
+  <data name="Wizard.StepRoi.Created"><value>ROI zapisany i auto-zaznaczony.</value></data>
+  <data name="Wizard.StepRoi.ExistingRoi"><value>istniejący ROI</value></data>
+
+  <!-- Kreator krok 3: Strefa (polygon alertu wewnątrz ROI) -->
+  <data name="Wizard.StepZone.Title"><value>Strefa alertu</value></data>
+  <data name="Wizard.StepZone.Subtitle"><value>Wybierz polygon wewnątrz ROI gdzie reguła ma wypalać alerty.</value></data>
+  <data name="Wizard.StepZone.Context"><value>Pracujesz w ROI: {0}</value></data>
+  <data name="Wizard.StepZone.FullRoi"><value>Cały ROI</value></data>
+  <data name="Wizard.StepZone.FullRoiHint"><value>Alerty wypalają wszędzie w ROI. Najprostsze — polygon pokrywa prostokąt ROI.</value></data>
+  <data name="Wizard.StepZone.Name"><value>Nazwa nowej strefy</value></data>
+  <data name="Wizard.StepZone.NameHint"><value>Pokazywana w alertach (np. "Wejście", "Strefa maszyny").</value></data>
+  <data name="Wizard.StepZone.Vertices"><value>wierzchołków</value></data>
+  <data name="Wizard.StepZone.AlreadyHasTriggers"><value>ma już {0} reguł</value></data>
+  <data name="Wizard.StepZone.CreateNew"><value>Utwórz nową strefę</value></data>
+  <data name="Wizard.StepZone.CreateNewHint"><value>Otwiera edytor z ROI pre-wybranym z poprzedniego kroku.</value></data>
+  <data name="Wizard.StepZone.CreateDialogTitle"><value>Nowa strefa w wybranym ROI</value></data>
+  <data name="Wizard.StepZone.Created"><value>Strefa zapisana i auto-zaznaczona.</value></data>
+  <data name="Wizard.StepZone.SelectRoiFirst"><value>Wybierz lub utwórz najpierw konkretny ROI (tryb "Cały kadr" nie ma jeszcze ROI — użyj "Cały ROI" zamiast tego).</value></data>
+  <data name="Wizard.StepZone.ExistingZone"><value>istniejąca strefa</value></data>
+
+  <data name="Wizard.Help.StepRoi"><value>ROI (Obszar analizy):
+  • Prostokątna część kadru gdzie działa model ML.
+  • "Cały kadr" = analizuj wszystko. 95% przypadków.
+  • Wąski ROI oszczędza CPU/GPU gdy tylko część widoku jest istotna.
+
+Kto definiuje ROI: technik IT w Zaawansowane → ROI.
+Wybierz istniejący albo użyj "Cały kadr" dla szybkiego startu.</value></data>
+
+  <data name="Wizard.Help.StepZone"><value>Strefa (polygon alertu):
+  • Polygon w ROI — alert wypala tylko gdy detekcja wpadnie wewnątrz.
+  • "Cały ROI" = najprostsze, polygon = prostokąt ROI.
+  • Custom polygon: wąski pas przy bramie, dookoła maszyny, z wyłączeniem chodnika.
+
+Dlaczego strefy:
+  • Nie każda detekcja = alert. "Osoba" na chodniku (w ROI ale poza strefą) = ignorowane.
+  • "Osoba" w strefie "Obszar maszyny" = natychmiastowy alert.
+
+Dodatkowe strefy dodasz w Zaawansowane → Strefy.</value></data>
+  <data name="Wizard.Step4.Title"><value>Co robić</value></data>
+  <data name="Wizard.Step4.Subtitle"><value>Wybierz typ powiadomienia odpalanego gdy wykryta zostanie jedna z wybranych klas.</value></data>
+  <data name="Wizard.Step4.ActionName"><value>Nazwa akcji</value></data>
+  <data name="Wizard.Step4.EmailTo"><value>Adresat email</value></data>
+  <data name="Wizard.Step4.WebhookUrl"><value>URL webhooka</value></data>
+  <data name="Wizard.Step4.Type.InApp"><value>Powiadomienie w aplikacji</value></data>
+  <data name="Wizard.Step4.Type.InAppHint"><value>Popup w konsoli operatora. Zero konfiguracji.</value></data>
+  <data name="Wizard.Step4.Type.Email"><value>Email</value></data>
+  <data name="Wizard.Step4.Type.EmailHint"><value>Wyślij do adresata. Wymaga konfiguracji SMTP w ustawieniach.</value></data>
+  <data name="Wizard.Step4.Type.Webhook"><value>Webhook</value></data>
+  <data name="Wizard.Step4.Type.WebhookHint"><value>POST JSON na URL. Dla Slack/Teams/własnego backendu.</value></data>
+  <data name="Wizard.Step4.Type.Log"><value>Tylko log</value></data>
+  <data name="Wizard.Step4.Type.LogHint"><value>Zapis do log systemowego. Bez powiadomień zewnętrznych.</value></data>
+  <data name="Wizard.Step5.Title"><value>Podsumowanie</value></data>
+  <data name="Wizard.Step5.Subtitle"><value>Sprawdź konfigurację przed utworzeniem encji w bazie.</value></data>
+  <data name="Wizard.Step5.WillCreate"><value>Zostanie utworzone: 1 kamera + 1 ROI + 1 strefa + {0} triggerów + 1 akcja.</value></data>
+  <data name="Wizard.Help.Step1"><value>Kto dodaje kamery:
+  • Nowe kamery (URL, login/hasło, producent) dodaje technik IT w Zaawansowane → Kamery.
+  • Jako operator BHP wybierasz tylko z listy.
+
+Wskazówki:
+  • Jeśli brak kamer — poproś technika IT o konfigurację. Podaj: markę, lokalizację, adres RTSP.
+  • Klik na karcie zaznacza kamerę. Nazwa i lokalizacja powinny odpowiadać temu co podał technik.</value></data>
+  <data name="Wizard.Help.Step2"><value>14 wbudowanych klas BHP. Kliknij karty żeby wybrać.
+
+Wskazówki:
+  • Wybierz 2-5 klas na start. Łatwiej analizować FP rate później.
+  • Dla klas YOLO-World (Text) skompiluj pack promptów przed pierwszą inferencją (Zaawansowane → Packi).
+
+Pułapki:
+  • Wybieranie 10+ klas naraz utrudnia analizę FP.</value></data>
+  <data name="Wizard.Help.Step3"><value>Teraz: zakres = cała klatka.
+
+Dopracuj później w /zones — rysuj polygon strefy (np. "tylko przy maszynie"). Alerty wypalają tylko wewnątrz stref.</value></data>
+  <data name="Wizard.Help.Step4"><value>Akcja = co się dzieje po wypaleniu reguły.
+
+Rekomendacje:
+  • Zacznij od "Powiadomienie w aplikacji" — operator widzi popup, zero konfigu.
+  • Email — dodaj SMTP w /admin/settings.
+  • Webhook — Slack/Teams/ERP. POST JSON.
+
+Każdy trigger rate-limited do 10 wypaleń/minutę domyślnie.</value></data>
+  <data name="Wizard.Help.Step5"><value>Po "Utwórz i uruchom":
+  • Kamera + strefa + reguły zapisane.
+  • Pipeline startuje w ~5 sekund.
+  • Redirect na /flow — graf tego co powstało.
+
+Dalej:
+  • /monitor — detekcje na żywo.
+  • /incidents — alerty.
+  • /admin/triggers — dostroj progi.</value></data>
+</root>

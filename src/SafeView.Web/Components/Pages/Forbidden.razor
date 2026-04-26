@@ -1,0 +1,12 @@
+@page "/forbidden"
+@attribute [AllowAnonymous]
+@inject IStringLocalizer<SharedResource> L
+
+<PageTitle>403 — @L["AppName"]</PageTitle>
+
+<MudStack Class="pa-16" AlignItems="AlignItems.Center" Spacing="3">
+    <MudIcon Icon="@Icons.Material.Filled.Block" Size="Size.Large" Class="sv-status-err" />
+    <MudText Typo="Typo.h4">@L["Forbidden.Title"]</MudText>
+    <MudText Typo="Typo.body2" Class="sv-text-secondary">@L["Forbidden.Description"]</MudText>
+    <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary">Wróć na pulpit</MudButton>
+</MudStack>

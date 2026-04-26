@@ -1,0 +1,154 @@
+@namespace SafeView.Web.Components.Pages
+@using SafeView.Domain.Detection
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudStack Row="true" Spacing="2">
+                <MudTextField @bind-Value="Action.Name" Label="@L["Table.Name"]" Required="true" Variant="Variant.Outlined" />
+                <MudSelect T="ActionType" Value="Action.Type" ValueChanged="OnTypeChanged"
+                           Label="@L["Actions.Type"]" Variant="Variant.Outlined" Style="min-width:200px;">
+                    <MudSelectItem Value="@(ActionType.LogAlert)">LogAlert</MudSelectItem>
+                    <MudSelectItem Value="@(ActionType.InAppNotification)">InAppNotification</MudSelectItem>
+                    <MudSelectItem Value="@(ActionType.Email)">Email</MudSelectItem>
+                    <MudSelectItem Value="@(ActionType.Webhook)">Webhook</MudSelectItem>
+                </MudSelect>
+                <MudSwitch @bind-Value="Action.Enabled" Color="Color.Success" Label="@L["Table.Active"]" />
+            </MudStack>
+            <MudTextField @bind-Value="Action.Description" Label="@L["Actions.DescriptionLabel"]" Variant="Variant.Outlined" Lines="1" />
+
+            <MudNumericField T="int" @bind-Value="Action.RateLimitPerMinute" Label="@L["Actions.RateLimit"]"
+                             Variant="Variant.Outlined" Min="0" Max="1000"
+                             HelperText="@L["Actions.RateLimitHint"]" />
+
+            <MudDivider />
+            <MudText Typo="Typo.h6">@L["Actions.Config"]</MudText>
+
+            @* Pola dynamiczne zależnie od Action.Type *@
+            @switch (Action.Type)
+            {
+                case ActionType.LogAlert:
+                case ActionType.InAppNotification:
+                    <MudTextField Value="@GetConfig("template")"
+                                  ValueChanged="@((string v) => SetConfig("template", v))"
+                                  Label="@L["Actions.Template"]"
+                                  HelperText="@L["Actions.TemplateHint"]"
+                                  Variant="Variant.Outlined" Lines="3" />
+                    break;
+
+                case ActionType.Email:
+                    <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined">
+                        @L["Actions.EmailHint"]
+                    </MudAlert>
+                    <MudStack Row="true" Spacing="2">
+                        <MudTextField Value="@GetConfig("to")" ValueChanged="@((string v) => SetConfig("to", v))"
+                                      Label="@L["Actions.Email.To"]" Required="true" Variant="Variant.Outlined"
+                                      HelperText="@L["Actions.Email.ToHint"]" />
+                        <MudTextField Value="@GetConfig("from")" ValueChanged="@((string v) => SetConfig("from", v))"
+                                      Label="@L["Actions.Email.From"]" Required="true" Variant="Variant.Outlined" />
+                    </MudStack>
+                    <MudStack Row="true" Spacing="2">
+                        <MudTextField Value="@GetConfig("host")" ValueChanged="@((string v) => SetConfig("host", v))"
+                                      Label="@L["Actions.Email.Host"]" Required="true" Variant="Variant.Outlined"
+                                      Placeholder="smtp.gmail.com" />
+                        <MudTextField Value="@GetConfig("port")" ValueChanged="@((string v) => SetConfig("port", v))"
+                                      Label="@L["Actions.Email.Port"]" Variant="Variant.Outlined"
+                                      Placeholder="587" Style="max-width:140px;" />
+                    </MudStack>
+                    <MudStack Row="true" Spacing="2">
+                        <MudTextField Value="@GetConfig("username")" ValueChanged="@((string v) => SetConfig("username", v))"
+                                      Label="@L["Actions.Email.Username"]" Variant="Variant.Outlined" />
+                        <MudTextField Value="@GetConfig("password")" ValueChanged="@((string v) => SetConfig("password", v))"
+                                      Label="@L["Actions.Email.Password"]" Variant="Variant.Outlined"
+                                      InputType="InputType.Password" />
+                    </MudStack>
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                        <MudSwitch T="bool"
+                                   Value="@(GetConfig("useStartTls") != "false")"
+                                   ValueChanged="@((bool v) => SetConfig("useStartTls", v ? "true" : "false"))"
+                                   Color="Color.Primary" Label="@L["Actions.Email.UseTls"]" />
+                        <MudSwitch T="bool"
+                                   Value="@(GetConfig("attachFrame") != "false")"
+                                   ValueChanged="@((bool v) => SetConfig("attachFrame", v ? "true" : "false"))"
+                                   Color="Color.Primary" Label="@L["Actions.Email.AttachFrame"]" />
+                    </MudStack>
+                    <MudTextField Value="@GetConfig("subject")" ValueChanged="@((string v) => SetConfig("subject", v))"
+                                  Label="@L["Actions.Email.Subject"]"
+                                  Placeholder="[SafeView] {trigger} — {camera}/{zone}"
+                                  Variant="Variant.Outlined" />
+                    <MudTextField Value="@GetConfig("template")" ValueChanged="@((string v) => SetConfig("template", v))"
+                                  Label="@L["Actions.Email.Body"]"
+                                  HelperText="@L["Actions.TemplateHint"]"
+                                  Variant="Variant.Outlined" Lines="4" />
+                    break;
+
+                case ActionType.Webhook:
+                    <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined">
+                        @L["Actions.WebhookHint"]
+                    </MudAlert>
+                    <MudTextField Value="@GetConfig("url")" ValueChanged="@((string v) => SetConfig("url", v))"
+                                  Label="@L["Actions.Webhook.Url"]" Required="true" Variant="Variant.Outlined"
+                                  Placeholder="https://hooks.zapier.com/..." />
+                    <MudTextField Value="@GetConfig("secret")" ValueChanged="@((string v) => SetConfig("secret", v))"
+                                  Label="@L["Actions.Webhook.Secret"]"
+                                  HelperText="@L["Actions.Webhook.SecretHint"]"
+                                  Variant="Variant.Outlined" InputType="InputType.Password" />
+                    <MudTextField Value="@GetConfig("template")" ValueChanged="@((string v) => SetConfig("template", v))"
+                                  Label="@L["Actions.Webhook.Template"]"
+                                  HelperText="@L["Actions.Webhook.TemplateHint"]"
+                                  Variant="Variant.Outlined" Lines="5"
+                                  Placeholder='{"text": "{trigger} on {camera}"}' />
+                    break;
+
+                default:
+                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                        Typ akcji @Action.Type nie jest jeszcze obsługiwany w UI.
+                    </MudAlert>
+                    break;
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">@L["Common.Cancel"]</MudButton>
+        <MudButton OnClick="Save" Color="Color.Primary" Variant="Variant.Filled" Disabled="!Valid()">@L["Common.Save"]</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public DetectionAction Action { get; set; } = new();
+    [Parameter] public bool IsNew { get; set; }
+
+    private bool Valid()
+    {
+        if (string.IsNullOrWhiteSpace(Action.Name)) return false;
+        return Action.Type switch
+        {
+            ActionType.Email =>
+                !string.IsNullOrWhiteSpace(GetConfig("to")) &&
+                !string.IsNullOrWhiteSpace(GetConfig("from")) &&
+                !string.IsNullOrWhiteSpace(GetConfig("host")),
+            ActionType.Webhook =>
+                !string.IsNullOrWhiteSpace(GetConfig("url")),
+            _ => true
+        };
+    }
+
+    private void OnTypeChanged(ActionType type)
+    {
+        Action.Type = type;
+        // Nie czyścimy Config — user może chcieć przełączać typ bez utraty danych.
+        // Ale Valid() sprawdza required keys per typ.
+    }
+
+    private string GetConfig(string key) => Action.Config.TryGetValue(key, out var v) ? v : "";
+
+    private void SetConfig(string key, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) Action.Config.Remove(key);
+        else Action.Config[key] = value;
+    }
+
+    private void Save() => MudDialog.Close(DialogResult.Ok(Action));
+}

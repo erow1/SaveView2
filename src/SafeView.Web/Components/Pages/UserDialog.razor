@@ -1,0 +1,56 @@
+@namespace SafeView.Web.Components.Pages
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="User.Username" Label="@L["Table.Login"]" Required="true" Disabled="!IsNew" Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="User.Email" Label="@L["Table.Email"]" Required="true" Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="User.DisplayName" Label="@L["UserDialog.DisplayName"]" Variant="Variant.Outlined" />
+
+            <MudTextField @bind-Value="_password" Label="@(IsNew ? L["UserDialog.PasswordNew"] : L["UserDialog.PasswordEdit"])" InputType="InputType.Password"
+                          Required="IsNew" Variant="Variant.Outlined"
+                          HelperText="@L["UserDialog.PasswordHint"]" />
+
+            <MudSelect T="string" Label="@L["UserDialog.Roles"]" MultiSelection="true"
+                       SelectedValues="User.Roles" SelectedValuesChanged="@((IEnumerable<string> v) => User.Roles = v.ToList())"
+                       Variant="Variant.Outlined">
+                @foreach (var r in Roles)
+                {
+                    <MudSelectItem T="string" Value="@r.Name">@r.Name</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudStack Row="true" Spacing="4">
+                <MudSwitch @bind-Value="User.IsActive" Color="Color.Success" Label="@L["UserDialog.Active"]" />
+                <MudSelect T="string" @bind-Value="User.PreferredLanguage" Label="@L["UserDialog.UiLanguage"]" Variant="Variant.Outlined" Dense="true">
+                    <MudSelectItem Value="@("pl")">@L["Language.Polish"]</MudSelectItem>
+                    <MudSelectItem Value="@("en")">@L["Language.English"]</MudSelectItem>
+                </MudSelect>
+            </MudStack>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">@L["Common.Cancel"]</MudButton>
+        <MudButton OnClick="Save" Color="Color.Primary" Variant="Variant.Filled" Disabled="!Valid()">@L["Common.Save"]</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public SafeView.Domain.Users.User User { get; set; } = new();
+    [Parameter] public IReadOnlyList<SafeView.Domain.Users.Role> Roles { get; set; } = [];
+    [Parameter] public bool IsNew { get; set; }
+
+    private string _password = string.Empty;
+
+    private bool Valid()
+    {
+        if (string.IsNullOrWhiteSpace(User.Username) || string.IsNullOrWhiteSpace(User.Email)) return false;
+        if (IsNew && _password.Length < 10) return false;
+        if (!IsNew && !string.IsNullOrEmpty(_password) && _password.Length < 10) return false;
+        return true;
+    }
+
+    private void Save() => MudDialog.Close(DialogResult.Ok(new UserDialogResult(User, _password)));
+}

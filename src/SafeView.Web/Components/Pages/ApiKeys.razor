@@ -1,0 +1,129 @@
+@page "/api-keys"
+@attribute [Authorize(Policy = "perm:admin:api_keys")]
+@inject SafeView.Application.Abstractions.Persistence.IApiKeyRepository Repo
+@inject ISnackbar Snackbar
+@inject IDialogService Dialog
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>API Keys — SafeView</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudText Typo="Typo.h4">API Keys</MudText>
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateAsync">
+            @L["ApiKeys.GenerateNew"]
+        </MudButton>
+    </MudStack>
+
+    <MudText Typo="Typo.body2" Class="sv-text-muted">
+        Klucze API umożliwiają integracjom (ERP, SIEM, skrypty) korzystanie z REST <span class="mono">/api/v1/*</span>.
+        Sekret jest pokazywany TYLKO raz — w momencie utworzenia. W bazie trzymamy wyłącznie SHA-256.
+    </MudText>
+
+    @if (!string.IsNullOrEmpty(_justCreatedSecret))
+    {
+        <MudPaper Class="pa-4" Elevation="0" Style="background:#1a2a14; border:1px solid #4caf50;">
+            <MudText Typo="Typo.h6" Style="color:#8eff8e;">@L["ApiKeys.KeyCreated"]</MudText>
+            <MudText Typo="Typo.body2" Class="mt-1 sv-text-secondary">@L["ApiKeys.KeyWarning"]</MudText>
+            <MudTextField T="string" Value="_justCreatedSecret" ReadOnly="true" Variant="Variant.Outlined" Class="mt-3 mono" />
+        </MudPaper>
+    }
+
+    <MudTable Items="_keys" Dense="true" Hover="true" Loading="_loading" Elevation="0"
+              Class="sv-card">
+        <HeaderContent>
+            <MudTh>@L["Table.Name"]</MudTh>
+            <MudTh>@L["Table.Prefix"]</MudTh>
+            <MudTh>@L["Table.Scopes"]</MudTh>
+            <MudTh>@L["Table.Status"]</MudTh>
+            <MudTh>@L["Table.Created"]</MudTh>
+            <MudTh>@L["Table.LastUsed"]</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd>
+            <MudTd class="mono">@context.Prefix…</MudTd>
+            <MudTd class="mono" style="font-size:11px;">@string.Join(", ", context.Scopes)</MudTd>
+            <MudTd>
+                @if (!context.Enabled)
+                {
+                    <MudChip T="string" Size="Size.Small" Class="sv-chip-muted">OFF</MudChip>
+                }
+                else if (context.ExpiresAt is { } ex && ex <= DateTime.UtcNow)
+                {
+                    <MudChip T="string" Size="Size.Small" Style="background:#3A1515; color:#FF5964;">EXPIRED</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Style="background:#0E2A1E; color:#2EC27E;">ACTIVE</MudChip>
+                }
+            </MudTd>
+            <MudTd class="mono" style="font-size:11px;">@context.CreatedAt.ToString("yyyy-MM-dd HH:mm")</MudTd>
+            <MudTd class="mono" style="font-size:11px;">@(context.LastUsedAt?.ToString("yyyy-MM-dd HH:mm") ?? "—")</MudTd>
+            <MudTd>
+                <MudIconButton Size="Size.Small"
+                               Icon="@(context.Enabled ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)"
+                               OnClick="@(() => ToggleAsync(context))" />
+                <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete"
+                               Color="Color.Error" OnClick="@(() => DeleteAsync(context))" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudStack>
+
+@code {
+    private List<SafeView.Domain.Api.ApiKey> _keys = new();
+    private bool _loading = true;
+    private string? _justCreatedSecret;
+
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        _loading = true;
+        var items = await Repo.ListAsync();
+        _keys = items.OrderByDescending(k => k.CreatedAt).ToList();
+        _loading = false;
+    }
+
+    private async Task CreateAsync()
+    {
+        var parameters = new DialogParameters();
+        var result = await (await Dialog.ShowAsync<ApiKeyCreateDialog>(L["ApiKeyDialog.Title"], parameters)).Result;
+        if (result is null || result.Canceled || result.Data is not ApiKeyCreateDialog.Outcome o) return;
+
+        var raw = SafeView.Web.Auth.ApiKeyAuth.Generate();
+        var key = new SafeView.Domain.Api.ApiKey
+        {
+            Name = o.Name,
+            Prefix = raw[..Math.Min(8, raw.Length)],
+            KeyHash = SafeView.Web.Auth.ApiKeyAuth.Hash(raw),
+            Scopes = o.Scopes.ToList(),
+            Enabled = true,
+            ExpiresAt = o.ExpiresAt
+        };
+        await Repo.InsertAsync(key);
+        _justCreatedSecret = raw;
+        Snackbar.Add("Klucz utworzony.", Severity.Success);
+        await ReloadAsync();
+    }
+
+    private async Task ToggleAsync(SafeView.Domain.Api.ApiKey k)
+    {
+        k.Enabled = !k.Enabled;
+        await Repo.UpdateAsync(k);
+        await ReloadAsync();
+    }
+
+    private async Task DeleteAsync(SafeView.Domain.Api.ApiKey k)
+    {
+        var ok = await Dialog.ShowMessageBox("Usunąć klucz?", $"Klucz '{k.Name}' zostanie usunięty.",
+            yesText: "Usuń", cancelText: "Anuluj");
+        if (ok != true) return;
+        await Repo.DeleteAsync(k.Id);
+        Snackbar.Add("Usunięto.", Severity.Info);
+        await ReloadAsync();
+    }
+}

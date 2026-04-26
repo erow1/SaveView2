@@ -1,0 +1,192 @@
+@page "/admin/performance"
+@attribute [Authorize(Policy = "perm:admin:system-events")]
+@using SafeView.Application.Abstractions.Diagnostics
+@inject IPerformanceMetrics Metrics
+@inject SafeView.Application.Abstractions.Persistence.ICameraRepository CameraRepo
+@inject SafeView.Application.Abstractions.Persistence.IRoiRepository RoiRepo
+@inject SafeView.Application.Abstractions.Persistence.IMLModelRepository ModelRepo
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>@L["Nav.Performance"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@Icons.Material.Filled.Speed" Size="Size.Large" Style="color:var(--mud-palette-primary);" />
+        <div>
+            <MudText Typo="Typo.h4">@L["Nav.Performance"]</MudText>
+            <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                @L["Performance.Description"]
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudSelect T="int" Value="_windowMinutes" ValueChanged="@((int v) => { _windowMinutes = v; _ = Reload(); })"
+                   Label="@L["Performance.Window"]" Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width:160px;">
+            <MudSelectItem Value="1">1 min</MudSelectItem>
+            <MudSelectItem Value="5">5 min</MudSelectItem>
+            <MudSelectItem Value="10">10 min</MudSelectItem>
+            <MudSelectItem Value="15">15 min</MudSelectItem>
+        </MudSelect>
+        <MudSwitch T="bool" Value="_autoRefresh" ValueChanged="@((bool v) => ToggleAutoRefresh(v))"
+                   Color="Color.Primary" Label="@L["Performance.AutoRefresh"]" />
+        <MudButton StartIcon="@Icons.Material.Filled.Refresh" OnClick="Reload" Variant="Variant.Outlined">
+            @L["Common.Refresh"]
+        </MudButton>
+    </MudStack>
+
+    @if (_snapshot is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else
+    {
+        @* ── Header KPI cards ─────────────────────────────────────────── *@
+        <MudGrid Spacing="3">
+            @KpiCard(L["Performance.FramesPerMin"], $"{_snapshot.FramesPerMinute:F1}", Icons.Material.Filled.Timer, "#4DA6FF")
+            @KpiCard(L["Performance.AvgLatency"], $"{_snapshot.AvgLatencyMs:F0} ms", Icons.Material.Filled.AvTimer, "#F5B800")
+            @KpiCard(L["Performance.P95Latency"], $"{_snapshot.P95LatencyMs} ms", Icons.Material.Filled.TrendingUp, "#F5B800")
+            @KpiCard(L["Performance.TotalSamples"], _snapshot.TotalSamples.ToString("N0"), Icons.Material.Filled.Analytics, "#2EC27E")
+            @KpiCard(L["Performance.Errors"], _snapshot.TotalErrors.ToString("N0"),
+                     Icons.Material.Filled.ErrorOutline, _snapshot.TotalErrors > 0 ? "#FF5964" : "#888")
+        </MudGrid>
+
+        @if (_snapshot.TotalSamples == 0)
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                @L["Performance.NoData"]
+            </MudAlert>
+        }
+        else
+        {
+            @* ── Per-camera table ──────────────────────────────────────── *@
+            <MudText Typo="Typo.h6" Class="mt-3">@L["Performance.PerCamera"]</MudText>
+            @PerfTable(_snapshot.PerCamera, id => _cameras.TryGetValue(id, out var c) ? c.Name : id)
+
+            @* ── Per-ROI table ─────────────────────────────────────────── *@
+            <MudText Typo="Typo.h6" Class="mt-3">@L["Performance.PerRoi"]</MudText>
+            @PerfTable(_snapshot.PerRoi, id => _rois.TryGetValue(id, out var r) ? r.Name : id)
+
+            @* ── Per-model table ───────────────────────────────────────── *@
+            <MudText Typo="Typo.h6" Class="mt-3">@L["Performance.PerModel"]</MudText>
+            @PerfTable(_snapshot.PerModel, id => _models.TryGetValue(id, out var m) ? m.Name : id)
+
+            @* ── Per-stage breakdown ───────────────────────────────────── *@
+            <MudText Typo="Typo.h6" Class="mt-3">@L["Performance.PerStage"]</MudText>
+            @PerfTable(_snapshot.PerStage, id => id)
+        }
+
+        <MudText Typo="Typo.caption" Class="sv-text-muted mono">
+            @string.Format(L["Performance.GeneratedAt"], _snapshot.GeneratedAt.ToLocalTime().ToString("HH:mm:ss"))
+            · window: @_snapshot.Window.TotalMinutes min
+        </MudText>
+    }
+</MudStack>
+
+@code {
+    private PerformanceSnapshot? _snapshot;
+    private int _windowMinutes = 5;
+    private bool _autoRefresh;
+    private System.Timers.Timer? _timer;
+
+    private Dictionary<string, SafeView.Domain.Cameras.Camera> _cameras = new();
+    private Dictionary<string, SafeView.Domain.Detection.Roi> _rois = new();
+    private Dictionary<string, SafeView.Domain.ML.MLModel> _models = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _cameras = (await CameraRepo.ListAsync()).ToDictionary(c => c.Id);
+        _rois = (await RoiRepo.ListAsync()).ToDictionary(r => r.Id);
+        _models = (await ModelRepo.ListAsync()).ToDictionary(m => m.Id);
+        await Reload();
+    }
+
+    private Task Reload()
+    {
+        _snapshot = Metrics.GetSnapshot(TimeSpan.FromMinutes(_windowMinutes));
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleAutoRefresh(bool on)
+    {
+        _autoRefresh = on;
+        _timer?.Dispose();
+        if (on)
+        {
+            _timer = new System.Timers.Timer(5000);
+            _timer.Elapsed += async (_, _) => await InvokeAsync(Reload);
+            _timer.AutoReset = true;
+            _timer.Start();
+        }
+    }
+
+    public void Dispose() => _timer?.Dispose();
+
+    private RenderFragment KpiCard(string label, string value, string icon, string color) => builder =>
+    {
+        var seq = 0;
+        builder.OpenComponent<MudItem>(seq++);
+        builder.AddAttribute(seq++, "xs", 12);
+        builder.AddAttribute(seq++, "sm", 6);
+        builder.AddAttribute(seq++, "md", 2);
+        builder.AddAttribute(seq++, "ChildContent", (RenderFragment)(inner =>
+        {
+            inner.AddMarkupContent(0, $@"
+                <div class='sv-card pa-3' style='border-left:4px solid {color};'>
+                    <div style='display:flex; align-items:center; gap:8px;'>
+                        <span class='material-icons' style='color:{color}; font-size:20px;'>{icon}</span>
+                        <span style='font-size:11px; color:var(--mud-palette-text-secondary); text-transform:uppercase;'>{System.Net.WebUtility.HtmlEncode(label)}</span>
+                    </div>
+                    <div style='font-size:22px; font-weight:700; margin-top:6px; font-family:\u0027JetBrains Mono\u0027, monospace;'>{System.Net.WebUtility.HtmlEncode(value)}</div>
+                </div>");
+        }));
+        builder.CloseComponent();
+    };
+
+    private RenderFragment PerfTable(IReadOnlyList<PerformanceStats> stats, Func<string, string> labelFn) => builder =>
+    {
+        var seq = 0;
+        if (stats.Count == 0)
+        {
+            builder.OpenComponent<MudText>(seq++);
+            builder.AddAttribute(seq++, "Typo", Typo.caption);
+            builder.AddAttribute(seq++, "Class", "sv-text-muted");
+            builder.AddAttribute(seq++, "ChildContent", (RenderFragment)(i => i.AddContent(0, L["Performance.NoEntries"].Value)));
+            builder.CloseComponent();
+            return;
+        }
+
+        builder.OpenComponent<MudTable<PerformanceStats>>(seq++);
+        builder.AddAttribute(seq++, "Items", stats);
+        builder.AddAttribute(seq++, "Dense", true);
+        builder.AddAttribute(seq++, "Hover", true);
+        builder.AddAttribute(seq++, "Elevation", 0);
+        builder.AddAttribute(seq++, "Class", "sv-card");
+        builder.AddAttribute(seq++, "HeaderContent", (RenderFragment)(h =>
+        {
+            h.AddMarkupContent(0, $@"
+                <th>{L["Performance.Name"]}</th>
+                <th style='width:90px; text-align:right;'>{L["Performance.Count"]}</th>
+                <th style='width:90px; text-align:right;'>{L["Performance.ErrorsShort"]}</th>
+                <th style='width:100px; text-align:right;'>{L["Performance.AvgMs"]}</th>
+                <th style='width:100px; text-align:right;'>{L["Performance.P50Ms"]}</th>
+                <th style='width:100px; text-align:right;'>{L["Performance.P95Ms"]}</th>
+                <th style='width:100px; text-align:right;'>{L["Performance.MaxMs"]}</th>
+                <th style='width:110px; text-align:right;'>{L["Performance.AvgDet"]}</th>");
+        }));
+        builder.AddAttribute(seq++, "RowTemplate", (RenderFragment<PerformanceStats>)(row => b =>
+        {
+            var errColor = row.Errors > 0 ? "#FF5964" : "inherit";
+            b.AddMarkupContent(0, $@"
+                <td style='font-family:\u0027JetBrains Mono\u0027, monospace; font-size:12px;'>{System.Net.WebUtility.HtmlEncode(labelFn(row.Key))}</td>
+                <td class='mono' style='text-align:right;'>{row.Count}</td>
+                <td class='mono' style='text-align:right; color:{errColor};'>{row.Errors}</td>
+                <td class='mono' style='text-align:right;'>{row.AvgLatencyMs:F0}</td>
+                <td class='mono' style='text-align:right;'>{row.P50LatencyMs}</td>
+                <td class='mono' style='text-align:right;'>{row.P95LatencyMs}</td>
+                <td class='mono' style='text-align:right;'>{row.MaxLatencyMs}</td>
+                <td class='mono' style='text-align:right;'>{row.AvgDetections:F1}</td>");
+        }));
+        builder.CloseComponent();
+    };
+}

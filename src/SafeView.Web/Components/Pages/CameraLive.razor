@@ -1,0 +1,259 @@
+@page "/cameras/{CameraId}/live"
+@attribute [Authorize(Policy = "perm:cameras:view")]
+@inject SafeView.Application.Abstractions.Persistence.ICameraRepository CameraRepo
+@inject SafeView.Application.Abstractions.Media.ISnapshotService Snapshots
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+
+<PageTitle>@(_camera?.Name ?? L["CameraLive.Title"]) — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" OnClick="@(() => Nav.NavigateTo("/cameras"))" />
+        <MudText Typo="Typo.h5">@(_camera?.Name ?? "…")</MudText>
+        <MudText Typo="Typo.caption" Class="mono ms-3 sv-text-muted">@_camera?.Location</MudText>
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.CameraAlt" Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="CaptureToStorage" Disabled="_busy || _camera is null">
+            @(_busy ? L["CameraDetail.Capturing"] : L["CameraLive.CaptureFrame"])
+        </MudButton>
+        <AuthorizeView Policy="perm:cameras:edit">
+            <MudButton StartIcon="@Icons.Material.Filled.Videocam" Variant="Variant.Outlined"
+                       OnClick="CaptureClip" Disabled="_busyClip || _camera is null">
+                @(_busyClip ? L["CameraLive.Recording"] : string.Format(L["CameraLive.ClipButton"], _camera?.IncidentClipSeconds ?? 10))
+            </MudButton>
+        </AuthorizeView>
+    </MudStack>
+
+    @* ── Live preview jako seria snapshot-ów ──────────────── *@
+    <MudText Typo="Typo.subtitle2">@L["CameraLive.LiveStream"]</MudText>
+
+    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+        <MudSwitch T="bool" Value="_liveOn" ValueChanged="@((bool v) => ToggleLive(v))"
+                   Color="Color.Primary" Label="@(_liveOn ? L["CameraLive.StopLive"] : L["CameraLive.StartLive"])" />
+        <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+            @L["CameraLive.IntervalLabel"]: <b>@_intervalMs ms</b>
+        </MudText>
+        <MudSlider T="int" Value="_intervalMs" ValueChanged="@((int v) => OnIntervalChanged(v))"
+                   Min="250" Max="3000" Step="250" Style="max-width:240px;" />
+        <MudSpacer />
+        @if (_liveOn)
+        {
+            <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Filled">
+                <MudIcon Icon="@Icons.Material.Filled.FiberManualRecord" Size="Size.Small" /> LIVE
+            </MudChip>
+            <MudText Typo="Typo.caption" Class="mono sv-text-muted">@_fpsText</MudText>
+        }
+    </MudStack>
+
+    <MudPaper Class="pa-0 sv-card" Elevation="0" Style="position:relative; min-height:420px; background:#000; display:flex; align-items:center; justify-content:center; overflow:hidden; border-radius:8px;">
+        <img id="sv-live-frame" src="" alt="live" style="width:100%; max-height:70vh; display:block; object-fit:contain;" />
+        <div id="sv-live-status" style="position:absolute; top:8px; left:8px; padding:4px 8px; border-radius:4px; background:rgba(0,0,0,0.65); color:#fff; font-family:'JetBrains Mono',monospace; font-size:11px; pointer-events:none;">
+            @L["CameraLive.Stopped"]
+        </div>
+    </MudPaper>
+
+    <MudAlert Severity="Severity.Info" Dense="true" NoIcon="true" Variant="Variant.Outlined">
+        @L["CameraLive.SnapshotLoopInfo"]
+    </MudAlert>
+
+    @* ── Snapshot sekcja (zapis na dysk) ───────────────────── *@
+    @if (_imageDataUrl is not null || _error is not null || (_lastResult is not null && _lastResult.Success))
+    {
+        <MudText Typo="Typo.subtitle2">@L["CameraLive.Snapshot"]</MudText>
+        <MudPaper Class="pa-3 sv-card" Elevation="0" Style="min-height:180px; display:flex; align-items:center; justify-content:center;">
+            @if (_imageDataUrl is not null)
+            {
+                <img src="@_imageDataUrl" alt="snapshot" style="max-width:100%; max-height:40vh; display:block;" />
+            }
+            else if (_error is not null)
+            {
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Large" Style="color:#F5A524;" />
+                    <MudText Typo="Typo.body2" Style="color:#F5A524;">@_error</MudText>
+                </MudStack>
+            }
+        </MudPaper>
+
+        @if (_lastResult is not null && _lastResult.Success)
+        {
+            <MudPaper Class="pa-3 sv-card sv-text-muted" Elevation="0" Style="font-size:12px;">
+                <span class="mono">
+                    @_lastResult.CapturedAt.ToString("yyyy-MM-dd HH:mm:ss") UTC ·
+                    @((_lastResult.SizeBytes / 1024.0).ToString("N1")) KB ·
+                    @_lastResult.RelativePath
+                </span>
+            </MudPaper>
+        }
+    }
+</MudStack>
+
+@code {
+    [Parameter] public string CameraId { get; set; } = string.Empty;
+
+    private SafeView.Domain.Cameras.Camera? _camera;
+    private string? _imageDataUrl;
+    private string? _error;
+    private bool _busy;
+    private bool _busyClip;
+    private SafeView.Application.Abstractions.Media.SnapshotResult? _lastResult;
+
+    private bool _liveOn;
+    private int _intervalMs = 500;
+    private string _fpsText = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _camera = await CameraRepo.GetByIdAsync(CameraId);
+        if (_camera is null) { Nav.NavigateTo("/cameras"); return; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _camera is not null)
+        {
+            // Automatycznie start live-a przy otwarciu strony.
+            _liveOn = true;
+            await StartLiveAsync();
+        }
+    }
+
+    private async Task ToggleLive(bool on)
+    {
+        _liveOn = on;
+        if (on) await StartLiveAsync();
+        else await StopLiveAsync();
+    }
+
+    private async Task OnIntervalChanged(int ms)
+    {
+        _intervalMs = ms;
+        if (_liveOn)
+        {
+            // Restart pollera z nowym interwałem
+            await StopLiveAsync();
+            await StartLiveAsync();
+        }
+    }
+
+    private async Task StartLiveAsync()
+    {
+        if (_camera is null) return;
+        var snapshotUrl = $"/cameras/{_camera.Id}/snapshot.jpg";
+
+        // Inline JS poller — za każdym razem pobiera świeży JPEG, mierzy czas i FPS,
+        // aktualizuje <img> dopiero po pełnym załadowaniu kolejnej klatki
+        // (double-buffering przez preload Image object).
+        await JS.InvokeVoidAsync("eval", $@"
+            (function() {{
+                if (window.__svLive) window.__svLive.stop();
+
+                var img = document.getElementById('sv-live-frame');
+                var status = document.getElementById('sv-live-status');
+                var url = '{snapshotUrl}';
+                var interval = {_intervalMs};
+                var stopped = false;
+                var inFlight = false;
+                var frames = 0, errors = 0;
+                var windowStart = performance.now();
+
+                function setStatus(text) {{ if (status) status.textContent = text; }}
+                setStatus('łączenie…');
+
+                function tick() {{
+                    if (stopped) return;
+                    if (inFlight) {{ setTimeout(tick, 100); return; }}
+                    inFlight = true;
+                    var t0 = performance.now();
+                    var preload = new Image();
+                    preload.onload = function() {{
+                        inFlight = false;
+                        frames++;
+                        img.src = preload.src;
+                        var now = performance.now();
+                        var elapsed = now - windowStart;
+                        if (elapsed > 2000) {{
+                            var fps = (frames / (elapsed / 1000)).toFixed(1);
+                            var ms = Math.round(now - t0);
+                            setStatus(fps + ' fps · ' + ms + 'ms/klatka' + (errors > 0 ? ' · ' + errors + ' err' : ''));
+                            frames = 0; errors = 0; windowStart = now;
+                        }}
+                        if (!stopped) setTimeout(tick, interval);
+                    }};
+                    preload.onerror = function() {{
+                        inFlight = false;
+                        errors++;
+                        setStatus('błąd pobrania klatki — retry…');
+                        if (!stopped) setTimeout(tick, 2000);
+                    }};
+                    preload.src = url + '?t=' + Date.now();
+                }}
+
+                window.__svLive = {{
+                    stop: function() {{ stopped = true; setStatus('zatrzymane'); }}
+                }};
+                tick();
+            }})();
+        ");
+    }
+
+    private async Task StopLiveAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("eval", "if (window.__svLive) window.__svLive.stop();");
+        }
+        catch { /* page may be disposing */ }
+    }
+
+    private async Task CaptureToStorage()
+    {
+        if (_camera is null) return;
+        _busy = true; _error = null;
+        try
+        {
+            var result = await Snapshots.CaptureAsync(_camera);
+            _lastResult = result;
+            if (result.Success && result.AbsolutePath is not null)
+            {
+                var bytes = await File.ReadAllBytesAsync(result.AbsolutePath);
+                _imageDataUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(bytes)}";
+                _camera.LastSnapshotAt = result.CapturedAt;
+                _camera.LastStatus = "OK";
+                await CameraRepo.UpdateAsync(_camera);
+            }
+            else
+            {
+                _error = result.ErrorMessage ?? L["CameraLive.SnapshotFailed"];
+                _camera.LastStatus = _error;
+                await CameraRepo.UpdateAsync(_camera);
+            }
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task CaptureClip()
+    {
+        if (_camera is null) return;
+        _busyClip = true;
+        try
+        {
+            var res = await Snapshots.CaptureClipAsync(_camera, _camera.IncidentClipSeconds);
+            if (res.Success)
+                Snackbar.Add(string.Format(L["CameraLive.ClipSaved"], res.RelativePath, res.SizeBytes / 1024.0 / 1024.0), Severity.Success);
+            else
+                Snackbar.Add(string.Format(L["CameraLive.ClipError"], res.ErrorMessage), Severity.Error);
+        }
+        finally { _busyClip = false; }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await StopLiveAsync();
+    }
+}

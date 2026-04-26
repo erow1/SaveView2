@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="@System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#000000" />
+    <base href="/" />
+    <ResourcePreloader />
+    <link rel="stylesheet" href="_content/MudBlazor/MudBlazor.min.css" />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Assets["theme-dark.css"]" />
+    <link rel="stylesheet" href="@Assets["theme-light.css"]" />
+    <link rel="stylesheet" href="@Assets["SafeView.Web.styles.css"]" />
+    <ImportMap />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet @rendermode="InteractiveServer" />
+</head>
+
+<body>
+    <Routes @rendermode="InteractiveServer" />
+    <ReconnectModal />
+    <script src="theme.js"></script>
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script src="zone-editor.js"></script>
+    <script src="roi-editor.js"></script>
+    <script src="monitor.js"></script>
+    @* Bundled vendor libs — aplikacja musi działać offline na produkcji, nie używamy CDN *@
+    <script src="vendor/cytoscape.min.js"></script>
+    <script src="vendor/dagre.min.js"></script>
+    <script src="vendor/cytoscape-dagre.js"></script>
+    <script src="vendor/signalr.min.js"></script>
+    <script src="flow.js"></script>
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+</body>
+
+</html>

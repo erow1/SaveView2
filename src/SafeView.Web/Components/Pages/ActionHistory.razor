@@ -1,0 +1,118 @@
+@page "/admin/actions/history"
+@attribute [Authorize(Policy = "perm:admin:actions")]
+@using SafeView.Application.Abstractions.Persistence
+@using SafeView.Domain.Detection
+@inject IActionExecutionRepository History
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@L["ActionHistory.Title"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@Icons.Material.Filled.History" Size="Size.Large" Style="color:var(--mud-palette-primary);" />
+        <div>
+            <MudText Typo="Typo.h4">@L["ActionHistory.Title"]</MudText>
+            <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                @L["ActionHistory.Description"]
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Refresh" OnClick="Reload" Variant="Variant.Outlined">
+            @L["Common.Refresh"]
+        </MudButton>
+    </MudStack>
+
+    <MudPaper Class="pa-3 sv-card" Elevation="0">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End" Wrap="Wrap.Wrap">
+            <MudSelect T="ActionExecutionStatus?" Value="_status" ValueChanged="@((ActionExecutionStatus? v) => { _status = v; _ = Reload(); })"
+                       Label="@L["ActionHistory.Status"]" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Style="min-width:160px;">
+                <MudSelectItem T="ActionExecutionStatus?" Value="@((ActionExecutionStatus?)ActionExecutionStatus.Success)">Success</MudSelectItem>
+                <MudSelectItem T="ActionExecutionStatus?" Value="@((ActionExecutionStatus?)ActionExecutionStatus.Failed)">Failed</MudSelectItem>
+                <MudSelectItem T="ActionExecutionStatus?" Value="@((ActionExecutionStatus?)ActionExecutionStatus.Skipped)">Skipped</MudSelectItem>
+                <MudSelectItem T="ActionExecutionStatus?" Value="@((ActionExecutionStatus?)ActionExecutionStatus.RateLimited)">RateLimited</MudSelectItem>
+            </MudSelect>
+        </MudStack>
+    </MudPaper>
+
+    @if (_rows.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">@L["ActionHistory.Empty"]</MudAlert>
+    }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Elevation="0" Hover="true" Class="sv-card">
+            <HeaderContent>
+                <MudTh Style="width:160px;">@L["Table.Time"]</MudTh>
+                <MudTh Style="width:100px;">@L["ActionHistory.Status"]</MudTh>
+                <MudTh>@L["ActionHistory.ActionCol"]</MudTh>
+                <MudTh>@L["ActionHistory.TriggerCol"]</MudTh>
+                <MudTh>@L["Table.Camera"]</MudTh>
+                <MudTh>@L["ActionHistory.ZoneCol"]</MudTh>
+                <MudTh Style="width:80px;">ms</MudTh>
+                <MudTh>@L["ActionHistory.DetailsCol"]</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd class="mono" Style="font-size:11px;">@context.CreatedAt.ToLocalTime().ToString("MM-dd HH:mm:ss")</MudTd>
+                <MudTd>
+                    <span style="padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600;
+                                 background:@StatusBg(context.Status); color:@StatusFg(context.Status);">
+                        @context.Status.ToString().ToUpperInvariant()
+                    </span>
+                </MudTd>
+                <MudTd class="mono" Style="font-size:12px;">@(context.ActionName ?? context.ActionId)</MudTd>
+                <MudTd class="mono" Style="font-size:12px;">@(context.TriggerName ?? context.TriggerId)</MudTd>
+                <MudTd>@(context.CameraName ?? "—")</MudTd>
+                <MudTd>@(context.ZoneName ?? "—")</MudTd>
+                <MudTd class="mono" Style="font-size:11px;">@context.DurationMs</MudTd>
+                <MudTd>
+                    @if (context.Status == ActionExecutionStatus.Skipped)
+                    {
+                        <span class="sv-text-muted" style="font-size:11px;">@context.SkipReason</span>
+                    }
+                    else if (!string.IsNullOrEmpty(context.ErrorMessage))
+                    {
+                        <span style="color:#FF5964; font-size:11px;">@context.ErrorMessage</span>
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+        <MudText Typo="Typo.caption" Class="mono sv-text-muted">
+            @string.Format(L["ActionHistory.TotalLabel"], _total, _rows.Count)
+        </MudText>
+    }
+</MudStack>
+
+@code {
+    private List<ActionExecution> _rows = new();
+    private long _total;
+    private ActionExecutionStatus? _status;
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        var filter = new ActionExecutionFilter { Status = _status };
+        var rows = await History.QueryAsync(filter, skip: 0, take: 200);
+        _rows = rows.ToList();
+        _total = await History.CountAsync(filter);
+    }
+
+    private static string StatusBg(ActionExecutionStatus s) => s switch
+    {
+        ActionExecutionStatus.Success => "#0E2A1E",
+        ActionExecutionStatus.Failed => "#7C1020",
+        ActionExecutionStatus.Skipped => "#3A3A3A",
+        ActionExecutionStatus.RateLimited => "#8B6B1A",
+        _ => "#3A3A3A"
+    };
+
+    private static string StatusFg(ActionExecutionStatus s) => s switch
+    {
+        ActionExecutionStatus.Success => "#2EC27E",
+        ActionExecutionStatus.Failed => "#FFD7E8",
+        ActionExecutionStatus.Skipped => "#CCCCCC",
+        ActionExecutionStatus.RateLimited => "#FFE9B3",
+        _ => "#CCCCCC"
+    };
+}

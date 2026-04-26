@@ -1,0 +1,225 @@
+@page "/admin/triggers"
+@attribute [Authorize(Policy = "perm:admin:triggers")]
+@using SafeView.Domain.Detection
+@inject SafeView.Application.Abstractions.Persistence.ITriggerRepository TriggerRepo
+@inject SafeView.Application.Abstractions.Persistence.IMLModelRepository ModelRepo
+@inject SafeView.Application.Abstractions.Persistence.IActionRepository ActionRepo
+@inject SafeView.Application.Abstractions.Persistence.IPromptTemplateRepository TemplateRepo
+@inject SafeView.Application.Abstractions.Persistence.IDetectionClassRepository DetectionClassRepo
+@inject SafeView.Application.Abstractions.Persistence.ILlmProviderRepository LlmProviderRepo
+@inject SafeView.Application.Abstractions.Persistence.IZoneRepository ZoneRepo
+@inject SafeView.Application.Abstractions.Persistence.IRoiRepository RoiRepo
+@inject SafeView.Application.Abstractions.Detection.IActionDispatcher Dispatcher
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@L["Nav.Triggers"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@Icons.Material.Filled.FlashAuto" Size="Size.Large" Style="color:var(--mud-palette-primary);" />
+        <div>
+            <MudText Typo="Typo.h4">@L["Nav.Triggers"]</MudText>
+            <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                @L["Triggers.Description"]
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.Add" OnClick="Add" Variant="Variant.Filled" Color="Color.Primary">
+            @L["Triggers.Add"]
+        </MudButton>
+    </MudStack>
+
+    <MudTable Items="_triggers" Dense="true" Hover="true" Loading="_loading" Elevation="0" Class="sv-card">
+        <HeaderContent>
+            <MudTh>@L["Table.Name"]</MudTh>
+            <MudTh>@L["Triggers.Conditions"]</MudTh>
+            <MudTh>@L["Triggers.Cooldown"]</MudTh>
+            <MudTh>@L["Triggers.Persistent"]</MudTh>
+            <MudTh>@L["Triggers.Actions"]</MudTh>
+            <MudTh>@L["Triggers.Schedule"]</MudTh>
+            <MudTh>@L["Table.Active"]</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                <strong>@context.Name</strong>
+                @if (!string.IsNullOrEmpty(context.Description))
+                {
+                    <div class="sv-text-muted" style="font-size:11px;">@context.Description</div>
+                }
+            </MudTd>
+            <MudTd class="mono">@context.Conditions.Count</MudTd>
+            <MudTd class="mono">@context.CooldownSeconds s</MudTd>
+            <MudTd class="mono">@context.PersistentFrames</MudTd>
+            <MudTd class="mono">@context.ActionIds.Count</MudTd>
+            <MudTd class="mono">@(context.Schedule is null ? "24/7" : "custom")</MudTd>
+            <MudTd>
+                @if (context.Enabled) {<MudChip T="string" Size="Size.Small" Style="background:#0E2A1E; color:#2EC27E;">ON</MudChip>}
+                else {<MudChip T="string" Size="Size.Small" Class="sv-chip-muted">OFF</MudChip>}
+            </MudTd>
+            <MudTd>
+                <MudTooltip Text="@L["Test.Fire"]">
+                    <MudIconButton Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" Color="Color.Success"
+                                   OnClick="() => TestFire(context)" />
+                </MudTooltip>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => Edit(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => Delete(context)" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudStack>
+
+@code {
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+    [SupplyParameterFromQuery(Name = "edit")] public string? EditId { get; set; }
+    [SupplyParameterFromQuery(Name = "returnTo")] public string? ReturnTo { get; set; }
+
+    private List<Trigger> _triggers = new();
+    private List<SafeView.Domain.ML.MLModel> _models = new();
+    private List<DetectionAction> _actions = new();
+    private List<SafeView.Domain.Zones.Zone> _zones = new();
+    private List<SafeView.Domain.Detection.Roi> _rois = new();
+    private List<SafeView.Domain.Vllm.PromptTemplate> _templates = new();
+    private List<SafeView.Domain.Detection.DetectionClass> _detectionClasses = new();
+    private List<SafeView.Domain.Llm.LlmProvider> _llmProviders = new();
+    private bool _loading = true;
+    private string? _openedEditId;
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        _loading = true;
+        _models = (await ModelRepo.ListAsync()).OrderBy(m => m.Name, StringComparer.Ordinal).ToList();
+        _actions = (await ActionRepo.ListAsync()).OrderBy(a => a.Name, StringComparer.Ordinal).ToList();
+        _zones = (await ZoneRepo.ListAsync()).ToList();
+        _rois = (await RoiRepo.ListAsync()).ToList();
+        _triggers = (await TriggerRepo.ListAsync()).OrderBy(t => t.Name, StringComparer.Ordinal).ToList();
+        _templates = (await TemplateRepo.ListAsync()).OrderBy(t => t.Name, StringComparer.Ordinal).ToList();
+        _detectionClasses = (await DetectionClassRepo.ListAsync())
+            .OrderBy(c => c.Category, StringComparer.Ordinal)
+            .ThenBy(c => c.Name, StringComparer.Ordinal)
+            .ToList();
+        _llmProviders = (await LlmProviderRepo.ListAsync()).OrderBy(p => p.Name, StringComparer.Ordinal).ToList();
+        _loading = false;
+
+        if (!string.IsNullOrEmpty(EditId) && EditId != _openedEditId)
+        {
+            var target = _triggers.FirstOrDefault(t => t.Id == EditId);
+            if (target is not null)
+            {
+                _openedEditId = EditId;
+                await Open(target, false);
+                if (!string.IsNullOrEmpty(ReturnTo)) Nav.NavigateTo(ReturnTo);
+            }
+        }
+    }
+
+    private async Task Add()
+    {
+        var t = new Trigger { Conditions = [new TriggerCondition()] };
+        await Open(t, true);
+    }
+
+    private async Task Edit(Trigger t) => await Open(t, false);
+
+    private async Task Open(Trigger trigger, bool isNew)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Trigger"] = trigger,
+            ["IsNew"] = isNew,
+            ["Models"] = _models,
+            ["Actions"] = _actions,
+            ["Templates"] = _templates,
+            ["DetectionClasses"] = _detectionClasses,
+            ["LlmProviders"] = _llmProviders,
+            ["CompatibleModelIds"] = ComputeCompatibleModelIds(trigger.Id)
+        };
+        var dlg = await Dialog.ShowAsync<TriggerDialog>(
+            isNew ? L["Triggers.AddTitle"] : L["Triggers.EditTitle"],
+            parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: Trigger saved })
+        {
+            try
+            {
+                if (isNew) await TriggerRepo.InsertAsync(saved);
+                else await TriggerRepo.UpdateAsync(saved);
+                Snackbar.Add(L["Triggers.Saved"], Severity.Success);
+                await Reload();
+            }
+            catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        }
+    }
+
+    private async Task TestFire(Trigger t)
+    {
+        var actions = _actions.Where(a => t.ActionIds.Contains(a.Id)).ToList();
+        if (actions.Count == 0)
+        {
+            Snackbar.Add(L["Test.NoActions"], Severity.Warning);
+            return;
+        }
+        var ctx = new SafeView.Application.Abstractions.Detection.ActionContext
+        {
+            CameraId = "manual-test",
+            CameraName = "Manual test",
+            ZoneId = "-",
+            ZoneName = "-",
+            TriggerId = t.Id,
+            TriggerName = t.Name,
+            FrameSnapshotPath = string.Empty,
+            Detections = Array.Empty<SafeView.Application.Abstractions.Detection.DetectionResult>(),
+            OccurredAt = DateTime.UtcNow
+        };
+        int ok = 0, fail = 0;
+        foreach (var a in actions)
+        {
+            try
+            {
+                var exec = await Dispatcher.TestFireAsync(a, ctx);
+                if (exec.Status == ActionExecutionStatus.Success) ok++; else fail++;
+            }
+            catch { fail++; }
+        }
+        var sev = fail == 0 ? Severity.Success : (ok == 0 ? Severity.Error : Severity.Warning);
+        Snackbar.Add(string.Format(L["Test.TriggerResult"], ok, fail), sev);
+    }
+
+    /// <summary>
+    /// Zwraca ID modeli przypisanych do ROI, których strefy używają danego triggera
+    /// (+ ProposerModelId z cascade). Jeśli trigger nie jest jeszcze przypięty do żadnej strefy,
+    /// zwraca pusty zbiór → dialog pominie walidację (brak sensownego ground-truth).
+    /// </summary>
+    private HashSet<string> ComputeCompatibleModelIds(string triggerId)
+    {
+        if (string.IsNullOrEmpty(triggerId)) return new HashSet<string>();
+        var roiIds = _zones
+            .Where(z => z.TriggerIds.Contains(triggerId) && !string.IsNullOrEmpty(z.RoiId))
+            .Select(z => z.RoiId)
+            .ToHashSet();
+        var compatible = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var roi in _rois.Where(r => roiIds.Contains(r.Id)))
+        {
+            foreach (var mid in roi.ModelIds) compatible.Add(mid);
+            if (!string.IsNullOrEmpty(roi.ProposerModelId)) compatible.Add(roi.ProposerModelId);
+        }
+        return compatible;
+    }
+
+    private async Task Delete(Trigger t)
+    {
+        var ok = await Dialog.ShowMessageBox(L["Triggers.DeleteTitle"],
+            string.Format(L["Triggers.DeleteMessage"], t.Name),
+            yesText: L["Common.Delete"], cancelText: L["Common.Cancel"]);
+        if (ok != true) return;
+        await TriggerRepo.DeleteAsync(t.Id);
+        Snackbar.Add(L["Triggers.Deleted"], Severity.Success);
+        await Reload();
+    }
+}

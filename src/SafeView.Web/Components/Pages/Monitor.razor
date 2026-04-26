@@ -1,0 +1,284 @@
+@page "/monitor"
+@attribute [Authorize(Policy = "perm:cameras:view")]
+@inject SafeView.Application.Abstractions.Persistence.ICameraRepository CameraRepo
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+
+<PageTitle>@L["Monitor.Title"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@Icons.Material.Filled.Visibility" Size="Size.Large" Style="color:var(--mud-palette-primary);" />
+        <div>
+            <MudText Typo="Typo.h4">@L["Monitor.Title"]</MudText>
+            <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                @L["Monitor.WallDescription"]
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudText Typo="Typo.caption" Class="mono sv-text-muted">
+            @string.Format(L["Monitor.CamerasCount"], _cameras.Count)
+        </MudText>
+    </MudStack>
+
+    @if (_cameras.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info">@L["Monitor.NoCameras"]</MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-3 sv-card" Elevation="0">
+            <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                <MudSwitch T="bool" Value="_showRois" ValueChanged="@((bool v) => OnToggleChanged(r: v))"
+                           Color="Color.Primary" Label="@L["Monitor.ShowRois"]" />
+                <MudSwitch T="bool" Value="_showZones" ValueChanged="@((bool v) => OnToggleChanged(z: v))"
+                           Color="Color.Secondary" Label="@L["Monitor.ShowZones"]" />
+                <MudSwitch T="bool" Value="_showDetections" ValueChanged="@((bool v) => OnToggleChanged(d: v))"
+                           Color="Color.Success" Label="@L["Monitor.ShowDetections"]" />
+                <MudTooltip Text="@L["Monitor.ShowDistancesHint"]">
+                    <MudSwitch T="bool" Value="_showDistances" ValueChanged="@((bool v) => OnToggleChanged(dist: v))"
+                               Color="Color.Tertiary" Label="@L["Monitor.ShowDistances"]" />
+                </MudTooltip>
+                @if (_showDistances)
+                {
+                    <div style="min-width:120px;">
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">
+                            @L["Monitor.MaxPairs"]: <b>@_maxPairs</b>
+                        </MudText>
+                        <MudSlider T="int" Value="_maxPairs" ValueChanged="@((int v) => OnMaxPairsChanged(v))"
+                                   Min="1" Max="10" Step="1" />
+                    </div>
+                }
+                <MudTooltip Text="@L["Monitor.SyncFrameHint"]">
+                    <MudSwitch T="bool" Value="_syncFrame" ValueChanged="OnSyncFrameChanged"
+                               Color="Color.Info" Label="@L["Monitor.SyncFrame"]" />
+                </MudTooltip>
+                <MudTooltip Text="@L["Monitor.ShowAllClassesHint"]">
+                    <MudSwitch T="bool" Value="_showAllClasses" ValueChanged="OnShowAllChanged"
+                               Color="Color.Warning" Label="@L["Monitor.ShowAllClasses"]" />
+                </MudTooltip>
+                <MudSpacer />
+                <MudText Typo="Typo.caption" Class="mono sv-text-muted">
+                    @L["Monitor.Interval"]: @_intervalMs ms
+                </MudText>
+                <MudSlider T="int" Value="_intervalMs" ValueChanged="@((int v) => OnIntervalChanged(v))"
+                           Min="250" Max="3000" Step="250" Style="max-width:180px;" />
+            </MudStack>
+        </MudPaper>
+
+        <MudGrid Spacing="3">
+            @foreach (var cam in _cameras)
+            {
+                var camId = cam.Id;
+                var tileId = $"t-{camId}";
+                <MudItem xs="12" sm="6" md="4" xl="3">
+                    <MudPaper Class="sv-card" Elevation="0"
+                              Style="position:relative; cursor:pointer; overflow:hidden; border-radius:8px;"
+                              @onclick="() => OpenCameraEdit(cam)">
+                        <div style="position:relative; background:#000;">
+                            <img id="@($"sv-tile-img-{tileId}")" alt="@cam.Name"
+                                 style="width:100%; aspect-ratio:16/9; display:block; object-fit:cover; user-select:none;" />
+                            <svg id="@($"sv-tile-svg-{tileId}")" xmlns="http://www.w3.org/2000/svg"
+                                 viewBox="0 0 1 1" preserveAspectRatio="none"
+                                 style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;"></svg>
+                            <div id="@($"sv-tile-labels-{tileId}")"
+                                 style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;"></div>
+                            <div id="@($"sv-tile-status-{tileId}")"
+                                 style="position:absolute; top:6px; right:6px; padding:2px 6px; border-radius:3px;
+                                        background:rgba(0,0,0,0.7); color:#2EC27E; font:600 10px/1 'JetBrains Mono',monospace;
+                                        pointer-events:none;">
+                                łączenie…
+                            </div>
+                            @if (!cam.Enabled)
+                            {
+                                <div style="position:absolute; top:6px; left:6px; padding:2px 6px; border-radius:3px;
+                                            background:rgba(60,60,60,0.85); color:#bbb; font:600 10px/1 'JetBrains Mono',monospace;">
+                                    @L["Monitor.TileDisabled"]
+                                </div>
+                            }
+                        </div>
+                        <MudStack Spacing="0" Class="pa-2">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudText Typo="Typo.body2" Style="font-weight:600;">@cam.Name</MudText>
+                                <MudSpacer />
+                                @if (_stats.TryGetValue(camId, out var st) && st.Detections > 0)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Style="background:#0E2A1E; color:#2EC27E;">
+                                        @st.Detections
+                                    </MudChip>
+                                }
+                            </MudStack>
+                            <MudText Typo="Typo.caption" Class="sv-text-muted" Style="font-size:11px;">
+                                @(!string.IsNullOrEmpty(cam.Location) ? cam.Location : cam.Vendor.ToString())
+                                @if (cam.SnapshotIntervalSeconds > 0)
+                                {
+                                    <span> · @cam.SnapshotIntervalSeconds s</span>
+                                }
+                            </MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+</MudStack>
+
+@code {
+    private List<SafeView.Domain.Cameras.Camera> _cameras = new();
+    private Dictionary<string, TileStat> _stats = new();
+    private bool _showRois = true;
+    private bool _showZones = true;
+    private bool _showDetections = true;
+    private bool _showDistances = false;
+    private int _maxPairs = 3;
+    private bool _showAllClasses = false;
+    private bool _syncFrame = true;
+    private int _intervalMs = 1000;
+
+    private DotNetObjectReference<Monitor>? _dotnetRef;
+    private bool _pollersStarted;
+
+    private sealed record TileStat(int Detections, DateTime? LastCaptured);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _cameras = (await CameraRepo.ListAsync())
+            .OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _cameras.Count > 0 && !_pollersStarted)
+        {
+            _pollersStarted = true;
+            await StartAllPollers();
+        }
+    }
+
+    private async Task StartAllPollers()
+    {
+        _dotnetRef ??= DotNetObjectReference.Create(this);
+        foreach (var cam in _cameras)
+        {
+            await StartOnePoller(cam.Id);
+        }
+        try
+        {
+            await JS.InvokeVoidAsync("svMonitorSetToggles",
+                _showRois, _showZones, _showDetections, _showDistances, _maxPairs);
+        }
+        catch { }
+    }
+
+    private async Task StartOnePoller(string cameraId)
+    {
+        var tileId = $"t-{cameraId}";
+        var snapshotUrl = _syncFrame
+            ? $"/cameras/{cameraId}/pipeline-frame.jpg"
+            : $"/cameras/{cameraId}/snapshot.jpg";
+        var apiUrl = _showAllClasses
+            ? $"/api/monitor/{cameraId}?all=true"
+            : $"/api/monitor/{cameraId}";
+        try
+        {
+            await JS.InvokeVoidAsync("svMonitorStartTile",
+                tileId, snapshotUrl, apiUrl, _intervalMs, cameraId, _dotnetRef);
+        }
+        catch { /* circuit może być jeszcze niegotowe */ }
+    }
+
+    private async Task StopAllPollers()
+    {
+        try { await JS.InvokeVoidAsync("svMonitorStopAll"); }
+        catch { }
+    }
+
+    private async Task RestartAllPollers()
+    {
+        await StopAllPollers();
+        await StartAllPollers();
+    }
+
+    private async Task OnToggleChanged(bool? r = null, bool? z = null, bool? d = null, bool? dist = null)
+    {
+        if (r.HasValue) _showRois = r.Value;
+        if (z.HasValue) _showZones = z.Value;
+        if (d.HasValue) _showDetections = d.Value;
+        if (dist.HasValue) _showDistances = dist.Value;
+        try
+        {
+            await JS.InvokeVoidAsync("svMonitorSetToggles",
+                _showRois, _showZones, _showDetections, _showDistances, _maxPairs);
+        }
+        catch { }
+    }
+
+    private async Task OnMaxPairsChanged(int n)
+    {
+        _maxPairs = n;
+        try
+        {
+            await JS.InvokeVoidAsync("svMonitorSetToggles",
+                _showRois, _showZones, _showDetections, _showDistances, _maxPairs);
+        }
+        catch { }
+    }
+
+    private async Task OnSyncFrameChanged(bool v)
+    {
+        _syncFrame = v;
+        await RestartAllPollers();
+    }
+
+    private async Task OnIntervalChanged(int ms)
+    {
+        _intervalMs = ms;
+        await RestartAllPollers();
+    }
+
+    private async Task OnShowAllChanged(bool v)
+    {
+        _showAllClasses = v;
+        await RestartAllPollers();
+    }
+
+    private async Task OpenCameraEdit(SafeView.Domain.Cameras.Camera cam)
+    {
+        var parameters = new DialogParameters { ["Camera"] = cam, ["IsNew"] = false };
+        var dlg = await Dialog.ShowAsync<CameraDialog>(L["CameraDialog.EditTitle"], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: SafeView.Domain.Cameras.Camera updated })
+        {
+            await CameraRepo.UpdateAsync(updated);
+            Snackbar.Add(L["Monitor.CameraSaved"], Severity.Success);
+            // reload listy — pole Name/Location/SnapshotInterval mogły się zmienić
+            _cameras = (await CameraRepo.ListAsync())
+                .OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
+            StateHasChanged();
+            await RestartAllPollers();
+        }
+    }
+
+    [JSInvokable]
+    public Task UpdateTileStats(string cameraId, int detectionCount, string? capturedAt)
+    {
+        DateTime? cap = null;
+        if (!string.IsNullOrEmpty(capturedAt) && DateTime.TryParse(capturedAt, out var dt))
+            cap = dt.ToUniversalTime();
+        _stats[cameraId] = new TileStat(detectionCount, cap);
+        // Nie wołam StateHasChanged przy każdym ticku — zbyt dużo render-ów.
+        // Chip liczby detekcji odświeża się "lazy" przy następnym render-e (np. user toggle).
+        return Task.CompletedTask;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await StopAllPollers();
+        _dotnetRef?.Dispose();
+    }
+}

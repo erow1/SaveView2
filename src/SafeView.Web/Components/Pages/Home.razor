@@ -1,0 +1,133 @@
+@page "/"
+@attribute [Authorize]
+@inject IStringLocalizer<SharedResource> L
+@inject SafeView.Application.Abstractions.Persistence.ICameraRepository CameraRepo
+@inject SafeView.Application.Abstractions.Persistence.IIncidentRepository IncidentRepo
+@inject SafeView.Application.Abstractions.Persistence.IMLModelRepository ModelRepo
+@inject SafeView.Licensing.ILicenseService License
+@rendermode InteractiveServer
+
+<PageTitle>@L["Nav.Dashboard"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="4">
+    <MudPaper Class="pa-6 sv-card" Elevation="0">
+        <MudText Typo="Typo.overline" Class="sv-text-accent">@L["AppName"]</MudText>
+        <MudText Typo="Typo.h3" Class="mt-2">@L["AppTagline"]</MudText>
+        <MudText Typo="Typo.body2" Class="mt-3 sv-text-secondary" Style="max-width: 700px;">
+            @L["Home.Description"]
+        </MudText>
+    </MudPaper>
+
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="3">
+            <Stat Label="@L["Home.CamerasActive"]" Value="@($"{_camerasActive} / {_camerasTotal}")" Color="#FFD600" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <Stat Label="@L["Home.Incidents24h"]" Value="@_incidents24h.ToString()" Color="#FF5964" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <Stat Label="@L["Home.ActiveModels"]" Value="@_modelsActive.ToString()" Color="#7EB6FF" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <Stat Label="@L["Home.LicenseStatus"]" Value="@_licenseStatus" Color="@_licenseColor" />
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Class="pa-4 sv-card" Elevation="0">
+        <MudText Typo="Typo.h6">@L["Home.Heatmap"]</MudText>
+        <div class="mt-3">
+            <SafeView.Web.Components.Shared.IncidentsHeatmap OccurredAt="_heatmapData" />
+        </div>
+    </MudPaper>
+
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4 sv-card" Elevation="0">
+                <MudText Typo="Typo.h6">@L["Home.TopCategories"]</MudText>
+                @if (_topCategories.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="sv-text-muted">@L["Common.NoData"]</MudText>
+                }
+                else
+                {
+                    <MudTable Items="_topCategories" Dense="true" Hover="false" Elevation="0" Class="mt-2">
+                        <HeaderContent>
+                            <MudTh>@L["Table.Category"]</MudTh>
+                            <MudTh Style="text-align:right;">@L["Table.Count"]</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd><span class="mono">@context.Key</span></MudTd>
+                            <MudTd Style="text-align:right;" class="mono">@context.Value</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4 sv-card" Elevation="0">
+                <MudText Typo="Typo.h6">@L["Home.LatestIncidents"]</MudText>
+                @if (_recent.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="sv-text-muted">Brak.</MudText>
+                }
+                else
+                {
+                    <MudTable Items="_recent" Dense="true" Hover="false" Elevation="0" Class="mt-2">
+                        <HeaderContent>
+                            <MudTh>@L["Table.When"]</MudTh>
+                            <MudTh>@L["Table.Camera"]</MudTh>
+                            <MudTh>@L["Table.Category"]</MudTh>
+                            <MudTh>@L["Table.Severity"]</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd class="mono" style="font-size:11px;">@context.OccurredAt.ToString("MM-dd HH:mm")</MudTd>
+                            <MudTd>@context.CameraName</MudTd>
+                            <MudTd class="mono" style="font-size:11px;">@context.Category</MudTd>
+                            <MudTd>@context.Severity</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudStack>
+
+@code {
+    private int _camerasTotal;
+    private int _camerasActive;
+    private long _incidents24h;
+    private int _modelsActive;
+    private string _licenseStatus = "—";
+    private string _licenseColor = "#888";
+    private List<KeyValuePair<string, int>> _topCategories = new();
+    private List<SafeView.Domain.Incidents.Incident> _recent = new();
+    private List<DateTime> _heatmapData = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var cams = await CameraRepo.ListAsync();
+        _camerasTotal = cams.Count;
+        _camerasActive = cams.Count(c => c.Enabled);
+
+        _incidents24h = await IncidentRepo.CountAsync(from: DateTime.UtcNow.AddHours(-24));
+
+        var models = await ModelRepo.ListEnabledAsync();
+        _modelsActive = models.Count;
+
+        var weekAgo = DateTime.UtcNow.AddDays(-7);
+        var recentWeek = await IncidentRepo.ListByDateRangeAsync(weekAgo, DateTime.UtcNow.AddSeconds(1));
+        _topCategories = recentWeek
+            .GroupBy(i => i.Category)
+            .Select(g => new KeyValuePair<string, int>(g.Key, g.Count()))
+            .OrderByDescending(kv => kv.Value)
+            .Take(5).ToList();
+        _heatmapData = recentWeek.Select(i => i.OccurredAt).ToList();
+
+        _recent = (await IncidentRepo.ListRecentAsync(5)).ToList();
+
+        var st = License.Status;
+        if (st is null) { _licenseStatus = "—"; _licenseColor = "#888"; }
+        else if (st.IsValid) { _licenseStatus = "OK"; _licenseColor = "#2EC27E"; }
+        else { _licenseStatus = "INVALID"; _licenseColor = "#FF5964"; }
+    }
+}

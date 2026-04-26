@@ -1,0 +1,129 @@
+@page "/flow"
+@attribute [Authorize(Policy = "perm:cameras:view")]
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+
+<PageTitle>@L["Flow.Title"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Large" Style="color:var(--mud-palette-primary);" />
+        <div>
+            <MudText Typo="Typo.h4">@L["Flow.Title"]</MudText>
+            <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                @L["Flow.Description"]
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.AutoAwesome" Variant="Variant.Outlined"
+                   OnClick="Relayout">@L["Flow.Relayout"]</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.CenterFocusStrong" Variant="Variant.Outlined"
+                   OnClick="Fit">@L["Flow.Fit"]</MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Refresh" Variant="Variant.Outlined"
+                   OnClick="Reload">@L["Common.Refresh"]</MudButton>
+    </MudStack>
+
+    <MudPaper Class="pa-2 sv-card" Elevation="0" Style="display:flex; gap:16px; flex-wrap:wrap; align-items:center; font-size:12px;">
+        @Legend("#4DA6FF", L["Flow.Legend.Camera"])
+        @Legend("#7AD6FF", L["Flow.Legend.Roi"])
+        @Legend("#B48EFF", L["Flow.Legend.Zone"])
+        @Legend("#F5A524", L["Flow.Legend.Trigger"])
+        @Legend("#2EC27E", L["Flow.Legend.Action"])
+        <MudSpacer />
+        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Flow.LiveLegend"]</MudText>
+    </MudPaper>
+
+    <MudPaper Class="sv-card" Elevation="0" Style="position:relative; height:calc(100vh - 260px); min-height:500px; overflow:hidden; border-radius:8px; background:var(--mud-palette-surface);">
+        <div id="sv-flow-canvas" style="width:100%; height:100%;"></div>
+        @if (_loading)
+        {
+            <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center;">
+                <MudProgressCircular Indeterminate="true" />
+            </div>
+        }
+        else if (_error is not null)
+        {
+            <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center;">
+                <MudAlert Severity="Severity.Error">@_error</MudAlert>
+            </div>
+        }
+    </MudPaper>
+</MudStack>
+
+@code {
+    private bool _loading = true;
+    private string? _error;
+    private DotNetObjectReference<Flow>? _dotnetRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotnetRef = DotNetObjectReference.Create(this);
+            await Reload();
+        }
+    }
+
+    private async Task Reload()
+    {
+        _loading = true; _error = null; StateHasChanged();
+        try
+        {
+            await JS.InvokeVoidAsync("svFlowDestroy");
+            // Pobranie topology robimy w przeglądarce (cookie-authed fetch) —
+            // Blazor Server nie ma domyślnie HttpClient, a same-origin call jest szybszy.
+            var topology = await JS.InvokeAsync<object>("eval",
+                "fetch('/api/flow/topology', { credentials: 'same-origin' }).then(r => r.ok ? r.json() : Promise.reject('api ' + r.status))");
+            await JS.InvokeVoidAsync("svFlowInit", "sv-flow-canvas", topology, _dotnetRef);
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _loading = false; StateHasChanged(); }
+    }
+
+    private async Task Relayout() => await JS.InvokeVoidAsync("svFlowRelayout");
+    private async Task Fit() => await JS.InvokeVoidAsync("svFlowFit");
+
+    [JSInvokable]
+    public Task OnNodeClick(string type, string id)
+    {
+        // Deep-linkujemy bezpośrednio do dialogu edycji (?edit={id}) — strony listowe
+        // auto-otwierają dialog gdy parametr jest ustawiony. Po zamknięciu dialogu
+        // returnTo odsyła usera z powrotem do /flow (inaczej zostałby na tabeli).
+        const string back = "/flow";
+        var url = type switch
+        {
+            "camera" => $"/cameras/{id}/live",
+            "roi" => $"/admin/rois?edit={id}&returnTo={Uri.EscapeDataString(back)}",
+            "zone" => $"/zones?edit={id}&returnTo={Uri.EscapeDataString(back)}",
+            "trigger" => $"/admin/triggers?edit={id}&returnTo={Uri.EscapeDataString(back)}",
+            "action" => $"/admin/actions?edit={id}&returnTo={Uri.EscapeDataString(back)}",
+            "model" => $"/models?edit={id}&returnTo={Uri.EscapeDataString(back)}",
+            _ => null
+        };
+        if (url is not null) Nav.NavigateTo(url);
+        return Task.CompletedTask;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("svFlowDestroy"); } catch { }
+        _dotnetRef?.Dispose();
+    }
+
+    private static RenderFragment Legend(string color, string label) => builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "style", "display:inline-flex; align-items:center; gap:6px;");
+        builder.OpenElement(2, "span");
+        builder.AddAttribute(3, "style", $"width:12px; height:12px; border-radius:3px; background:{color}; display:inline-block;");
+        builder.CloseElement();
+        builder.OpenElement(4, "span");
+        builder.AddAttribute(5, "class", "mono");
+        builder.AddContent(6, label);
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+}

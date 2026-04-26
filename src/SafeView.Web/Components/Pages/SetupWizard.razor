@@ -1,0 +1,937 @@
+@page "/setup-wizard"
+@attribute [Authorize(Policy = "perm:admin:triggers")]
+@using SafeView.Domain.Cameras
+@using SafeView.Domain.Detection
+@using SafeView.Domain.Zones
+@inject SafeView.Application.Abstractions.Persistence.ICameraRepository CameraRepo
+@inject SafeView.Application.Abstractions.Persistence.IRoiRepository RoiRepo
+@inject SafeView.Application.Abstractions.Persistence.IZoneRepository ZoneRepo
+@inject SafeView.Application.Abstractions.Persistence.IDetectionClassRepository ClassRepo
+@inject SafeView.Application.Abstractions.Persistence.ITriggerRepository TriggerRepo
+@inject SafeView.Application.Abstractions.Persistence.IActionRepository ActionRepo
+@inject SafeView.Application.Abstractions.Persistence.IMLModelRepository ModelRepo
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@L["Wizard.Title"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3" Style="max-width:1200px; margin:0 auto;">
+    @* ── Header + progress ──────────────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@Icons.Material.Filled.AutoFixHigh" Size="Size.Large" Style="color:var(--mud-palette-primary);" />
+        <div>
+            <MudText Typo="Typo.h4">@L["Wizard.Title"]</MudText>
+            <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                @L["Wizard.Subtitle"]
+            </MudText>
+        </div>
+    </MudStack>
+
+    <MudPaper Class="pa-3 sv-card" Elevation="0">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            @for (int i = 1; i <= 6; i++)
+            {
+                var stepIdx = i;
+                var state = stepIdx < _step ? "done" : stepIdx == _step ? "active" : "pending";
+                <div style="@($"display:flex; align-items:center; gap:6px; padding:4px 10px; border-radius:18px; {StepPillStyle(state)}")">
+                    @if (state == "done")
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" />
+                    }
+                    else
+                    {
+                        <span class="mono" style="font-weight:700;">@stepIdx</span>
+                    }
+                    <span>@StepLabel(stepIdx)</span>
+                </div>
+                @if (i < 6)
+                {
+                    <div style="flex:1; height:2px; background:var(--mud-palette-lines-default);"></div>
+                }
+            }
+        </MudStack>
+    </MudPaper>
+
+    @* ── Content per step + help sidebar ───────────────────────────── *@
+    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:16px;">
+        <MudPaper Class="pa-4 sv-card" Elevation="0">
+            @switch (_step)
+            {
+                case 1: @StepCamera(); break;
+                case 2: @StepRoi(); break;         @* ROI — prostokątny obszar analizy ML *@
+                case 3: @StepZone(); break;        @* Strefa — polygon w ROI gdzie trigger wypala *@
+                case 4: @StepClasses(); break;
+                case 5: @StepAction(); break;
+                case 6: @StepSummary(); break;
+            }
+        </MudPaper>
+
+        <MudPaper Class="pa-3 sv-card" Elevation="0" Style="align-self:flex-start; position:sticky; top:16px;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                <MudIcon Icon="@Icons.Material.Filled.Help" Size="Size.Small" Style="color:var(--mud-palette-primary);" />
+                <MudText Typo="Typo.subtitle2">@L["Wizard.Help"]</MudText>
+            </MudStack>
+            <MudDivider Class="my-2" />
+            <MudText Typo="Typo.body2" Style="white-space:pre-line;">@HelpText()</MudText>
+        </MudPaper>
+    </div>
+
+    @* ── Footer buttons ────────────────────────────────────────────── *@
+    <MudStack Row="true" Spacing="2">
+        <MudButton OnClick="GoHome" Variant="Variant.Text">
+            @L["Common.Cancel"]
+        </MudButton>
+        <MudSpacer />
+        @if (_step > 1)
+        {
+            <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="() => _step--" Variant="Variant.Outlined">
+                @L["Wizard.Back"]
+            </MudButton>
+        }
+        @if (_step < 6)
+        {
+            <MudButton EndIcon="@Icons.Material.Filled.ArrowForward"
+                       OnClick="NextStep" Color="Color.Primary" Variant="Variant.Filled"
+                       Disabled="@(!CanAdvance())">
+                @L["Wizard.Next"]
+            </MudButton>
+        }
+        else
+        {
+            <MudButton StartIcon="@Icons.Material.Filled.CheckCircle"
+                       OnClick="FinishAsync" Color="Color.Success" Variant="Variant.Filled"
+                       Disabled="@_creating">
+                @L["Wizard.CreateAndRun"]
+            </MudButton>
+        }
+    </MudStack>
+</MudStack>
+
+@code {
+    // ── State ──────────────────────────────────────────────────────────
+    private int _step = 1;
+    private bool _creating;
+
+    // Step 1 — Wybór istniejącej kamery (technik dodaje je w /cameras; user tylko wybiera)
+    private List<Camera> _availableCameras = new();
+    private string? _selectedCameraId;
+
+    // Step 2 — ROI (Region Of Interest — prostokąt który analizuje model ML)
+    private enum RoiMode { FullFrame, Existing }
+    private RoiMode _roiMode = RoiMode.FullFrame;
+    private string? _selectedRoiId;
+    private string _newRoiName = "Cały kadr";
+    private List<Roi> _roisForCamera = new();
+
+    // Step 3 — Zone (strefa alertu — polygon wewnątrz ROI)
+    private enum ZoneMode { FullRoi, Existing }
+    private ZoneMode _zoneMode = ZoneMode.FullRoi;
+    private string? _selectedZoneId;
+    private string _newZoneName = "Cała strefa";
+    private List<Zone> _zonesForCamera = new();
+
+    // Step 4 — Classes
+    private List<DetectionClass> _availableClasses = new();
+    private List<SafeView.Domain.ML.MLModel> _availableModels = new();
+    private HashSet<string> _pickedClassIds = new(StringComparer.Ordinal);
+
+    // Step 4 — Action
+    private ActionType _actionType = ActionType.InAppNotification;
+    private string _actionName = "Alert BHP";
+    private string _emailTo = string.Empty;
+    private string _webhookUrl = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _availableCameras = (await CameraRepo.ListAsync())
+            .Where(c => c.Enabled)
+            .OrderBy(c => c.Name, StringComparer.Ordinal)
+            .ToList();
+        _availableModels = (await ModelRepo.ListAsync()).ToList();
+        await ReloadClassesAsync();
+    }
+
+    private async Task ReloadClassesAsync()
+    {
+        _availableClasses = (await ClassRepo.ListAsync())
+            .OrderBy(c => c.Category, StringComparer.Ordinal)
+            .ThenBy(c => c.Name, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>Ładuje ROI + strefy dla wybranej kamery — wywoływane po przejściu z Step1.</summary>
+    private async Task ReloadScopeForCameraAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedCameraId)) return;
+        _roisForCamera = (await RoiRepo.ListByCameraAsync(_selectedCameraId)).ToList();
+        _zonesForCamera = (await ZoneRepo.ListByCameraAsync(_selectedCameraId)).ToList();
+        // Gdy są istniejące ROI, preselectuj tryb "istniejący" — operator prawdopodobnie
+        // chce użyć tego co technik już skonfigurował.
+        if (_roisForCamera.Count > 0 && _roiMode == RoiMode.FullFrame && string.IsNullOrEmpty(_selectedRoiId))
+        {
+            _roiMode = RoiMode.Existing;
+            _selectedRoiId = _roisForCamera[0].Id;
+        }
+    }
+
+    /// <summary>Strefy które leżą w aktualnie wybranym ROI (używane w Step 3).</summary>
+    private List<Zone> ZonesForSelectedRoi()
+    {
+        if (_roiMode != RoiMode.Existing || string.IsNullOrEmpty(_selectedRoiId)) return new();
+        return _zonesForCamera.Where(z => z.RoiId == _selectedRoiId).ToList();
+    }
+
+    // ── Step content renderers ─────────────────────────────────────────
+
+    private RenderFragment StepCamera() => @<MudStack Spacing="3">
+        <MudText Typo="Typo.h6">@L["Wizard.Step1.Title"]</MudText>
+        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Wizard.Step1.Subtitle"]</MudText>
+
+        @if (_availableCameras.Count == 0)
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.VideocamOff">
+                <MudText Typo="Typo.body2"><strong>@L["Wizard.Step1.NoCameras"]</strong></MudText>
+                <MudText Typo="Typo.caption">@L["Wizard.Step1.NoCamerasHint"]</MudText>
+            </MudAlert>
+            <MudButton Href="/cameras" Variant="Variant.Outlined"
+                       StartIcon="@Icons.Material.Filled.OpenInNew">
+                @L["Wizard.Step1.GoToCameras"]
+            </MudButton>
+        }
+        else
+        {
+            <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px;">
+                @foreach (var cam in _availableCameras)
+                {
+                    var picked = _selectedCameraId == cam.Id;
+                    <MudPaper Elevation="0"
+                              Style="@($"cursor:pointer; border:2px solid {(picked ? "var(--mud-palette-primary)" : "var(--mud-palette-lines-default)")}; border-radius:6px; overflow:hidden;")"
+                              @onclick="@(() => _selectedCameraId = cam.Id)">
+                        @* Miniaturka — snapshot z kamery, placeholder gdy brak / offline *@
+                        <div style="position:relative; width:100%; aspect-ratio:16/9; background:#1a1a1a; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                            <MudStack AlignItems="AlignItems.Center" Spacing="0">
+                                <MudIcon Icon="@Icons.Material.Filled.VideocamOff" Size="Size.Large"
+                                         Style="color:#555;" />
+                                <MudText Typo="Typo.caption" Style="color:#777;">@L["Wizard.Step1.Offline"]</MudText>
+                            </MudStack>
+                            <img src="@($"/cameras/{cam.Id}/snapshot.jpg")" alt="@cam.Name"
+                                 style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;"
+                                 onerror="this.remove();" />
+                            @if (picked)
+                            {
+                                <div style="position:absolute; top:8px; right:8px; background:var(--mud-palette-primary); color:var(--mud-palette-primary-text); border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center;">
+                                    <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" />
+                                </div>
+                            }
+                        </div>
+                        <div style="padding:10px 12px;">
+                            <MudText Typo="Typo.body1" Style="@(picked ? "font-weight:600;" : "")">@cam.Name</MudText>
+                            @if (!string.IsNullOrEmpty(cam.Location))
+                            {
+                                <MudText Typo="Typo.caption" Class="sv-text-muted">@cam.Location</MudText>
+                            }
+                            <MudText Typo="Typo.caption" Class="sv-text-muted mono"
+                                     Style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block;">
+                                @cam.Vendor · @cam.Transport
+                            </MudText>
+                        </div>
+                    </MudPaper>
+                }
+            </div>
+            <MudText Typo="Typo.caption" Class="sv-text-muted">
+                @string.Format(L["Wizard.Step1.AvailableCount"], _availableCameras.Count)
+            </MudText>
+        }
+    </MudStack>;
+
+    private RenderFragment StepClasses() => @<MudStack Spacing="3">
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <div style="flex:1;">
+                <MudText Typo="Typo.h6">@L["Wizard.Step2.Title"]</MudText>
+                <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Wizard.Step2.Subtitle"]</MudText>
+            </div>
+            <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Outlined"
+                       Color="Color.Primary" OnClick="OpenNewClassDialog">
+                @L["Wizard.Step2.NewClass"]
+            </MudButton>
+        </MudStack>
+
+        @if (_availableClasses.Count == 0)
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Warning">
+                @L["Wizard.Step2.NoClasses"]
+            </MudAlert>
+        }
+        else
+        {
+            @foreach (var grp in _availableClasses.GroupBy(c => c.Category).OrderBy(g => g.Key, StringComparer.Ordinal))
+            {
+                <MudText Typo="Typo.overline" Class="mono sv-text-muted">@grp.Key</MudText>
+                <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px;">
+                    @foreach (var c in grp.OrderBy(x => x.Name, StringComparer.Ordinal))
+                    {
+                        var picked = _pickedClassIds.Contains(c.Id);
+                        <MudPaper Class="pa-3" Elevation="0"
+                                  Style="@($"cursor:pointer; border:2px solid {(picked ? "var(--mud-palette-primary)" : "var(--mud-palette-lines-default)")}; border-radius:6px;")"
+                                  @onclick="@(() => TogglePickClass(c.Id))">
+                            <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
+                                <MudIcon Icon="@IconForCategory(c.Category)" Size="Size.Medium"
+                                         Style="@($"color:{(picked ? "var(--mud-palette-primary)" : "var(--mud-palette-text-secondary)")};")" />
+                                <div style="flex:1;">
+                                    <MudText Typo="Typo.body1" Style="@(picked ? "font-weight:600;" : "")">@c.Name</MudText>
+                                    @if (!string.IsNullOrEmpty(c.Description))
+                                    {
+                                        <MudText Typo="Typo.caption" Class="sv-text-muted" Style="white-space:normal;">
+                                            @c.Description
+                                        </MudText>
+                                    }
+                                </div>
+                                @if (picked)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small"
+                                             Style="color:var(--mud-palette-primary);" />
+                                }
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </div>
+            }
+            <MudText Typo="Typo.caption" Class="sv-text-muted">
+                @string.Format(L["Wizard.Step2.Selected"], _pickedClassIds.Count)
+            </MudText>
+        }
+    </MudStack>;
+
+    // ── Step 2: ROI ────────────────────────────────────────────────────
+    private RenderFragment StepRoi() => @<MudStack Spacing="3">
+        <MudText Typo="Typo.h6">@L["Wizard.StepRoi.Title"]</MudText>
+        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Wizard.StepRoi.Subtitle"]</MudText>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px;">
+            @* Karta: cały kadr (nowy ROI 0..1 × 0..1) *@
+            @{
+                var fullPicked = _roiMode == RoiMode.FullFrame;
+            }
+            <MudPaper Elevation="0"
+                      Style="@($"cursor:pointer; border:2px solid {(fullPicked ? "var(--mud-palette-primary)" : "var(--mud-palette-lines-default)")}; border-radius:6px; padding:14px;")"
+                      @onclick="@(() => { _roiMode = RoiMode.FullFrame; _selectedRoiId = null; })">
+                <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.CropFree" Size="Size.Large"
+                             Style="@($"color:{(fullPicked ? "var(--mud-palette-primary)" : "var(--mud-palette-text-secondary)")};")" />
+                    <div style="flex:1;">
+                        <MudText Typo="Typo.body1" Style="@(fullPicked ? "font-weight:600;" : "")">
+                            @L["Wizard.StepRoi.FullFrame"]
+                        </MudText>
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">
+                            @L["Wizard.StepRoi.FullFrameHint"]
+                        </MudText>
+                    </div>
+                    @if (fullPicked)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small"
+                                 Style="color:var(--mud-palette-primary);" />
+                    }
+                </MudStack>
+            </MudPaper>
+
+            @* Karty: istniejące ROI dla tej kamery *@
+            @foreach (var roi in _roisForCamera)
+            {
+                var roiPicked = _roiMode == RoiMode.Existing && _selectedRoiId == roi.Id;
+                var zoneCount = _zonesForCamera.Count(z => z.RoiId == roi.Id);
+                <MudPaper Elevation="0"
+                          Style="@($"cursor:pointer; border:2px solid {(roiPicked ? "var(--mud-palette-primary)" : "var(--mud-palette-lines-default)")}; border-radius:6px; padding:14px;")"
+                          @onclick="@(() => { _roiMode = RoiMode.Existing; _selectedRoiId = roi.Id; _selectedZoneId = null; _zoneMode = ZoneMode.FullRoi; })">
+                    <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.SelectAll" Size="Size.Large"
+                                 Style="@($"color:{(roiPicked ? "var(--mud-palette-primary)" : "var(--mud-palette-text-secondary)")};")" />
+                        <div style="flex:1;">
+                            <MudText Typo="Typo.body1" Style="@(roiPicked ? "font-weight:600;" : "")">
+                                @roi.Name
+                            </MudText>
+                            <MudText Typo="Typo.caption" Class="sv-text-muted mono">
+                                @($"{roi.Rectangle.Width * 100:F0}% × {roi.Rectangle.Height * 100:F0}% kadru")
+                                @if (!roi.Enabled) { <text> · off</text> }
+                            </MudText>
+                            <MudText Typo="Typo.caption" Class="sv-text-muted">
+                                @string.Format(L["Wizard.StepRoi.ZonesInRoi"], zoneCount)
+                            </MudText>
+                        </div>
+                        @if (roiPicked)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small"
+                                     Style="color:var(--mud-palette-primary);" />
+                        }
+                    </MudStack>
+                </MudPaper>
+            }
+
+            @* Karta: utwórz nowy ROI (inline dialog z pre-filled kamerą) *@
+            <MudPaper Elevation="0"
+                      Style="cursor:pointer; border:2px dashed var(--mud-palette-lines-default); border-radius:6px; padding:14px;"
+                      @onclick="OpenNewRoiDialog">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Large"
+                             Style="color:var(--mud-palette-text-secondary);" />
+                    <div style="flex:1;">
+                        <MudText Typo="Typo.body1">@L["Wizard.StepRoi.CreateNew"]</MudText>
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Wizard.StepRoi.CreateNewHint"]</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small"
+                             Style="color:var(--mud-palette-text-secondary);" />
+                </MudStack>
+            </MudPaper>
+        </div>
+
+        @if (_roiMode == RoiMode.FullFrame)
+        {
+            <MudTextField @bind-Value="_newRoiName" Label="@L["Wizard.StepRoi.Name"]"
+                          HelperText="@L["Wizard.StepRoi.NameHint"]"
+                          Variant="Variant.Outlined" />
+        }
+    </MudStack>;
+
+    // ── Step 3: Strefa w wybranym ROI ──────────────────────────────────
+    private RenderFragment StepZone() => @<MudStack Spacing="3">
+        <MudText Typo="Typo.h6">@L["Wizard.StepZone.Title"]</MudText>
+        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Wizard.StepZone.Subtitle"]</MudText>
+
+        @{
+            var roiContext = _roiMode == RoiMode.Existing
+                ? _roisForCamera.FirstOrDefault(r => r.Id == _selectedRoiId)?.Name
+                : _newRoiName;
+            var zonesInRoi = ZonesForSelectedRoi();
+        }
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.SelectAll" Dense="true">
+            @string.Format(L["Wizard.StepZone.Context"], roiContext ?? "?")
+        </MudAlert>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px;">
+            @* Karta: cały ROI (nowa strefa = polygon obejmujący cały prostokąt ROI) *@
+            @{
+                var fullRoiPicked = _zoneMode == ZoneMode.FullRoi;
+            }
+            <MudPaper Elevation="0"
+                      Style="@($"cursor:pointer; border:2px solid {(fullRoiPicked ? "var(--mud-palette-primary)" : "var(--mud-palette-lines-default)")}; border-radius:6px; padding:14px;")"
+                      @onclick="@(() => { _zoneMode = ZoneMode.FullRoi; _selectedZoneId = null; })">
+                <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.CropSquare" Size="Size.Large"
+                             Style="@($"color:{(fullRoiPicked ? "var(--mud-palette-primary)" : "var(--mud-palette-text-secondary)")};")" />
+                    <div style="flex:1;">
+                        <MudText Typo="Typo.body1" Style="@(fullRoiPicked ? "font-weight:600;" : "")">
+                            @L["Wizard.StepZone.FullRoi"]
+                        </MudText>
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">
+                            @L["Wizard.StepZone.FullRoiHint"]
+                        </MudText>
+                    </div>
+                    @if (fullRoiPicked)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small"
+                                 Style="color:var(--mud-palette-primary);" />
+                    }
+                </MudStack>
+            </MudPaper>
+
+            @* Karty: istniejące strefy w wybranym ROI *@
+            @foreach (var zone in zonesInRoi)
+            {
+                var zonePicked = _zoneMode == ZoneMode.Existing && _selectedZoneId == zone.Id;
+                <MudPaper Elevation="0"
+                          Style="@($"cursor:pointer; border:2px solid {(zonePicked ? "var(--mud-palette-primary)" : "var(--mud-palette-lines-default)")}; border-radius:6px; padding:14px;")"
+                          @onclick="@(() => { _zoneMode = ZoneMode.Existing; _selectedZoneId = zone.Id; })">
+                    <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.Fence" Size="Size.Large"
+                                 Style="@($"color:{(zonePicked ? "var(--mud-palette-primary)" : "var(--mud-palette-text-secondary)")};")" />
+                        <div style="flex:1;">
+                            <MudText Typo="Typo.body1" Style="@(zonePicked ? "font-weight:600;" : "")">@zone.Name</MudText>
+                            <MudText Typo="Typo.caption" Class="sv-text-muted">
+                                @zone.Polygon.Count @L["Wizard.StepZone.Vertices"]
+                            </MudText>
+                            @if (zone.TriggerIds.Count > 0)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined" Class="mt-1">
+                                    @string.Format(L["Wizard.StepZone.AlreadyHasTriggers"], zone.TriggerIds.Count)
+                                </MudChip>
+                            }
+                        </div>
+                        @if (zonePicked)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small"
+                                     Style="color:var(--mud-palette-primary);" />
+                        }
+                    </MudStack>
+                </MudPaper>
+            }
+
+            @* Karta: utwórz nową strefę (inline dialog z pre-filled ROI) *@
+            <MudPaper Elevation="0"
+                      Style="cursor:pointer; border:2px dashed var(--mud-palette-lines-default); border-radius:6px; padding:14px;"
+                      @onclick="OpenNewZoneDialog">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Large"
+                             Style="color:var(--mud-palette-text-secondary);" />
+                    <div style="flex:1;">
+                        <MudText Typo="Typo.body1">@L["Wizard.StepZone.CreateNew"]</MudText>
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Wizard.StepZone.CreateNewHint"]</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small"
+                             Style="color:var(--mud-palette-text-secondary);" />
+                </MudStack>
+            </MudPaper>
+        </div>
+
+        @if (_zoneMode == ZoneMode.FullRoi)
+        {
+            <MudTextField @bind-Value="_newZoneName" Label="@L["Wizard.StepZone.Name"]"
+                          HelperText="@L["Wizard.StepZone.NameHint"]"
+                          Variant="Variant.Outlined" />
+        }
+    </MudStack>;
+
+    private RenderFragment StepAction() => @<MudStack Spacing="3">
+        <MudText Typo="Typo.h6">@L["Wizard.Step4.Title"]</MudText>
+        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Wizard.Step4.Subtitle"]</MudText>
+
+        <MudTextField @bind-Value="_actionName" Label="@L["Wizard.Step4.ActionName"]"
+                      Variant="Variant.Outlined" />
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px;">
+            @foreach (var (type, icon, label, hint) in _actionChoices)
+            {
+                var picked = _actionType == type;
+                <MudPaper Class="pa-3" Elevation="0"
+                          Style="@($"cursor:pointer; border:2px solid {(picked ? "var(--mud-palette-primary)" : "var(--mud-palette-lines-default)")}; border-radius:6px;")"
+                          @onclick="@(() => _actionType = type)">
+                    <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
+                        <MudIcon Icon="@icon" Size="Size.Medium"
+                                 Style="@($"color:{(picked ? "var(--mud-palette-primary)" : "var(--mud-palette-text-secondary)")};")" />
+                        <div style="flex:1;">
+                            <MudText Typo="Typo.body1" Style="@(picked ? "font-weight:600;" : "")">@label</MudText>
+                            <MudText Typo="Typo.caption" Class="sv-text-muted">@hint</MudText>
+                        </div>
+                    </MudStack>
+                </MudPaper>
+            }
+        </div>
+
+        @if (_actionType == ActionType.Email)
+        {
+            <MudTextField @bind-Value="_emailTo" Label="@L["Wizard.Step4.EmailTo"]"
+                          Placeholder="bhp@firma.pl" Variant="Variant.Outlined" Required="true" />
+        }
+        else if (_actionType == ActionType.Webhook)
+        {
+            <MudTextField @bind-Value="_webhookUrl" Label="@L["Wizard.Step4.WebhookUrl"]"
+                          Placeholder="https://hooks.slack.com/..." Variant="Variant.Outlined" Required="true" />
+        }
+    </MudStack>;
+
+    private RenderFragment StepSummary() => @<MudStack Spacing="3">
+        <MudText Typo="Typo.h6">@L["Wizard.Step5.Title"]</MudText>
+        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Wizard.Step5.Subtitle"]</MudText>
+
+        @{
+            var selCam = _availableCameras.FirstOrDefault(c => c.Id == _selectedCameraId);
+        }
+        <MudList T="string" Dense="true">
+            <MudListItem T="string" Icon="@Icons.Material.Filled.CameraAlt">
+                <strong>@L["Wizard.Step1.Title"]:</strong> @(selCam?.Name ?? "?")
+                @if (selCam is not null && !string.IsNullOrEmpty(selCam.Location))
+                {
+                    <span class="sv-text-muted"> · @selCam.Location</span>
+                }
+            </MudListItem>
+            <MudListItem T="string" Icon="@Icons.Material.Filled.Category">
+                <strong>@L["Wizard.Step2.Title"]:</strong>
+                @foreach (var id in _pickedClassIds)
+                {
+                    var c = _availableClasses.FirstOrDefault(x => x.Id == id);
+                    if (c is not null)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined" Class="ma-1">
+                            @c.Name
+                        </MudChip>
+                    }
+                }
+            </MudListItem>
+            <MudListItem T="string" Icon="@Icons.Material.Filled.SelectAll">
+                <strong>@L["Wizard.StepRoi.Title"]:</strong>
+                @if (_roiMode == RoiMode.FullFrame)
+                {
+                    <span> @_newRoiName <span class="sv-text-muted">(@L["Wizard.StepRoi.FullFrame"])</span></span>
+                }
+                else
+                {
+                    var r = _roisForCamera.FirstOrDefault(x => x.Id == _selectedRoiId);
+                    <span> @(r?.Name ?? "?") <span class="sv-text-muted">(@L["Wizard.StepRoi.ExistingRoi"])</span></span>
+                }
+            </MudListItem>
+            <MudListItem T="string" Icon="@Icons.Material.Filled.Fence">
+                <strong>@L["Wizard.StepZone.Title"]:</strong>
+                @if (_zoneMode == ZoneMode.FullRoi)
+                {
+                    <span> @_newZoneName <span class="sv-text-muted">(@L["Wizard.StepZone.FullRoi"])</span></span>
+                }
+                else
+                {
+                    var z = _zonesForCamera.FirstOrDefault(x => x.Id == _selectedZoneId);
+                    <span> @(z?.Name ?? "?") <span class="sv-text-muted">(@L["Wizard.StepZone.ExistingZone"])</span></span>
+                }
+            </MudListItem>
+            <MudListItem T="string" Icon="@IconForAction(_actionType)">
+                <strong>@L["Wizard.Step4.Title"]:</strong> @_actionName (@_actionType)
+                @if (_actionType == ActionType.Email && !string.IsNullOrEmpty(_emailTo))
+                { <span class="sv-text-muted"> → @_emailTo</span> }
+                @if (_actionType == ActionType.Webhook && !string.IsNullOrEmpty(_webhookUrl))
+                { <span class="sv-text-muted"> → @_webhookUrl</span> }
+            </MudListItem>
+        </MudList>
+
+        <MudDivider />
+        <MudText Typo="Typo.caption" Class="sv-text-muted">
+            @string.Format(L["Wizard.Step5.WillCreate"], _pickedClassIds.Count)
+        </MudText>
+    </MudStack>;
+
+    // ── Logic ─────────────────────────────────────────────────────────
+
+    private void TogglePickClass(string id)
+    {
+        if (!_pickedClassIds.Add(id)) _pickedClassIds.Remove(id);
+    }
+
+    private bool CanAdvance() => _step switch
+    {
+        1 => !string.IsNullOrEmpty(_selectedCameraId),
+        2 => _roiMode == RoiMode.FullFrame
+             ? !string.IsNullOrWhiteSpace(_newRoiName)
+             : !string.IsNullOrEmpty(_selectedRoiId),
+        3 => _zoneMode == ZoneMode.FullRoi
+             ? !string.IsNullOrWhiteSpace(_newZoneName)
+             : !string.IsNullOrEmpty(_selectedZoneId),
+        4 => _pickedClassIds.Count > 0,
+        5 => !string.IsNullOrWhiteSpace(_actionName)
+             && (_actionType != ActionType.Email || !string.IsNullOrWhiteSpace(_emailTo))
+             && (_actionType != ActionType.Webhook || !string.IsNullOrWhiteSpace(_webhookUrl)),
+        _ => true
+    };
+
+    private async Task NextStep()
+    {
+        if (!CanAdvance() || _step >= 6) return;
+        _step++;
+        // Po wyjściu z kroku 1 (Kamera) ładujemy ROI + strefy dla wybranej kamery,
+        // żeby Step 2 (ROI) i Step 3 (Strefa) pokazały listy do wyboru.
+        if (_step == 2) await ReloadScopeForCameraAsync();
+    }
+
+    private void GoHome() => Nav.NavigateTo("/");
+
+    /// <summary>Otwiera dialog edycji ROI inline z pre-filled kamerą — bez opuszczania wizarda.
+    /// Po zapisie ROI trafia do DB, dodaje się do listy i auto-selectujemy w trybie Existing.</summary>
+    private async Task OpenNewRoiDialog()
+    {
+        if (string.IsNullOrEmpty(_selectedCameraId)) return;
+        var roi = new Roi
+        {
+            CameraId = _selectedCameraId,
+            Rectangle = new RoiRectangle { X = 0.1, Y = 0.1, Width = 0.8, Height = 0.8 }
+        };
+        var parameters = new DialogParameters
+        {
+            ["Roi"] = roi,
+            ["IsNew"] = true,
+            ["Cameras"] = _availableCameras,
+            ["Models"] = _availableModels
+        };
+        var dlg = await Dialog.ShowAsync<RoiDialog>(
+            L["Wizard.StepRoi.CreateDialogTitle"], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: Roi saved })
+        {
+            try
+            {
+                await RoiRepo.InsertAsync(saved);
+                _roisForCamera.Add(saved);
+                _roiMode = RoiMode.Existing;
+                _selectedRoiId = saved.Id;
+                _selectedZoneId = null;
+                _zoneMode = ZoneMode.FullRoi;
+                Snackbar.Add(L["Wizard.StepRoi.Created"], Severity.Success);
+            }
+            catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        }
+    }
+
+    /// <summary>Otwiera dialog edycji strefy inline z pre-filled ROI z kontekstu.
+    /// Wymaga że user już ma wybrany konkretny ROI (nie tryb FullFrame).</summary>
+    private async Task OpenNewZoneDialog()
+    {
+        if (_roiMode != RoiMode.Existing || string.IsNullOrEmpty(_selectedRoiId))
+        {
+            Snackbar.Add(L["Wizard.StepZone.SelectRoiFirst"], Severity.Warning);
+            return;
+        }
+        var selectedRoi = _roisForCamera.First(r => r.Id == _selectedRoiId);
+        var zone = new Zone
+        {
+            CameraId = _selectedCameraId!,
+            RoiId = _selectedRoiId,
+            // Domyślny polygon = środkowe 60% ROI żeby user zobaczył gdzie rysuje, nie cały ROI
+            Polygon = BuildDefaultPolygon(selectedRoi.Rectangle)
+        };
+        var parameters = new DialogParameters
+        {
+            ["Zone"] = zone,
+            ["IsNew"] = true,
+            ["Cameras"] = _availableCameras,
+            ["Rois"] = _roisForCamera,
+            ["AvailableTriggers"] = new List<Trigger>() // wizard sam tworzy triggery w FinishAsync
+        };
+        var dlg = await Dialog.ShowAsync<ZoneEditorDialog>(
+            L["Wizard.StepZone.CreateDialogTitle"], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: Zone saved })
+        {
+            try
+            {
+                await ZoneRepo.InsertAsync(saved);
+                _zonesForCamera.Add(saved);
+                _zoneMode = ZoneMode.Existing;
+                _selectedZoneId = saved.Id;
+                Snackbar.Add(L["Wizard.StepZone.Created"], Severity.Success);
+            }
+            catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        }
+    }
+
+    private static List<SafeView.Domain.Zones.ZonePoint> BuildDefaultPolygon(RoiRectangle r)
+    {
+        // 60% środka prostokąta ROI — user widzi że trzeba coś zmienić żeby dopasować.
+        var x0 = r.X + r.Width * 0.2;
+        var y0 = r.Y + r.Height * 0.2;
+        var x1 = r.X + r.Width * 0.8;
+        var y1 = r.Y + r.Height * 0.8;
+        return
+        [
+            new() { X = x0, Y = y0 },
+            new() { X = x1, Y = y0 },
+            new() { X = x1, Y = y1 },
+            new() { X = x0, Y = y1 }
+        ];
+    }
+
+    /// <summary>Otwiera istniejący DetectionClassDialog w trybie tworzenia. Po zapisie nowa klasa
+    /// trafia do bazy — reloadujemy listę i auto-zaznaczamy nowo dodaną żeby user nie musiał klikać.</summary>
+    private async Task OpenNewClassDialog()
+    {
+        var newClass = new DetectionClass
+        {
+            Name = "",
+            Category = "Custom",
+            Kind = DetectionClassKind.Text,
+            RecommendedMinConfidence = 0.30
+        };
+        var parameters = new DialogParameters
+        {
+            ["Class"] = newClass,
+            ["IsNew"] = true,
+            ["Models"] = _availableModels
+        };
+        var dlg = await Dialog.ShowAsync<DetectionClassDialog>(
+            L["Wizard.Step2.NewClassTitle"], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: DetectionClass saved })
+        {
+            try
+            {
+                await ClassRepo.InsertAsync(saved);
+                await ReloadClassesAsync();
+                _pickedClassIds.Add(saved.Id);
+                Snackbar.Add(L["Wizard.Step2.ClassAdded"], Severity.Success);
+            }
+            catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        }
+    }
+
+    private async Task FinishAsync()
+    {
+        _creating = true;
+        try
+        {
+            // 1. Użyj wybranej kamery (technik dodał ją wcześniej w /cameras)
+            var camera = _availableCameras.First(c => c.Id == _selectedCameraId);
+
+            // 2. ROI — nowy (cały kadr) albo istniejący
+            Roi roi;
+            if (_roiMode == RoiMode.FullFrame)
+            {
+                roi = new Roi
+                {
+                    Name = _newRoiName,
+                    CameraId = camera.Id,
+                    Rectangle = new RoiRectangle { X = 0, Y = 0, Width = 1, Height = 1 },
+                    Enabled = true
+                };
+                await RoiRepo.InsertAsync(roi);
+            }
+            else
+            {
+                roi = _roisForCamera.First(r => r.Id == _selectedRoiId);
+            }
+
+            // 3. Strefa — nowa (polygon = prostokąt ROI) albo istniejąca w ROI
+            Zone zone;
+            if (_zoneMode == ZoneMode.FullRoi)
+            {
+                var r = roi.Rectangle;
+                zone = new Zone
+                {
+                    Name = _newZoneName,
+                    CameraId = camera.Id,
+                    RoiId = roi.Id,
+                    Polygon =
+                    [
+                        new() { X = r.X,           Y = r.Y },
+                        new() { X = r.X + r.Width, Y = r.Y },
+                        new() { X = r.X + r.Width, Y = r.Y + r.Height },
+                        new() { X = r.X,           Y = r.Y + r.Height }
+                    ],
+                    Enabled = true
+                };
+                await ZoneRepo.InsertAsync(zone);
+            }
+            else
+            {
+                zone = _zonesForCamera.First(z => z.Id == _selectedZoneId);
+            }
+
+            // 4. Akcja
+            var action = new DetectionAction
+            {
+                Name = _actionName,
+                Type = _actionType,
+                Enabled = true,
+                Config = BuildActionConfig()
+            };
+            await ActionRepo.InsertAsync(action);
+
+            // 5. Trigger per klasa
+            var triggerIds = new List<string>();
+            foreach (var classId in _pickedClassIds)
+            {
+                var klass = _availableClasses.FirstOrDefault(c => c.Id == classId);
+                if (klass is null) continue;
+                var trigger = new Trigger
+                {
+                    Name = $"{camera.Name} — {klass.Name}",
+                    Enabled = true,
+                    Conditions =
+                    [
+                        new TriggerCondition
+                        {
+                            DetectionClassId = classId,
+                            MinCount = 1,
+                            MinConfidence = klass.RecommendedMinConfidence,
+                            BboxRule = BboxRule.CenterInZone
+                        }
+                    ],
+                    ActionIds = [action.Id]
+                };
+                await TriggerRepo.InsertAsync(trigger);
+                triggerIds.Add(trigger.Id);
+            }
+
+            // 6. Spinamy zone → trigger IDs
+            // Spinamy nowe triggery z istniejącymi (append, nie nadpisujemy — zone mogła już mieć inne)
+            foreach (var tid in triggerIds)
+                if (!zone.TriggerIds.Contains(tid)) zone.TriggerIds.Add(tid);
+            await ZoneRepo.UpdateAsync(zone);
+
+            Snackbar.Add(string.Format(L["Wizard.Done"], camera.Name, triggerIds.Count), Severity.Success);
+            Nav.NavigateTo("/flow");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Błąd: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _creating = false;
+        }
+    }
+
+    private Dictionary<string, string> BuildActionConfig() => _actionType switch
+    {
+        ActionType.Email => new() { ["to"] = _emailTo, ["subject"] = "[SafeView] {trigger_name} — {camera_name}" },
+        ActionType.Webhook => new() { ["url"] = _webhookUrl, ["method"] = "POST" },
+        _ => new()
+    };
+
+    // ── Labels, icons, help ───────────────────────────────────────────
+
+    private string StepLabel(int idx) => idx switch
+    {
+        1 => L["Wizard.Step1.Title"],      // Kamera
+        2 => L["Wizard.StepRoi.Title"],    // ROI
+        3 => L["Wizard.StepZone.Title"],   // Strefa
+        4 => L["Wizard.Step2.Title"],      // Co wykrywać
+        5 => L["Wizard.Step4.Title"],      // Co robić
+        6 => L["Wizard.Step5.Title"],      // Podsumowanie
+        _ => ""
+    };
+
+    private static string StepPillStyle(string state) => state switch
+    {
+        "active" => "background:var(--mud-palette-primary); color:var(--mud-palette-primary-text); font-weight:600;",
+        "done" => "background:var(--mud-palette-success); color:var(--mud-palette-success-text);",
+        _ => "background:var(--mud-palette-lines-default); color:var(--mud-palette-text-secondary);"
+    };
+
+    private string HelpText() => _step switch
+    {
+        1 => L["Wizard.Help.Step1"],
+        2 => L["Wizard.Help.StepRoi"],
+        3 => L["Wizard.Help.StepZone"],
+        4 => L["Wizard.Help.Step2"],   // Co wykrywać
+        5 => L["Wizard.Help.Step4"],   // Co robić
+        6 => L["Wizard.Help.Step5"],   // Podsumowanie
+        _ => ""
+    };
+
+    private static string IconForCategory(string category) => category switch
+    {
+        "PPE" => Icons.Material.Filled.HealthAndSafety,
+        "Pożar" or "Fire" => Icons.Material.Filled.LocalFireDepartment,
+        "Ruch" or "Traffic" => Icons.Material.Filled.DirectionsCar,
+        "Zagrożenia" or "Hazards" => Icons.Material.Filled.Warning,
+        "Bezpieczeństwo" or "Safety" => Icons.Material.Filled.Shield,
+        _ => Icons.Material.Filled.Category
+    };
+
+    private static string IconForAction(ActionType t) => t switch
+    {
+        ActionType.Email => Icons.Material.Filled.Email,
+        ActionType.Webhook => Icons.Material.Filled.Webhook,
+        ActionType.Sms => Icons.Material.Filled.Sms,
+        ActionType.InAppNotification => Icons.Material.Filled.Notifications,
+        ActionType.LogAlert => Icons.Material.Filled.Article,
+        _ => Icons.Material.Filled.FlashOn
+    };
+
+    private (ActionType Type, string Icon, string Label, string Hint)[] _actionChoices => new[]
+    {
+        (ActionType.InAppNotification, Icons.Material.Filled.Notifications, L["Wizard.Step4.Type.InApp"].ToString(), L["Wizard.Step4.Type.InAppHint"].ToString()),
+        (ActionType.Email, Icons.Material.Filled.Email, L["Wizard.Step4.Type.Email"].ToString(), L["Wizard.Step4.Type.EmailHint"].ToString()),
+        (ActionType.Webhook, Icons.Material.Filled.Webhook, L["Wizard.Step4.Type.Webhook"].ToString(), L["Wizard.Step4.Type.WebhookHint"].ToString()),
+        (ActionType.LogAlert, Icons.Material.Filled.Article, L["Wizard.Step4.Type.Log"].ToString(), L["Wizard.Step4.Type.LogHint"].ToString())
+    };
+}

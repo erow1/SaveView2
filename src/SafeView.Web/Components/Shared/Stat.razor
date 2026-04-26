@@ -1,0 +1,23 @@
+@* Mała kafelkowa karta statystyki — używana na dashboard / reports preview.
+   Tło i border bierzemy z palety MudBlazor → auto-adaptacja light/dark. *@
+<MudPaper Class="pa-3 safeview-stat" Elevation="0">
+    <MudText Typo="Typo.overline" Class="safeview-stat-label">@Label</MudText>
+    <MudText Typo="Typo.h5" Class="mono mt-1" Style="@($"color:{ResolvedColor};")">@Value</MudText>
+</MudPaper>
+
+@code {
+    [Parameter] public string Label { get; set; } = string.Empty;
+    [Parameter] public string Value { get; set; } = "0";
+    [Parameter] public string Color { get; set; } = "#FFD600";
+
+    // W trybie jasnym niektóre pastele z ciemnego motywu są niewidoczne —
+    // remap-ujemy kluczowe kolory. Detekcja motywu idzie przez body class (CSS),
+    // więc tu tylko pod-stawiamy ciemniejsze odpowiedniki via var-fallback.
+    private string ResolvedColor => Color switch
+    {
+        "#FFD600" => "var(--safeview-stat-accent, #FFD600)",
+        "#7EB6FF" => "var(--safeview-stat-info,   #7EB6FF)",
+        "#888"    => "var(--safeview-stat-muted,  #888)",
+        _ => Color
+    };
+}

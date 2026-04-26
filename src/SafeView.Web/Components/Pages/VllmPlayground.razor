@@ -1,0 +1,559 @@
+@page "/admin/vllm-playground"
+@attribute [Authorize(Policy = "perm:llm:configure")]
+@using SafeView.Domain.Vllm
+@using SafeView.Domain.Detection
+@using SafeView.Application.Abstractions.Detection
+@inject SafeView.Application.Abstractions.Persistence.IPromptTemplateRepository TemplateRepo
+@inject SafeView.Application.Abstractions.Persistence.ILlmProviderRepository LlmProviderRepo
+@inject IVllmChecker Checker
+@inject SafeView.Application.Abstractions.Vllm.IPromptGenerator Generator
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+<PageTitle>@L["VllmPlayground.Title"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@Icons.Material.Filled.Science" Size="Size.Large" Style="color:var(--mud-palette-primary);" />
+        <div>
+            <MudText Typo="Typo.h4">@L["VllmPlayground.Title"]</MudText>
+            <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                @L["VllmPlayground.Description"]
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudButton StartIcon="@Icons.Material.Filled.AutoFixHigh" Variant="Variant.Outlined"
+                   OnClick="OpenGenerator" Disabled="_busy || _generating">
+            @(_generating ? L["VllmPlayground.Generating"] : L["VllmPlayground.GenerateBtn"])
+        </MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Tune" Variant="Variant.Outlined"
+                   OnClick="OpenRefine"
+                   Disabled="_busy || _generating || string.IsNullOrWhiteSpace(_cfg.SystemPrompt)">
+            @L["VllmPlayground.RefineBtn"]
+        </MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.Save" Variant="Variant.Outlined" Color="Color.Secondary"
+                   OnClick="SaveAsTemplate"
+                   Disabled="_busy || string.IsNullOrWhiteSpace(_cfg.SystemPrompt) || string.IsNullOrWhiteSpace(_cfg.PromptTemplate)">
+            @L["VllmPlayground.SaveAsTemplate"]
+        </MudButton>
+        <MudButton StartIcon="@Icons.Material.Filled.PlayArrow" Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="RunTest" Disabled="_busy || _imageBytes is null || string.IsNullOrWhiteSpace(_cfg.SystemPrompt)">
+            @(_busy ? L["VllmPlayground.Running"] : L["VllmPlayground.Run"])
+        </MudButton>
+    </MudStack>
+
+    <MudGrid>
+        @* ── Lewa strona: konfiguracja ─────────────────────────── *@
+        <MudItem xs="12" md="5">
+            <MudPaper Class="pa-3 sv-card" Elevation="0">
+                <MudStack Spacing="3">
+                    <MudText Typo="Typo.subtitle2">@L["VllmPlayground.Config"]</MudText>
+
+                    <MudSelect T="string" Value="_selectedTemplateId"
+                               ValueChanged="OnTemplateSelected"
+                               Label="@L["VllmPlayground.LoadTemplate"]"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                        @foreach (var grp in _templates.GroupBy(t => t.Category).OrderBy(g => g.Key, StringComparer.Ordinal))
+                        {
+                            @foreach (var t in grp.OrderBy(x => x.Name, StringComparer.Ordinal))
+                            {
+                                <MudSelectItem Value="@t.Id">[@grp.Key] @t.Name</MudSelectItem>
+                            }
+                        }
+                    </MudSelect>
+
+                    <MudSelect T="string" Value="_cfg.LlmProviderId"
+                               ValueChanged="@((string v) => _cfg.LlmProviderId = string.IsNullOrEmpty(v) ? null : v)"
+                               Label="@L["VllmPlayground.Provider"]"
+                               HelperText="@L["VllmPlayground.ProviderHint"]"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                        <MudSelectItem Value="@string.Empty">@L["VllmPlayground.ProviderDefault"]</MudSelectItem>
+                        @foreach (var p in _llmProviders.Where(p => p.Enabled))
+                        {
+                            <MudSelectItem Value="@p.Id">@p.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+
+                    <MudTextField @bind-Value="_cfg.ModelName" Label="@L["VllmPlayground.Model"]"
+                                  HelperText="@L["VllmPlayground.ModelHint"]"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" />
+
+                    <MudTextField @bind-Value="_cfg.SystemPrompt" Label="@L["VllmPlayground.SystemPrompt"]"
+                                  Lines="8" Variant="Variant.Outlined" Class="mono" />
+
+                    <MudTextField @bind-Value="_cfg.PromptTemplate" Label="@L["VllmPlayground.UserPrompt"]"
+                                  HelperText="@L["VllmPlayground.UserPromptHint"]"
+                                  Lines="4" Variant="Variant.Outlined" Class="mono" />
+
+                    <MudExpansionPanels Elevation="0">
+                        <MudExpansionPanel Text="@L["VllmPlayground.Context"]">
+                            <MudStack Spacing="2">
+                                <MudTextField @bind-Value="_cameraName" Label="@L["VllmPlayground.CameraName"]"
+                                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                <MudTextField @bind-Value="_zoneName" Label="@L["VllmPlayground.ZoneName"]"
+                                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                <MudTextField @bind-Value="_triggerName" Label="@L["VllmPlayground.TriggerName"]"
+                                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                <MudTextField @bind-Value="_labels" Label="@L["VllmPlayground.DetectedLabels"]"
+                                              HelperText="@L["VllmPlayground.DetectedLabelsHint"]"
+                                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            </MudStack>
+                        </MudExpansionPanel>
+                        <MudExpansionPanel Text="@L["VllmPlayground.Gates"]">
+                            <MudStack Spacing="2">
+                                <div>
+                                    <MudText Typo="Typo.caption" Class="sv-text-muted">
+                                        @L["Triggers.VllmMinConfidence"]: <b>@($"{_cfg.MinConfidenceToConfirm * 100:F0}%")</b>
+                                    </MudText>
+                                    <MudSlider T="double" Value="_cfg.MinConfidenceToConfirm"
+                                               ValueChanged="@((double v) => _cfg.MinConfidenceToConfirm = Math.Round(v, 2))"
+                                               Min="0" Max="1" Step="0.05" />
+                                </div>
+                                <MudSelect T="ResponseSeverity" @bind-Value="_cfg.MinSeverity"
+                                           Label="@L["Triggers.VllmMinSeverity"]"
+                                           Variant="Variant.Outlined" Margin="Margin.Dense">
+                                    @foreach (var s in Enum.GetValues<ResponseSeverity>())
+                                    {
+                                        <MudSelectItem Value="@s">@s</MudSelectItem>
+                                    }
+                                </MudSelect>
+                                <MudSwitch T="bool" @bind-Value="_cfg.RequireGoodImageQuality"
+                                           Color="Color.Primary" Label="@L["Triggers.VllmRequireGoodImage"]" />
+                                <MudSwitch T="bool" @bind-Value="_cfg.RejectOnError" Color="Color.Warning"
+                                           Label="@L["Triggers.VllmRejectOnError"]" />
+                            </MudStack>
+                        </MudExpansionPanel>
+                        <MudExpansionPanel Text="@L["VllmPlayground.Schema"]">
+                            <MudTextField @bind-Value="_cfg.SchemaJson" Label="JSON Schema"
+                                          Lines="10" Variant="Variant.Outlined" Class="mono" />
+                        </MudExpansionPanel>
+                    </MudExpansionPanels>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        @* ── Środek: upload + preview ─────────────────────────── *@
+        <MudItem xs="12" md="3">
+            <MudPaper Class="pa-3 sv-card" Elevation="0">
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.subtitle2">@L["VllmPlayground.Image"]</MudText>
+                    <MudFileUpload T="IBrowserFile" FilesChanged="OnFileChanged"
+                                   Accept=".jpg,.jpeg,.png" MaximumFileCount="1">
+                        <ActivatorContent>
+                            <MudButton HtmlTag="label" Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Filled.Upload" FullWidth="true">
+                                @(_imageBytes is null ? L["VllmPlayground.UploadImage"] : L["VllmPlayground.ReplaceImage"])
+                            </MudButton>
+                        </ActivatorContent>
+                    </MudFileUpload>
+                    @if (_imageDataUrl is not null)
+                    {
+                        <MudPaper Class="pa-0" Elevation="0" Style="background:#000; border-radius:4px;">
+                            <img src="@_imageDataUrl" alt="test"
+                                 style="width:100%; max-height:40vh; display:block; object-fit:contain;" />
+                        </MudPaper>
+                        <MudText Typo="Typo.caption" Class="mono sv-text-muted">
+                            @_imageName · @((_imageBytes!.Length / 1024.0).ToString("N1")) KB
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined">
+                            @L["VllmPlayground.NoImageYet"]
+                        </MudAlert>
+                    }
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        @* ── Prawa strona: wynik ──────────────────────────────── *@
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-3 sv-card" Elevation="0">
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.subtitle2">@L["VllmPlayground.Result"]</MudText>
+                    @if (_busy)
+                    {
+                        <MudProgressLinear Indeterminate="true" />
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">@L["VllmPlayground.Running"]…</MudText>
+                    }
+                    else if (_result is null)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined">
+                            @L["VllmPlayground.NoResultYet"]
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                            @if (_result.IsError)
+                            {
+                                <MudChip T="string" Size="Size.Small" Style="background:#3A1515; color:#FF5964;">
+                                    @L["VllmPlayground.ErrorBadge"]
+                                </MudChip>
+                            }
+                            else if (_result.Confirmed)
+                            {
+                                <MudChip T="string" Size="Size.Small" Style="background:#0E2A1E; color:#2EC27E;">
+                                    @L["VllmPlayground.Confirmed"]
+                                </MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Size="Size.Small" Class="sv-chip-muted">
+                                    @L["VllmPlayground.NotConfirmed"]
+                                </MudChip>
+                            }
+                            <MudChip T="string" Size="Size.Small" Style="@SeverityStyle(_result.Severity)">
+                                @_result.Severity
+                            </MudChip>
+                            <MudChip T="string" Size="Size.Small" Style="@QualityStyle(_result.Quality)">
+                                @_result.Quality
+                            </MudChip>
+                            <MudChip T="string" Size="Size.Small" Style="@ActionStyle(_result.Action)">
+                                @_result.Action
+                            </MudChip>
+                        </MudStack>
+
+                        <div>
+                            <MudText Typo="Typo.caption" Class="sv-text-muted">
+                                @L["VllmPlayground.Confidence"]: <b>@($"{_result.Confidence * 100:F0}%")</b>
+                            </MudText>
+                            <MudProgressLinear Value="@(_result.Confidence * 100)" Color="Color.Primary" Rounded="true" />
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(_result.Reason))
+                        {
+                            <MudPaper Class="pa-2 sv-card-alt" Elevation="0">
+                                <MudText Typo="Typo.body2">@_result.Reason</MudText>
+                            </MudPaper>
+                        }
+
+                        @if (_result.Observations is { Count: > 0 } obs)
+                        {
+                            <MudText Typo="Typo.caption" Class="sv-text-muted"><b>@L["VllmPlayground.Observations"]:</b></MudText>
+                            <ul style="padding-left:20px; margin:0; font-size:12px;">
+                                @foreach (var o in obs) { <li>@o</li> }
+                            </ul>
+                        }
+
+                        @if (_result.AlternativeExplanations is { Count: > 0 } alts)
+                        {
+                            <MudText Typo="Typo.caption" Class="sv-text-muted"><b>@L["VllmPlayground.Alternatives"]:</b></MudText>
+                            <ul style="padding-left:20px; margin:0; font-size:12px; color:var(--mud-palette-text-secondary);">
+                                @foreach (var a in alts) { <li>@a</li> }
+                            </ul>
+                        }
+
+                        <MudText Typo="Typo.caption" Class="mono sv-text-muted">
+                            @L["VllmPlayground.Duration"]: @_durationMs ms
+                        </MudText>
+
+                        <MudExpansionPanels Elevation="0">
+                            <MudExpansionPanel Text="@L["VllmPlayground.RawResponse"]">
+                                <pre class="mono" style="font-size:11px; white-space:pre-wrap; margin:0;">@(_result.RawResponse ?? "")</pre>
+                            </MudExpansionPanel>
+                        </MudExpansionPanels>
+                    }
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudStack>
+
+@code {
+    private List<PromptTemplate> _templates = new();
+    private List<SafeView.Domain.Llm.LlmProvider> _llmProviders = new();
+    private string? _selectedTemplateId;
+
+    private VllmCheckConfig _cfg = new()
+    {
+        Enabled = true,
+        IncludeFrame = true,
+        MinConfidenceToConfirm = 0.7,
+        MinSeverity = ResponseSeverity.Medium,
+        RequireGoodImageQuality = true
+    };
+
+    private string _cameraName = "Kamera testowa";
+    private string _zoneName = "Strefa testowa";
+    private string _triggerName = "Test";
+    private string _labels = "person";
+
+    private byte[]? _imageBytes;
+    private string? _imageName;
+    private string? _imageDataUrl;
+
+    private VllmCheckResult? _result;
+    private long _durationMs;
+    private bool _busy;
+    private bool _generating;
+    private string? _generatedName;
+    private string? _generatedCategory;
+    private string? _generatedDescription;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _templates = (await TemplateRepo.ListAsync())
+            .OrderBy(t => t.Category, StringComparer.Ordinal)
+            .ThenBy(t => t.Name, StringComparer.Ordinal)
+            .ToList();
+        _llmProviders = (await LlmProviderRepo.ListAsync())
+            .OrderBy(p => p.Name, StringComparer.Ordinal).ToList();
+    }
+
+    private void OnTemplateSelected(string? id)
+    {
+        _selectedTemplateId = id;
+        if (string.IsNullOrEmpty(id)) return;
+        var t = _templates.FirstOrDefault(x => x.Id == id);
+        if (t is null) return;
+        _cfg.TemplateId = t.Id;
+        _cfg.SystemPrompt = t.SystemPrompt;
+        _cfg.PromptTemplate = t.UserTemplate;
+        _cfg.SchemaJson = t.SchemaJson;
+        _cfg.MinConfidenceToConfirm = t.RecommendedMinConfidence;
+        _cfg.MinSeverity = t.DefaultMinSeverity;
+        _cfg.RequireGoodImageQuality = t.RequireGoodImageQuality;
+    }
+
+    private async Task OnFileChanged(IBrowserFile file)
+    {
+        if (file is null) return;
+        const long MaxSize = 20 * 1024 * 1024; // 20 MB
+        if (file.Size > MaxSize)
+        {
+            Snackbar.Add(L["VllmPlayground.FileTooLarge"], Severity.Warning);
+            return;
+        }
+        await using var stream = file.OpenReadStream(MaxSize);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        _imageBytes = ms.ToArray();
+        _imageName = file.Name;
+        var mime = file.ContentType is "image/png" ? "image/png" : "image/jpeg";
+        _imageDataUrl = $"data:{mime};base64,{Convert.ToBase64String(_imageBytes)}";
+    }
+
+    private async Task RunTest()
+    {
+        if (_imageBytes is null) return;
+
+        _busy = true;
+        _result = null;
+        StateHasChanged();
+
+        // Zapisz obraz do temp file — VllmChecker oczekuje ścieżki, nie bytes.
+        var ext = (_imageName?.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ?? false) ? ".png" : ".jpg";
+        var tempPath = Path.Combine(Path.GetTempPath(), $"sv-playground-{Guid.NewGuid():N}{ext}");
+        await File.WriteAllBytesAsync(tempPath, _imageBytes);
+
+        try
+        {
+            var ctx = new ActionContext
+            {
+                CameraId = "playground",
+                CameraName = _cameraName,
+                ZoneId = "playground",
+                ZoneName = _zoneName,
+                TriggerId = "playground",
+                TriggerName = _triggerName,
+                FrameSnapshotPath = tempPath,
+                Detections = _labels
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(l => new DetectionResult(
+                        ModelId: "playground",
+                        Label: l,
+                        Confidence: 0.8,
+                        Bbox: new SafeView.Domain.Detection.Geometry.Bbox(0.25, 0.25, 0.5, 0.5)))
+                    .Cast<DetectionResult>().ToList(),
+                OccurredAt = DateTime.UtcNow
+            };
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            _result = await Checker.CheckAsync(_cfg, ctx);
+            sw.Stop();
+            _durationMs = sw.ElapsedMilliseconds;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Błąd: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+            try { File.Delete(tempPath); } catch { /* ignore */ }
+        }
+    }
+
+    private async Task OpenRefine()
+    {
+        var dlg = await Dialog.ShowAsync<VllmRefineDialog>(
+            L["VllmPlayground.RefineTitle"], new DialogParameters(),
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: string feedback } && !string.IsNullOrWhiteSpace(feedback))
+        {
+            await RunRefine(feedback);
+        }
+    }
+
+    private async Task RunRefine(string feedback)
+    {
+        _generating = true;
+        StateHasChanged();
+        try
+        {
+            var current = new SafeView.Application.Abstractions.Vllm.GeneratedTemplate(
+                Name: _generatedName ?? "",
+                Category: _generatedCategory ?? "Custom",
+                Description: _generatedDescription ?? "",
+                SystemPrompt: _cfg.SystemPrompt,
+                UserTemplate: _cfg.PromptTemplate,
+                SchemaJson: _cfg.SchemaJson ?? "",
+                RecommendedMinConfidence: _cfg.MinConfidenceToConfirm,
+                DefaultMinSeverity: _cfg.MinSeverity,
+                RequireGoodImageQuality: _cfg.RequireGoodImageQuality);
+
+            var t = await Generator.RefineAsync(current, feedback);
+            if (!string.IsNullOrEmpty(t.ErrorMessage))
+            {
+                Snackbar.Add(t.ErrorMessage, Severity.Error);
+                return;
+            }
+            _cfg.SystemPrompt = t.SystemPrompt;
+            _cfg.PromptTemplate = t.UserTemplate;
+            _cfg.SchemaJson = t.SchemaJson;
+            _cfg.MinConfidenceToConfirm = t.RecommendedMinConfidence;
+            _cfg.MinSeverity = t.DefaultMinSeverity;
+            _cfg.RequireGoodImageQuality = t.RequireGoodImageQuality;
+            _generatedName = t.Name;
+            _generatedCategory = t.Category;
+            _generatedDescription = t.Description;
+            Snackbar.Add(L["VllmPlayground.RefineSuccess"], Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Błąd: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _generating = false;
+        }
+    }
+
+    private async Task OpenGenerator()
+    {
+        var dlg = await Dialog.ShowAsync<VllmGeneratorDialog>(
+            L["VllmPlayground.GenerateTitle"],
+            new DialogParameters(),
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: string description } && !string.IsNullOrWhiteSpace(description))
+        {
+            await RunGenerate(description);
+        }
+    }
+
+    private async Task RunGenerate(string description)
+    {
+        _generating = true;
+        StateHasChanged();
+        try
+        {
+            var t = await Generator.GenerateAsync(description);
+            if (!string.IsNullOrEmpty(t.ErrorMessage))
+            {
+                Snackbar.Add(t.ErrorMessage, Severity.Error);
+                return;
+            }
+            // Pre-populuj config tak jak przy wyborze szablonu
+            _cfg.TemplateId = null; // to nie jest zapisany szablon, tylko draft
+            _cfg.SystemPrompt = t.SystemPrompt;
+            _cfg.PromptTemplate = t.UserTemplate;
+            _cfg.SchemaJson = t.SchemaJson;
+            _cfg.MinConfidenceToConfirm = t.RecommendedMinConfidence;
+            _cfg.MinSeverity = t.DefaultMinSeverity;
+            _cfg.RequireGoodImageQuality = t.RequireGoodImageQuality;
+            _selectedTemplateId = null;
+            _generatedName = t.Name;
+            _generatedCategory = t.Category;
+            _generatedDescription = t.Description;
+            Snackbar.Add(L["VllmPlayground.GenerateSuccess"], Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Błąd: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _generating = false;
+        }
+    }
+
+    private async Task SaveAsTemplate()
+    {
+        var tpl = new PromptTemplate
+        {
+            Name = _generatedName ?? "Nowy szablon",
+            Category = _generatedCategory ?? "Custom",
+            Description = _generatedDescription ?? "",
+            SystemPrompt = _cfg.SystemPrompt,
+            UserTemplate = _cfg.PromptTemplate,
+            SchemaJson = _cfg.SchemaJson ?? "",
+            RecommendedMinConfidence = _cfg.MinConfidenceToConfirm,
+            DefaultMinSeverity = _cfg.MinSeverity,
+            RequireGoodImageQuality = _cfg.RequireGoodImageQuality,
+            IsBuiltIn = false,
+            BuiltInKey = null
+        };
+        var parameters = new DialogParameters { ["Template"] = tpl, ["IsNew"] = true };
+        var dlg = await Dialog.ShowAsync<VllmTemplateDialog>(
+            L["VllmTemplates.AddTitle"], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: PromptTemplate saved })
+        {
+            try
+            {
+                await TemplateRepo.InsertAsync(saved);
+                _templates = (await TemplateRepo.ListAsync())
+                    .OrderBy(t => t.Category, StringComparer.Ordinal)
+                    .ThenBy(t => t.Name, StringComparer.Ordinal).ToList();
+                _selectedTemplateId = saved.Id;
+                _cfg.TemplateId = saved.Id;
+                Snackbar.Add(L["VllmTemplates.Saved"], Severity.Success);
+            }
+            catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        }
+    }
+
+    private static string SeverityStyle(ResponseSeverity s) => s switch
+    {
+        ResponseSeverity.None => "background:#222; color:#888;",
+        ResponseSeverity.Low => "background:#1B2A3A; color:#7EB6FF;",
+        ResponseSeverity.Medium => "background:#3A2F14; color:#F5A524;",
+        ResponseSeverity.High => "background:#3A1515; color:#FF5964;",
+        ResponseSeverity.Critical => "background:#4A0D0D; color:#FF2D2D; font-weight:700;",
+        _ => "background:#222; color:#888;"
+    };
+
+    private static string QualityStyle(ImageQuality q) => q switch
+    {
+        ImageQuality.Good => "background:#0E2A1E; color:#2EC27E;",
+        ImageQuality.Acceptable => "background:#3A2F14; color:#F5A524;",
+        ImageQuality.Poor => "background:#3A1515; color:#FF5964;",
+        _ => "background:#222; color:#888;"
+    };
+
+    private static string ActionStyle(RecommendedAction a) => a switch
+    {
+        RecommendedAction.Ignore => "background:#222; color:#888;",
+        RecommendedAction.Monitor => "background:#1B2A3A; color:#7EB6FF;",
+        RecommendedAction.Investigate => "background:#3A2F14; color:#F5A524;",
+        RecommendedAction.Alert => "background:#3A1515; color:#FF5964;",
+        RecommendedAction.Emergency => "background:#4A0D0D; color:#FF2D2D; font-weight:700;",
+        _ => "background:#222; color:#888;"
+    };
+}

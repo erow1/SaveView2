@@ -1,0 +1,338 @@
+@namespace SafeView.Web.Components.Pages
+@using SafeView.Domain.ML
+@inject SafeView.Application.Abstractions.Storage.IFileStore Files
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            @* ── Info dla compiled pack-ów (derywatywny model) ───────────── *@
+            @if (!string.IsNullOrEmpty(Model.SourceModelId))
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined"
+                          Icon="@Icons.Material.Filled.Compress">
+                    @string.Format(L["ModelDialog.CompiledFrom"], Model.SourceModelId)
+                    @if (Model.CompiledClassIds.Count > 0)
+                    {
+                        <text> · @string.Format(L["ModelDialog.CompiledClasses"], Model.CompiledClassIds.Count)</text>
+                    }
+                </MudAlert>
+            }
+
+            <MudTextField @bind-Value="Model.Name" Label="@L["ModelDialog.Name"]"
+                          Required="true" Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="Model.Description" Label="@L["ModelDialog.Description"]"
+                          Variant="Variant.Outlined" Lines="2" />
+
+            @* ── Backend + auto-suggest Capabilities ───────────────────── *@
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                <MudSelect T="DetectorBackend" Value="Model.Backend"
+                           ValueChanged="OnBackendChanged"
+                           Label="@L["ModelDialog.Backend"]" Variant="Variant.Outlined"
+                           Style="flex:1;">
+                    @foreach (var b in Enum.GetValues<DetectorBackend>())
+                    {
+                        <MudSelectItem Value="b">@b</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudChip T="string" Size="Size.Small"
+                         Color="@BackendLicenseColor(Model.Backend)"
+                         Variant="Variant.Outlined">
+                    @BackendLicenseLabel(Model.Backend)
+                </MudChip>
+            </MudStack>
+
+            @* ── Capabilities — multi-select Flags (kluczowa sekcja) ─── *@
+            <MudPaper Class="pa-3 sv-card-alt" Elevation="0">
+                <MudStack Spacing="1">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small"
+                                 Style="color:var(--mud-palette-primary);" />
+                        <MudText Typo="Typo.subtitle2">@L["ModelDialog.Capabilities"]</MudText>
+                    </MudStack>
+                    <MudText Typo="Typo.caption" Class="sv-text-muted">
+                        @L["ModelDialog.CapabilitiesHint"]
+                    </MudText>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                        @{
+                            var capsChoices = new[]
+                            {
+                                (Flag: ModelCapabilities.ClosedSet, Label: L["ModelDialog.Cap.ClosedSet"].ToString(),
+                                 Hint: L["ModelDialog.Cap.ClosedSetHint"].ToString()),
+                                (Flag: ModelCapabilities.TextPrompts, Label: L["ModelDialog.Cap.TextPrompts"].ToString(),
+                                 Hint: L["ModelDialog.Cap.TextPromptsHint"].ToString()),
+                                (Flag: ModelCapabilities.VisualPrompts, Label: L["ModelDialog.Cap.VisualPrompts"].ToString(),
+                                 Hint: L["ModelDialog.Cap.VisualPromptsHint"].ToString())
+                            };
+                        }
+                        @foreach (var (flag, label, hint) in capsChoices)
+                        {
+                            var picked = Model.Capabilities.HasFlag(flag);
+                            <MudTooltip Text="@hint">
+                                <MudChip T="string"
+                                         Color="@(picked ? Color.Primary : Color.Default)"
+                                         Variant="@(picked ? Variant.Filled : Variant.Outlined)"
+                                         OnClick="@(() => ToggleCapability(flag))">
+                                    @label
+                                </MudChip>
+                            </MudTooltip>
+                        }
+                    </div>
+                    @if (GetCapabilityWarning() is { } warn)
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true" Variant="Variant.Outlined"
+                                  Icon="@Icons.Material.Filled.Warning">
+                            @warn
+                        </MudAlert>
+                    }
+                </MudStack>
+            </MudPaper>
+
+            @* ── Backend-specific fields ───────────────────────────────── *@
+            @if (Model.Backend == DetectorBackend.Roboflow)
+            {
+                <MudTextField @bind-Value="Model.RoboflowModelId" Label="@L["ModelDialog.RoboflowModelId"]"
+                              Variant="Variant.Outlined" Required="true" />
+                <MudTextField @bind-Value="Model.RoboflowApiKey" Label="@L["ModelDialog.RoboflowApiKey"]"
+                              Variant="Variant.Outlined" InputType="InputType.Password" Required="true" />
+            }
+            else
+            {
+                @* ONNX-based: Onnx / YoloWorld / YoloE — wszystkie mają plik + input size *@
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.body2" Class="sv-text-secondary" Style="flex:1;">
+                        @L["ModelDialog.OnnxFile"]
+                        <span class="mono">
+                            @(Model.OnnxRelativePath ?? Model.OnnxAbsolutePath ?? L["ModelDialog.OnnxNotLoaded"].Value)
+                        </span>
+                        @if (!string.IsNullOrEmpty(Model.OnnxAbsolutePath))
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Text" Class="ml-2">
+                                @L["ModelDialog.OnnxBundled"]
+                            </MudChip>
+                        }
+                    </MudText>
+                    @if (Model.Backend == DetectorBackend.Onnx)
+                    {
+                        @* Upload tylko dla Onnx — YoloWorld/YoloE są bundled i mają dodatkowe pliki
+                           (text-encoder, tokenizer) których pojedynczy upload ONNX nie obsłuży. *@
+                        <MudFileUpload T="IBrowserFile" FilesChanged="UploadOnnx" Accept=".onnx" MaximumFileCount="1">
+                            <ActivatorContent>
+                                <MudButton HtmlTag="label" Variant="Variant.Outlined"
+                                           StartIcon="@Icons.Material.Filled.UploadFile"
+                                           Disabled="_uploading">
+                                    @(_uploading ? L["ModelDialog.Uploading"] : L["ModelDialog.UploadOnnx"])
+                                </MudButton>
+                            </ActivatorContent>
+                        </MudFileUpload>
+                    }
+                </MudStack>
+
+                @if (Model.Backend is DetectorBackend.YoloWorld or DetectorBackend.YoloE)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined"
+                              Icon="@Icons.Material.Filled.Info">
+                        @L["ModelDialog.BundledHint"]
+                    </MudAlert>
+                }
+
+                <MudNumericField T="int" @bind-Value="Model.InputSize" Label="@L["ModelDialog.InputSize"]"
+                                 Min="32" Max="2048" Step="32" Immediate="true" Variant="Variant.Outlined"
+                                 HelperText="@L["ModelDialog.InputSizeHelp"]" />
+            }
+
+            @* ── Labels / prompty ──────────────────────────────────────── *@
+            <MudTextField @bind-Value="_labelsText" Label="@LabelsFieldLabel()"
+                          Variant="Variant.Outlined" Lines="3"
+                          HelperText="@LabelsHelperText()" />
+
+            @* ── Progi ─────────────────────────────────────────────────── *@
+            <MudStack Row="true" Spacing="4">
+                <MudNumericField T="double" @bind-Value="Model.ConfidenceThreshold"
+                                 Label="@L["ModelDialog.Confidence"]"
+                                 Min="0.05" Max="1.0" Step="0.05" Immediate="true"
+                                 Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                 Variant="Variant.Outlined"
+                                 HelperText="@L["ModelDialog.ConfidenceHelp"]" />
+                <MudNumericField T="double" @bind-Value="Model.IouThreshold"
+                                 Label="@L["ModelDialog.Iou"]"
+                                 Min="0.1" Max="0.9" Step="0.05" Immediate="true"
+                                 Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                 Variant="Variant.Outlined"
+                                 HelperText="@L["ModelDialog.IouHelp"]" />
+            </MudStack>
+
+            <MudSwitch @bind-Value="Model.Enabled" Color="Color.Success" Label="@L["ModelDialog.Active"]" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Cancel()">@L["Common.Cancel"]</MudButton>
+        <MudButton OnClick="Save" Color="Color.Primary" Variant="Variant.Filled" Disabled="!Valid()">
+            @L["Common.Save"]
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public MLModel Model { get; set; } = new();
+    [Parameter] public bool IsNew { get; set; }
+
+    private string _labelsText = string.Empty;
+    private bool _uploading;
+
+    protected override void OnInitialized()
+    {
+        _labelsText = string.Join(", ", Model.Labels);
+        // Gdy user otworzy edycję modelu ze starego schematu (bez Capabilities), wyliczamy
+        // sensowny default z Backend — tak żeby validation + UI nie robiły od razu warning.
+        if (Model.Capabilities == ModelCapabilities.None)
+            Model.Capabilities = DefaultCapabilitiesFor(Model.Backend);
+    }
+
+    // ── Capabilities editing ──────────────────────────────────────────────
+
+    private void ToggleCapability(ModelCapabilities flag)
+    {
+        if (Model.Capabilities.HasFlag(flag))
+            Model.Capabilities &= ~flag;
+        else
+            Model.Capabilities |= flag;
+    }
+
+    /// <summary>
+    /// Gdy user zmienia Backend, proponujemy Capabilities zgodne z tym backendem. Gdy user miał
+    /// już modyfikowane Capabilities (np. otworzył stare Onnx model i dopisał TextPrompts),
+    /// nadpisanie na mniej flag byłoby destrukcyjne — dlatego stosujemy set defaults tylko gdy
+    /// Capabilities = None albo = dokładny default poprzedniego Backend. Inaczej zostawiamy user-wybór.
+    /// </summary>
+    private void OnBackendChanged(DetectorBackend next)
+    {
+        var prev = Model.Backend;
+        Model.Backend = next;
+
+        var prevDefault = DefaultCapabilitiesFor(prev);
+        var nextDefault = DefaultCapabilitiesFor(next);
+        // Tylko gdy Capabilities wyglądają na "default" (nie dotykane przez user-a).
+        if (Model.Capabilities == ModelCapabilities.None || Model.Capabilities == prevDefault)
+        {
+            Model.Capabilities = nextDefault;
+        }
+    }
+
+    private static ModelCapabilities DefaultCapabilitiesFor(DetectorBackend b) => b switch
+    {
+        DetectorBackend.YoloWorld => ModelCapabilities.ClosedSet | ModelCapabilities.TextPrompts,
+        DetectorBackend.YoloE => ModelCapabilities.ClosedSet | ModelCapabilities.TextPrompts | ModelCapabilities.VisualPrompts,
+        _ => ModelCapabilities.ClosedSet
+    };
+
+    /// <summary>Zwraca warning gdy Capabilities nie są zgodne z typowymi wymaganiami Backend.</summary>
+    private string? GetCapabilityWarning()
+    {
+        if (Model.Capabilities == ModelCapabilities.None)
+            return L["ModelDialog.Cap.WarnNone"];
+        if (Model.Backend == DetectorBackend.YoloWorld
+            && !Model.Capabilities.HasFlag(ModelCapabilities.TextPrompts))
+            return L["ModelDialog.Cap.WarnYoloWorldText"];
+        if (Model.Backend == DetectorBackend.YoloE
+            && !Model.Capabilities.HasFlag(ModelCapabilities.VisualPrompts))
+            return L["ModelDialog.Cap.WarnYoloEVisual"];
+        return null;
+    }
+
+    // ── Backend licence chip ──────────────────────────────────────────────
+
+    private static Color BackendLicenseColor(DetectorBackend b) => b switch
+    {
+        DetectorBackend.YoloWorld => Color.Success,   // Apache 2.0 = permissive
+        DetectorBackend.YoloE => Color.Warning,       // AGPL = uwaga
+        DetectorBackend.Roboflow => Color.Info,       // cloud API
+        _ => Color.Default
+    };
+
+    private string BackendLicenseLabel(DetectorBackend b) => b switch
+    {
+        DetectorBackend.YoloWorld => "Apache 2.0",
+        DetectorBackend.YoloE => "AGPL ⚠",
+        DetectorBackend.Roboflow => "Cloud API",
+        DetectorBackend.Onnx => L["ModelDialog.LicenseDepends"],
+        _ => "?"
+    };
+
+    // ── Labels dynamic label / hint ───────────────────────────────────────
+
+    private string LabelsFieldLabel() => Model.Backend switch
+    {
+        DetectorBackend.YoloWorld or DetectorBackend.YoloE
+            when Model.Capabilities.HasFlag(ModelCapabilities.TextPrompts)
+            => L["ModelDialog.LabelsAsPrompts"],
+        _ => L["ModelDialog.LabelsLabel"]
+    };
+
+    private string LabelsHelperText() => Model.Backend switch
+    {
+        DetectorBackend.YoloWorld or DetectorBackend.YoloE
+            when Model.Capabilities.HasFlag(ModelCapabilities.TextPrompts)
+            => L["ModelDialog.LabelsAsPromptsHint"],
+        _ => L["ModelDialog.LabelsHint"]
+    };
+
+    // ── Validation + save ────────────────────────────────────────────────
+
+    private bool Valid()
+    {
+        if (string.IsNullOrWhiteSpace(Model.Name)) return false;
+        if (Model.Backend == DetectorBackend.Onnx
+            && string.IsNullOrWhiteSpace(Model.OnnxRelativePath)
+            && string.IsNullOrWhiteSpace(Model.OnnxAbsolutePath)) return false;
+        if (Model.Backend == DetectorBackend.Roboflow
+            && (string.IsNullOrWhiteSpace(Model.RoboflowModelId) || string.IsNullOrWhiteSpace(Model.RoboflowApiKey)))
+            return false;
+        // YoloWorld/YoloE muszą mieć plik (bundled przez ModelSeeder albo download endpoint).
+        if (Model.Backend is DetectorBackend.YoloWorld or DetectorBackend.YoloE
+            && string.IsNullOrWhiteSpace(Model.OnnxAbsolutePath)
+            && string.IsNullOrWhiteSpace(Model.OnnxRelativePath))
+            return false;
+        if (Model.Capabilities == ModelCapabilities.None) return false;
+        return true;
+    }
+
+    private void Save()
+    {
+        Model.Labels = _labelsText
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+        MudDialog.Close(DialogResult.Ok(Model));
+    }
+
+    // ── ONNX upload (tylko backend=Onnx) ─────────────────────────────────
+
+    private async Task UploadOnnx(IBrowserFile file)
+    {
+        if (file is null) return;
+        _uploading = true;
+        try
+        {
+            const long MaxSize = 500L * 1024 * 1024;
+            if (file.Size > MaxSize)
+            {
+                Snackbar.Add(string.Format(L["ModelDialog.FileTooLarge"], file.Size / 1024 / 1024), Severity.Error);
+                return;
+            }
+
+            var safeName = string.Concat(file.Name.Where(c => char.IsLetterOrDigit(c) || c is '.' or '_' or '-'));
+            var relPath = $"{Guid.NewGuid():N}_{safeName}";
+            await using var stream = file.OpenReadStream(MaxSize);
+            var saved = await Files.SaveAsync(SafeView.Application.Abstractions.Storage.FileKind.Model, relPath, stream);
+            Model.OnnxRelativePath = saved;
+            Snackbar.Add(string.Format(L["ModelDialog.Uploaded"], saved), Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(string.Format(L["ModelDialog.UploadError"], ex.Message), Severity.Error);
+        }
+        finally { _uploading = false; }
+    }
+}
