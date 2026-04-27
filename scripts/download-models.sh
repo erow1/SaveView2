@@ -34,11 +34,13 @@ if [ ! -d "$VENV_DIR" ]; then
     python3 -m venv "$VENV_DIR"
 fi
 
-# Aktywuj + sprawdź czy ultralytics jest zainstalowany
-if ! "$VENV_DIR/bin/python" -c "import ultralytics" 2>/dev/null; then
-    echo "→ Instaluję ultralytics (może potrwać kilka minut — ściąga pytorch)..."
+# Aktywuj + sprawdź czy ultralytics + transformers są zainstalowane
+# transformers jest potrzebne do eksportu CLIP text encoder w trybie pre-projection
+# (zob. scripts/export-clip-text-encoder.py — Xenova ONNX nie pasuje do YOLO-World).
+if ! "$VENV_DIR/bin/python" -c "import ultralytics, transformers, onnxscript" 2>/dev/null; then
+    echo "→ Instaluję ultralytics + transformers + onnxscript (może potrwać kilka minut — ściąga pytorch)..."
     "$VENV_DIR/bin/pip" install --upgrade pip > /dev/null 2>&1
-    "$VENV_DIR/bin/pip" install ultralytics onnx onnxruntime
+    "$VENV_DIR/bin/pip" install ultralytics onnx onnxruntime "transformers<5.0" onnxscript
 fi
 
 echo "→ ultralytics gotowy: $("$VENV_DIR/bin/python" -c "import ultralytics; print(ultralytics.__version__)")"
@@ -214,9 +216,14 @@ export_yolo_world_v2s() {
     fi
     echo "    ✓ model.onnx ($(du -h "$target_dir/model.onnx" | cut -f1))"
 
-    echo "  ↓ Pobieram CLIP text encoder ONNX (~242 MB) z Xenova/clip-vit-base-patch32..."
-    if ! hf_curl "$target_dir/text-encoder.onnx" "$CLIP_BASE/onnx/text_model.onnx"; then
-        echo "  ✗ Nie udało się pobrać CLIP text-encoder."
+    # CLIP text encoder — eksportujemy z transformers (NIE pobieramy z HF):
+    # • Xenova/clip-vit-base-patch32/onnx/text_model.onnx zwraca POST-projection embeddings,
+    #   a YOLO-World v2 oczekuje PRE-projection (pooler_output) — szczegóły w
+    #   scripts/export-clip-text-encoder.py
+    # • Ten export trwa ~30s i daje pewność że embeddings pasują do tego co model widział w training-u.
+    echo "  ↓ Eksportuję CLIP text encoder (pre-projection pooler_output, ~241 MB)..."
+    if ! "$VENV_DIR/bin/python" "$(dirname "$0")/export-clip-text-encoder.py" "$target_dir/text-encoder.onnx"; then
+        echo "  ✗ Eksport CLIP text encoder nieudany. Sprawdź czy venv ma transformers + torch."
         return 1
     fi
     echo "    ✓ text-encoder.onnx ($(du -h "$target_dir/text-encoder.onnx" | cut -f1))"

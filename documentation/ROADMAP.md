@@ -85,6 +85,32 @@ Pełna implementacja: auto-detect dynamic/compiled, batch (SAHI), `IClipTextEnco
 
 ## Ukończone (2026-04-27)
 
+### ✅ TICKET #54 — CLIP text encoder pre-vs-post projection (drugi YOLO-World bug)
+
+**Problem**: po fix-ie #53 (closed-set → dynamic model + tokenizer pad fix), na zdjęciu z ludźmi tylko prompt "person" wykrywał obiekty. "pants", "tshirt", "shirt", "face" → zero detekcji mimo że "pants" semantycznie pasuje. Reference test w Pythonie (HF CLIPTextModel + identyczne YOLO-World ONNX) dawał: pants → 3 det, tshirt → 16 det. Czyli problem w naszym CLIP path.
+
+**Diagnoza**: `runtime/models/yolo-world-v2-s/text-encoder.onnx` z Xenova zwracał POST-projection embeddings (`text_projection @ pooler_output`), a YOLO-World oczekuje PRE-projection (`pooler_output`). YOLO-World ma własny text_projection layer fused w wagach modelu — karmienie go już-projected embeddings = double projection = scores ~0.001. "person" działało bo embedding człowieka jest tak distinct że nawet po podwójnym projection wciąż przebijał threshold.
+
+**Dowód**: cos similarity między Xenova ONNX a `text_features` (HF post-projection) = **1.0000**. Cos między Xenova ONNX a `pooler_output` (HF pre-projection) = 0.04. Karmienie YOLO-World każdą z tych wersji:
+
+| Source | person max | pants max | tshirt max |
+|---|---|---|---|
+| pooler_output (REF) | 0.90 | **0.43** | **0.57** |
+| text_features (REF projected) | 0.94 | 0.001 | 0.003 |
+| Xenova ONNX | 0.94 | 0.001 | 0.003 |
+
+**Fix**:
+- `scripts/export-clip-text-encoder.py` (nowy) — eksportuje CLIP text encoder z `transformers.CLIPModel.text_model.pooler_output` przez torch.onnx (legacy exporter, opset 14). Sanity check cos(ONNX, PyTorch) > 0.999.
+- `scripts/download-models.sh` — wyrzuca download Xenova ONNX, zamiast tego woła powyższy script. Venv setup rozszerzony o `transformers<5.0` + `onnxscript`.
+- `runtime/models/yolo-world-v2-s/text-encoder.onnx` zastąpiony świeżo-wyeksportowanym (~241 MB).
+- CLAUDE.md trap #31 dokumentuje to fully — przyszłe prace nie powtórzą błędu.
+
+**Acid test**: po wymianie pliku Python inference daje pants→3 det, tshirt→16, person→44 — IDENTYCZNE z reference HF.
+
+**Tests**: 210/210 zielone, build 0/0.
+
+---
+
 ### ✅ TICKET #53 — YOLO-World text-prompt fix (closed-set bug)
 
 **Bug**: na `/models` test detect, niezależnie od user prompts, model zawsze wykrywał osoby z różnymi labelami.
