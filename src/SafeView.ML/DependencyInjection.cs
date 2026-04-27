@@ -94,6 +94,13 @@ public static class DependencyInjection
         services.AddSingleton<IVisualPromptDetector>(sp =>
             sp.GetRequiredService<SafeView.ML.YoloE.OnnxYoloEDetector>());
 
+        // OWLv2 (Google, Apache 2.0) — open-vocab text-prompt detector, lepsza detekcja
+        // rzadkich klas i części obiektów (face/pants/...) vs YOLO-World v2-s. Dodatkowy backend
+        // — user wybiera w /models przez Backend dropdown. Patrz DetectorBackend.OwlV2 docs.
+        services.AddSingleton<SafeView.ML.OwlV2.OnnxOwlV2Detector>();
+        services.AddSingleton<ITextPromptDetector>(sp =>
+            sp.GetRequiredService<SafeView.ML.OwlV2.OnnxOwlV2Detector>());
+
         // SAHI Sliced inference decorator — używany dla ROI z InferenceMode=Sliced/Adaptive (duże)
         services.AddSingleton<SafeView.ML.SlicedInference.SlicedDetector>(sp =>
             new SafeView.ML.SlicedInference.SlicedDetector(

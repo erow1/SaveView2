@@ -67,19 +67,29 @@ public sealed class ModelSeeder : IHostedService
                 // Rozpoznaj backend po strukturze folderu:
                 //   text-encoder.onnx + image-encoder.onnx + tokenizer/ → YOLOE (text + visual)
                 //   text-encoder.onnx + tokenizer/                     → YOLO-World (text open-vocab)
+                //   preprocessor_config.json + tokenizer/              → OWLv2 (Apache 2.0, single-file fused)
                 //   default                                            → klasyczny ONNX (YOLOv5/v8/v9 closed-set)
                 var hasTextEncoder = File.Exists(Path.Combine(subDir, "text-encoder.onnx"));
                 var hasImageEncoder = File.Exists(Path.Combine(subDir, "image-encoder.onnx"));
                 var hasTokenizer = Directory.Exists(Path.Combine(subDir, "tokenizer"));
+                var hasOwlV2Preproc = File.Exists(Path.Combine(subDir, "preprocessor_config.json"));
 
                 DetectorBackend backend;
                 ModelCapabilities caps;
                 string descPrefix;
+                int inputSize = 640;
                 if (hasTextEncoder && hasImageEncoder && hasTokenizer)
                 {
                     backend = DetectorBackend.YoloE;
                     caps = ModelCapabilities.ClosedSet | ModelCapabilities.TextPrompts | ModelCapabilities.VisualPrompts;
                     descPrefix = "YOLOE (text + visual prompts, AGPL)";
+                }
+                else if (hasOwlV2Preproc && hasTokenizer)
+                {
+                    backend = DetectorBackend.OwlV2;
+                    caps = ModelCapabilities.TextPrompts; // OWLv2 jest open-vocab only — bez closed-set fallback
+                    descPrefix = "OWLv2 (Google, Apache 2.0, ViT-based open-vocab)";
+                    inputSize = 960; // OWLv2 wymaga 960×960
                 }
                 else if (hasTextEncoder && hasTokenizer)
                 {
@@ -102,7 +112,7 @@ public sealed class ModelSeeder : IHostedService
                     Capabilities = caps,
                     OnnxAbsolutePath = onnxPath,
                     Labels = labels,
-                    InputSize = 640,
+                    InputSize = inputSize,
                     ConfidenceThreshold = 0.25,
                     IouThreshold = 0.45,
                     Enabled = false // user musi aktywować

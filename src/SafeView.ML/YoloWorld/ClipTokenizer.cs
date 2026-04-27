@@ -75,16 +75,28 @@ public sealed class ClipTokenizer
 
     /// <summary>
     /// Tokenizuje tekst do listy int ids o stałej długości <see cref="_contextLength"/>.
-    /// Pad token 0 dopełnia, EOS marker na końcu treści. Format zgodny z CLIP ONNX input.
+    /// Pad token = EOS (CLIP konwencja), EOS marker na końcu treści. Format zgodny z CLIP ONNX input.
     /// </summary>
-    public long[] Tokenize(string text)
+    public long[] Tokenize(string text) => TokenizeWithMask(text).Ids;
+
+    /// <summary>
+    /// Tokenizuje tekst zwracając zarówno <c>input_ids</c> jak i <c>attention_mask</c> (1 dla
+    /// SOS+treść+EOS, 0 dla padding). Wymagane dla modeli (np. OWLv2) które karmione są mask-em
+    /// jawnie zamiast polegać na argmax(input_ids) jak CLIP encoder.
+    ///
+    /// <para><paramref name="contextLengthOverride"/> pozwala wymusić długość inną niż domyślna
+    /// (np. 16 dla OWLv2 short prompts) bez tworzenia nowej instancji tokenizera.</para>
+    /// </summary>
+    public TokenizationResult TokenizeWithMask(string text, int? contextLengthOverride = null)
     {
         ArgumentNullException.ThrowIfNull(text);
 
-        // Force lazy load (rzuca FileNotFoundException z czytelnym komunikatem gdy pliki brak).
+        var contextLen = contextLengthOverride.GetValueOrDefault(_contextLength);
+        if (contextLen <= 0) contextLen = _contextLength;
+
         var (vocab, merges) = _data.Value;
 
-        var ids = new List<long>(_contextLength) { SosToken };
+        var ids = new List<long>(contextLen) { SosToken };
 
         var normalized = WhitespaceRegex.Replace(text.ToLowerInvariant(), " ").Trim();
         if (normalized.Length > 0)
@@ -93,18 +105,26 @@ public sealed class ClipTokenizer
             {
                 foreach (var id in EncodeWord(match.Value, vocab, merges))
                 {
-                    if (ids.Count >= _contextLength - 1) break; // zostaw miejsce na EOS
+                    if (ids.Count >= contextLen - 1) break;
                     ids.Add(id);
                 }
-                if (ids.Count >= _contextLength - 1) break;
+                if (ids.Count >= contextLen - 1) break;
             }
         }
 
+        var eosPosition = ids.Count;
         ids.Add(EosToken);
-        while (ids.Count < _contextLength) ids.Add(PadToken);
 
-        return ids.ToArray();
+        while (ids.Count < contextLen) ids.Add(PadToken);
+
+        var idsArr = ids.ToArray();
+        var mask = new long[contextLen];
+        for (int i = 0; i <= eosPosition && i < contextLen; i++) mask[i] = 1;
+        return new TokenizationResult(idsArr, mask);
     }
+
+    /// <summary>Wynik tokenizacji — <c>Ids</c> i <c>AttentionMask</c> tej samej długości.</summary>
+    public sealed record TokenizationResult(long[] Ids, long[] AttentionMask);
 
     private static IEnumerable<int> EncodeWord(string word,
         Dictionary<string, int> vocab, Dictionary<(string, string), int> mergeRanks)

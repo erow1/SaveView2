@@ -360,6 +360,88 @@ EOF
     echo "  ✓ yoloe-11s gotowy"
 }
 
+# ── OWLv2 (Google, Apache 2.0, ViT-based open-vocab) ──────────────────────
+# Pre-built fused ONNX z onnx-community. Single model.onnx zawiera image encoder + text encoder
+# + detection head. Lepsza detekcja rzadkich klas i części obiektów (face, pants, shoe) vs
+# YOLO-World v2-s. ~614MB FP32, 153M params, input 960×960.
+export_owlv2_base() {
+    local target_dir="$MODELS_ROOT/owlv2-base"
+    mkdir -p "$target_dir/tokenizer"
+
+    if [ -f "$target_dir/model.onnx" ] \
+        && [ -f "$target_dir/preprocessor_config.json" ] \
+        && [ -f "$target_dir/tokenizer/vocab.json" ] \
+        && [ -f "$target_dir/tokenizer/merges.txt" ]; then
+        echo "  ✓ owlv2-base kompletny, pomijam"
+        return 0
+    fi
+
+    hf_curl() {
+        local dest="$1"; local url="$2"
+        if [ -n "${HF_TOKEN:-}" ]; then
+            curl -fL -H "Authorization: Bearer $HF_TOKEN" -o "$dest" "$url"
+        else
+            curl -fL -o "$dest" "$url"
+        fi
+    }
+
+    local OWLV2_BASE="https://huggingface.co/onnx-community/owlv2-base-patch16-ensemble-ONNX/resolve/main"
+    local OWLV2_RAW="https://huggingface.co/onnx-community/owlv2-base-patch16-ensemble-ONNX/raw/main"
+
+    echo "  ↓ Pobieram OWLv2 detection ONNX (~614 MB)..."
+    if ! hf_curl "$target_dir/model.onnx" "$OWLV2_BASE/onnx/model.onnx"; then
+        echo "  ✗ Pobieranie owlv2 model.onnx nieudane."
+        return 1
+    fi
+    echo "    ✓ model.onnx ($(du -h "$target_dir/model.onnx" | cut -f1))"
+
+    echo "  ↓ Pobieram preprocessor_config.json + config.json..."
+    hf_curl "$target_dir/preprocessor_config.json" "$OWLV2_RAW/preprocessor_config.json" \
+        || { echo "  ✗ preprocessor_config.json"; return 1; }
+    hf_curl "$target_dir/config.json" "$OWLV2_RAW/config.json" \
+        || { echo "  ✗ config.json"; return 1; }
+
+    echo "  ↓ Pobieram CLIP BPE tokenizer (vocab.json + merges.txt)..."
+    hf_curl "$target_dir/tokenizer/vocab.json" "$OWLV2_BASE/vocab.json" \
+        || { echo "  ✗ vocab.json"; return 1; }
+    hf_curl "$target_dir/tokenizer/merges.txt" "$OWLV2_BASE/merges.txt" \
+        || { echo "  ✗ merges.txt"; return 1; }
+
+    cat > "$target_dir/labels.txt" <<'EOF'
+person
+face
+hand
+shoe
+pants
+shirt
+fire
+smoke
+helmet
+car
+dog
+cat
+EOF
+
+    cat > "$target_dir/README.md" <<'EOF'
+# OWLv2 base patch16 ensemble (open-vocabulary)
+
+**Source**: `onnx-community/owlv2-base-patch16-ensemble-ONNX` (Google, Apache 2.0)
+
+**Architektura**: Vision Transformer (patch16, 60×60 = 3600 anchors) + CLIP-style text encoder.
+Single fused ONNX (~614 MB FP32, 153M params), 3 inputs (pixel_values, input_ids, attention_mask),
+4 outputs (logits + pred_boxes + 2 ignorowane).
+
+**Vs YOLO-World v2-s**: lepsza detekcja rzadkich klas i części obiektów (face, hand, pants, shoe).
+Wolniejszy ~3-5× CPU (960² + ViT vs 640² + YOLO conv). Trenowany na DRAGON + Visual Genome.
+
+Pipeline SafeView automatycznie rozpoznaje ten folder jako `DetectorBackend.OwlV2`
+(po obecności `preprocessor_config.json` + `tokenizer/`) i ustawia `Capabilities = TextPrompts`,
+`InputSize = 960`.
+EOF
+
+    echo "  ✓ owlv2-base gotowy"
+}
+
 # ── Main ────────────────────────────────────────────────────────────────────
 TARGETS=("${@:-yolov8n-coco yolov8s-coco yolo-world-v2-s}")
 if [ "$#" -eq 0 ]; then
@@ -378,10 +460,11 @@ for target in "${TARGETS[@]}"; do
         yolov8l-coco)       export_coco_model "yolov8l" "yolov8l-coco" ;;
         yolo-world-v2-s)    export_yolo_world_v2s ;;
         yoloe-11s)          export_yoloe_11s ;;
+        owlv2-base)         export_owlv2_base ;;
         *)
             echo "  ✗ Nieznany model: $target"
             echo "     Dostępne: yolov8n-coco, yolov8s-coco, yolov8m-coco, yolov8l-coco,"
-            echo "              yolo-world-v2-s, yoloe-11s"
+            echo "              yolo-world-v2-s, yoloe-11s, owlv2-base"
             echo "     Dla fire/smoke + PPE — patrz runtime/models/README.md"
             continue
             ;;

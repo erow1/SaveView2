@@ -85,6 +85,30 @@ Pełna implementacja: auto-detect dynamic/compiled, batch (SAHI), `IClipTextEnco
 
 ## Ukończone (2026-04-27)
 
+### ✅ TICKET #55 — OWLv2 jako alternatywny open-vocab detektor
+
+**Motywacja**: YOLO-World v2-x (104.6M params, jquadrino's export) ma słabe pokrycie rzadkich klas i części obiektów. Test na zdjęciu Benetton z 7 osobami: prompt "pants" matchuje czerwone paski na ustach (false positive), prompt "face" max score 0.05 (zero detekcji). Limitacja modelu — trening na LVIS+Objects365 nie pokrywa parts-of-body / fine-grained clothing.
+
+**Wybór: OWLv2** (Google, Apache 2.0) — Vision Transformer + CLIP-style text encoder, single fused ONNX. Trenowany na DRAGON dataset + Visual Genome (znacznie szersze pokrycie). Test na tym samym zdjęciu: pants→detekcje na nogach, face→detekcje na twarzach, person→detekcje na postaciach, tshirt→detekcje na ubraniach.
+
+**Implementacja**:
+- `DetectorBackend.OwlV2 = 4` (Domain enum)
+- `src/SafeView.ML/OwlV2/OnnxOwlV2Detector.cs` — `IObjectDetector` + `ITextPromptDetector`. Backend=`"OwlV2"`. Preprocessing 960×960 letterbox + CLIP normalize per-channel. 3 inputs (`pixel_values`, `input_ids`, `attention_mask`). 4 outputs — używamy `logits` (sigmoid → scores) + `pred_boxes` (cxywh-norm). NMS per-class na xyxy.
+- `ClipTokenizer.TokenizeWithMask(text, contextLengthOverride?)` — nowa metoda zwracająca `(Ids, AttentionMask)`. Override pozwala na max_length=16 dla OWLv2 bez tworzenia nowego instance. attention_mask=1 dla SOS+treść+EOS, 0 po pierwszym EOS.
+- `DetectorFactory.GetFor` + `GetTextPromptDetector` — case `OwlV2 → ResolveTextDetector("OwlV2", ...)`.
+- DI: `services.AddSingleton<OnnxOwlV2Detector>()` + `ITextPromptDetector` binding.
+- `ModelSeeder` rozpoznaje folder po obecności `preprocessor_config.json` + `tokenizer/` (lack of `text-encoder.onnx` różni od YW), ustawia `Capabilities = TextPrompts`, `InputSize = 960`.
+- `runtime/models/owlv2-base/` — `model.onnx` (614MB), `tokenizer/{vocab.json,merges.txt}`, `preprocessor_config.json`, `config.json`, `labels.txt`, `README.md`.
+- `scripts/download-models.sh` — nowy target `owlv2-base` pobierający z `onnx-community/owlv2-base-patch16-ensemble-ONNX`.
+
+**User experience**: w `/models` widoczne 2 modele open-vocab — `yolo-world-v2-s` (faktycznie x-variant, szybszy) i `owlv2-base` (wolniejszy ale lepsze pokrycie). User wybiera w test detect / TriggerDialog / wszędzie po `MLModel.Backend`. Pipeline jest agnostic — same DetectionResult kontrakt.
+
+**Verdict B**: aktualny `yolo-world-v2-s` to faktycznie **104.6M params (yolov8x-worldv2)** = już największy variant. Mniejsze byłyby SZYBSZE ale gorsze. Brak sensownego "większego YW do dodania" — zamiast tego dodaliśmy OWLv2 jako jakościowo lepszą alternatywę.
+
+**Tests**: 210/210 zielone, build 0/0. Reference inference Python potwierdza poprawność detekcji na zdjęciu Benetton (face na twarzach, pants na nogach itd.).
+
+---
+
 ### ✅ TICKET #54 — CLIP text encoder pre-vs-post projection (drugi YOLO-World bug)
 
 **Problem**: po fix-ie #53 (closed-set → dynamic model + tokenizer pad fix), na zdjęciu z ludźmi tylko prompt "person" wykrywał obiekty. "pants", "tshirt", "shirt", "face" → zero detekcji mimo że "pants" semantycznie pasuje. Reference test w Pythonie (HF CLIPTextModel + identyczne YOLO-World ONNX) dawał: pants → 3 det, tshirt → 16 det. Czyli problem w naszym CLIP path.

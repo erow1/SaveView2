@@ -18,7 +18,15 @@ public enum DetectorBackend
     /// <c>IVisualPromptDetector</c>, rejestrujemy w <c>DetectorFactory</c>. Nic w Domain,
     /// <c>DetectionClass</c>, <c>Trigger</c>, ani UI nie wymaga zmian — all matching jest
     /// capability-driven przez <c>ModelCapabilities</c>.</para></summary>
-    YoloE = 3
+    YoloE = 3,
+
+    /// <summary>OWLv2 (Google, Apache 2.0) — open-vocabulary text-prompt detector based on
+    /// Vision Transformer + CLIP-style text encoder, fused into single ONNX. Lepsza detekcja
+    /// rzadkich klas i części obiektów (face, pants, ...) vs YOLO-World v2-s.
+    /// 960×960 input, 3600 anchors, output: logits → sigmoid → scores, pred_boxes cxywh-norm.
+    /// 3 inputs (pixel_values, input_ids, attention_mask), 4 outputs (używamy logits + pred_boxes).
+    /// Pobierany z <c>onnx-community/owlv2-base-patch16-ensemble-ONNX</c>.</summary>
+    OwlV2 = 4
 }
 
 /// <summary>
