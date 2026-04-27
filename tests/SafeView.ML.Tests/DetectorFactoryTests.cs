@@ -41,21 +41,21 @@ public class DetectorFactoryTests
     public void GetTextPromptDetector_Throws_WhenBackendHasNoRegisteredImplementation()
     {
         var factory = BuildFactory(); // brak rejestracji ITextPromptDetector
-        var model = Model(DetectorBackend.YoloWorld, ModelCapabilities.ClosedSet | ModelCapabilities.TextPrompts);
+        var model = Model(DetectorBackend.OwlV2, ModelCapabilities.ClosedSet | ModelCapabilities.TextPrompts);
 
         var act = () => factory.GetTextPromptDetector(model);
 
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*Brak zarejestrowanej implementacji ITextPromptDetector*YoloWorld*");
+            .WithMessage("*Brak zarejestrowanej implementacji ITextPromptDetector*OwlV2*");
     }
 
     [Fact]
     public void GetTextPromptDetector_ResolvesRegisteredImplementation()
     {
-        var stub = new StubTextPromptDetector("YoloWorld");
+        var stub = new StubTextPromptDetector("OwlV2");
         var factory = BuildFactory(s => s.AddSingleton<ITextPromptDetector>(stub));
 
-        var model = Model(DetectorBackend.YoloWorld, ModelCapabilities.TextPrompts);
+        var model = Model(DetectorBackend.OwlV2, ModelCapabilities.TextPrompts);
         var resolved = factory.GetTextPromptDetector(model);
 
         resolved.Should().BeSameAs(stub);
@@ -67,7 +67,7 @@ public class DetectorFactoryTests
     public void GetVisualPromptDetector_Throws_WhenModelLacksVisualCapability()
     {
         var factory = BuildFactory();
-        var textOnly = Model(DetectorBackend.YoloWorld, ModelCapabilities.TextPrompts);
+        var textOnly = Model(DetectorBackend.OwlV2, ModelCapabilities.TextPrompts);
 
         var act = () => factory.GetVisualPromptDetector(textOnly);
 

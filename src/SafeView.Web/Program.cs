@@ -359,7 +359,6 @@ try
     app.MapVllmStatsEndpoint();
     app.MapVllmTemplateIoEndpoints();
     app.MapDetectionClassRefEndpoints();
-    app.MapDownloadYoloWorldEndpoint();
     app.MapModelTestDetectEndpoint();
     app.MapFlowEndpoints();
     app.MapHub<SafeView.Web.Hubs.FlowHub>("/hubs/flow");

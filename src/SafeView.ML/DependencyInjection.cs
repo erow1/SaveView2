@@ -77,16 +77,13 @@ public static class DependencyInjection
             };
         });
 
-        // Detector — rejestrowany pod ITextPromptDetector (factory resolve per backend).
-        services.AddSingleton<SafeView.ML.YoloWorld.OnnxYoloWorldDetector>();
-        services.AddSingleton<ITextPromptDetector>(sp =>
-            sp.GetRequiredService<SafeView.ML.YoloWorld.OnnxYoloWorldDetector>());
+        // YOLO-World detector USUNIĘTY 2026-04-27 — model dawał false positives, prompty
+        // matchowały wizualnie podobne fragmenty zamiast prawdziwych obiektów. Zastąpiony
+        // przez OWLv2 (rejestracja niżej). Compiled prompt packs (Faza 5) były feature
+        // YW-specific i też zostały usunięte. CLIP encoder + tokenizer zachowane bo używa
+        // ich YOLOE (gdy user opt-in zainstaluje AGPL).
 
-        // Faza 5 — Compiled prompt packs (persistent text-embeddings cache)
-        services.AddSingleton<SafeView.Application.Abstractions.Detection.IPromptPackCompiler,
-                              SafeView.Application.Detection.PromptPackCompiler>();
-
-        // Faza 6 — YOLOE visual-prompt detector (AGPL — swap target dla permissive backend
+        // YOLOE visual-prompt detector (AGPL — swap target dla permissive backend
         // w przyszłości; patrz IVisualPromptDetector docs).
         services.AddSingleton<SafeView.ML.YoloE.OnnxYoloEDetector>();
         services.AddSingleton<ITextPromptDetector>(sp =>

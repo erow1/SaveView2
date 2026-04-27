@@ -270,11 +270,15 @@ Nowy typ kamery `CameraTransport.Api` — zewnętrzny system (edge appliance, Fr
 - `POST /api/v1/cameras/{cameraId}/ingest` — multipart (frame binary + JSON metadata)
 - `POST /api/v1/cameras/{cameraId}/ingest-json` — JSON-only z `image_base64` lub `image_url`
 
-### OWLv2 — alternative open-vocab detector (2026-04-27)
+### OWLv2 — sole open-vocab detector (2026-04-27)
 
-`runtime/models/owlv2-base/` — Google OWLv2 base patch16 ensemble (Apache 2.0). Single fused ONNX (~614MB, 153M params). 960×960 input, ViT-based, 3600 anchors. 3 inputs (`pixel_values`, `input_ids`, `attention_mask`), output `logits` (sigmoid → scores) + `pred_boxes` (cxywh-norm). Lepsza detekcja rzadkich klas i części obiektów (face, pants, shoe) vs YOLO-World v2-x. Wolniejszy ~3-5× CPU.
+YOLO-World v2 USUNIĘTY 2026-04-27 (false positives na rzadkich klasach). OWLv2 (Google, Apache 2.0) jest teraz jedynym open-vocab path.
 
-`DetectorBackend.OwlV2 = 4`, impl w `src/SafeView.ML/OwlV2/OnnxOwlV2Detector.cs`. ModelSeeder rozpoznaje folder po `preprocessor_config.json` + `tokenizer/`. User wybiera między YW v2-x i OWLv2 w `/models` — pipeline agnostic.
+**Dwa warianty**:
+- `runtime/models/owlv2-base/` — patch16 ensemble (~614MB, 153M params, 960×960). Fast — dla iteracji / dev-loop.
+- `runtime/models/owlv2-large/` — patch14 ensemble (~1.74GB, 430M params, 960×960). Best quality — dla produkcji. ~3-4× wolniejszy CPU.
+
+Oba: single fused ONNX, 3 inputs (`pixel_values`, `input_ids`, `attention_mask`), output `logits` (sigmoid → scores) + `pred_boxes` (cxywh-norm). `DetectorBackend.OwlV2 = 4`, single impl `src/SafeView.ML/OwlV2/OnnxOwlV2Detector.cs`. ModelSeeder rozpoznaje folder po `preprocessor_config.json` + `tokenizer/`. User przełącza w `/models` test detect dropdown — pipeline agnostic.
 
 ### Swagger / OpenAPI (cookie-auth)
 - `GET /swagger` — interactive Swagger UI (Swashbuckle bundle, offline-first)

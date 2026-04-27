@@ -168,108 +168,12 @@ export_coco_model() {
     fi
 }
 
-# ── YOLO-World v2 open-vocab (Apache 2.0, Tencent) ─────────────────────────
-# Pobiera z HuggingFace gotowe ONNX — JEDYNA ścieżka (poprzedni ultralytics export
-# produkował closed-set model z zamrożonym vocab COCO, co psuło text-prompt path).
-#
-# Źródła:
-#   • Detection model: jquadrino/yolo-world-onnx — 2 inputs (image + text_features [N,classes,512]),
-#     2 outputs (scores [N,8400,classes] sigmoid + boxes [N,8400,4] xyxy w 640×640).
-#     ~400 MB FP32. Licencja MIT.
-#   • CLIP text encoder + tokenizer: Xenova/clip-vit-base-patch32 — embed dim 512, MIT.
-#
-# Struktura runtime/models/yolo-world-v2-s/:
-#   model.onnx             — image detection (2 inputs / 2 outputs split format)
-#   text-encoder.onnx      — CLIP ViT-B/32 text encoder
-#   tokenizer/vocab.json   — CLIP BPE vocab
-#   tokenizer/merges.txt   — CLIP BPE merges
-#   labels.txt             — seed labels (vendor opcjonalny — user podaje custom prompts)
-#   README.md              — opis
-export_yolo_world_v2s() {
-    local target_dir="$MODELS_ROOT/yolo-world-v2-s"
-    mkdir -p "$target_dir/tokenizer"
-
-    if [ -f "$target_dir/model.onnx" ] && [ -f "$target_dir/text-encoder.onnx" ] \
-        && [ -f "$target_dir/tokenizer/vocab.json" ] && [ -f "$target_dir/tokenizer/merges.txt" ]; then
-        echo "  ✓ yolo-world-v2-s kompletny, pomijam"
-        return 0
-    fi
-
-    hf_curl() {
-        local dest="$1"; local url="$2"
-        if [ -n "${HF_TOKEN:-}" ]; then
-            curl -fL -H "Authorization: Bearer $HF_TOKEN" -o "$dest" "$url"
-        else
-            curl -fL -o "$dest" "$url"
-        fi
-    }
-
-    [ -n "${HF_TOKEN:-}" ] && echo "  ℹ Używam HF_TOKEN z środowiska."
-
-    local CLIP_BASE="https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main"
-    local YW_BASE="https://huggingface.co/jquadrino/yolo-world-onnx/resolve/main"
-
-    echo "  ↓ Pobieram YOLO-World detection ONNX (~400 MB) z jquadrino/yolo-world-onnx..."
-    if ! hf_curl "$target_dir/model.onnx" "$YW_BASE/yolo-world.onnx"; then
-        echo "  ✗ Pobieranie yolo-world.onnx nieudane. Sprawdź dostęp do huggingface.co."
-        return 1
-    fi
-    echo "    ✓ model.onnx ($(du -h "$target_dir/model.onnx" | cut -f1))"
-
-    # CLIP text encoder — eksportujemy z transformers (NIE pobieramy z HF):
-    # • Xenova/clip-vit-base-patch32/onnx/text_model.onnx zwraca POST-projection embeddings,
-    #   a YOLO-World v2 oczekuje PRE-projection (pooler_output) — szczegóły w
-    #   scripts/export-clip-text-encoder.py
-    # • Ten export trwa ~30s i daje pewność że embeddings pasują do tego co model widział w training-u.
-    echo "  ↓ Eksportuję CLIP text encoder (pre-projection pooler_output, ~241 MB)..."
-    if ! "$VENV_DIR/bin/python" "$(dirname "$0")/export-clip-text-encoder.py" "$target_dir/text-encoder.onnx"; then
-        echo "  ✗ Eksport CLIP text encoder nieudany. Sprawdź czy venv ma transformers + torch."
-        return 1
-    fi
-    echo "    ✓ text-encoder.onnx ($(du -h "$target_dir/text-encoder.onnx" | cut -f1))"
-
-    echo "  ↓ Pobieram CLIP BPE tokenizer (vocab.json + merges.txt)..."
-    hf_curl "$target_dir/tokenizer/vocab.json" "$CLIP_BASE/vocab.json" \
-        || { echo "  ✗ Nie udało się pobrać vocab.json"; return 1; }
-    hf_curl "$target_dir/tokenizer/merges.txt" "$CLIP_BASE/merges.txt" \
-        || { echo "  ✗ Nie udało się pobrać merges.txt"; return 1; }
-
-    cat > "$target_dir/labels.txt" <<'EOF'
-person
-car
-truck
-bicycle
-motorcycle
-hard hat
-safety vest
-fire
-smoke
-EOF
-
-    cat > "$target_dir/README.md" <<'EOF'
-# YOLO-World v2 (open-vocabulary, dynamic 2-input)
-
-**Source**: `jquadrino/yolo-world-onnx` (HuggingFace, MIT) + `Xenova/clip-vit-base-patch32` (CLIP text encoder).
-
-**Architektura**:
-- `model.onnx` — 2 inputs: `images [B,3,640,640]` + `text_features [B,classes,512]`
-- 2 outputs: `scores [B,8400,classes]` (sigmoid probs) + `boxes [B,8400,4]` (xyxy w 640×640 input space)
-- Open-vocabulary: vocabulary nie jest zamrożone w wagach — passujesz dowolne klasy jako embeddings z CLIP-a runtime
-- Producer: pytorch 2.3.1, opset 12
-
-**WAŻNE — historyczny bug fix (2026-04-27)**:
-Wcześniejsza wersja tego folderu zawierała `model.onnx` z `ultralytics yolo export model=yolov8s-worldv2.pt`,
-który produkował **closed-set** model z zamrożonym vocab COCO (1 input, brak text path). Custom prompts były
-silently ignorowane przez sieć, a my relabel-owaliśmy detekcje przez `prompts[s.cls]` → user widział "person"
-z labelem "dog". Naprawione przez przejście na jquadrino's dynamic export + defensive guard w
-`OnnxYoloWorldDetector.DetectWithPromptsAsync` (rzuca clear error gdy isDynamic=false + custom prompts).
-
-Pipeline SafeView automatycznie rozpoznaje ten folder jako `DetectorBackend.YoloWorld`
-i ustawia `Capabilities = ClosedSet | TextPrompts`.
-EOF
-
-    echo "  ✓ yolo-world-v2-s gotowy"
-}
+# ── YOLO-World USUNIĘTY 2026-04-27 ─────────────────────────────────────────
+# Model dawał false positives — prompty matchowały wizualnie podobne fragmenty
+# (np. czerwone paski na ustach jako "pants") zamiast prawdziwych obiektów.
+# Zastąpiony przez OWLv2 (Google, Apache 2.0). Dla CLIP text encoder + tokenizer
+# (używane też przez YOLOE) zachowane export-clip-text-encoder.py i pliki w
+# runtime/models/yolo-world-v2-s/ (tylko text-encoder.onnx + tokenizer/, bez model.onnx).
 
 # ── YOLOE (Ultralytics, text + visual prompts) — AGPL license ──────────────
 # UWAGA LICENCJA: YOLOE jest dystrybuowany przez Ultralytics pod AGPL-3.0.
@@ -442,10 +346,94 @@ EOF
     echo "  ✓ owlv2-base gotowy"
 }
 
+# ── OWLv2 large patch14 ensemble (Google, Apache 2.0) ──────────────────────
+# Większy variant OWLv2 — ~430M params (vs 153M w base), znacznie szersze pokrycie
+# rzadkich klas, najlepsze zero-shot detection mAP per Google paper. Wolniejszy
+# 3-4× vs base (CPU). Pobiera ~1.74 GB FP32. Polecane do produkcji jakościowej;
+# base zostaje dla szybkich testów / dev-loop.
+export_owlv2_large() {
+    local target_dir="$MODELS_ROOT/owlv2-large"
+    mkdir -p "$target_dir/tokenizer"
+
+    if [ -f "$target_dir/model.onnx" ] \
+        && [ -f "$target_dir/preprocessor_config.json" ] \
+        && [ -f "$target_dir/tokenizer/vocab.json" ] \
+        && [ -f "$target_dir/tokenizer/merges.txt" ]; then
+        echo "  ✓ owlv2-large kompletny, pomijam"
+        return 0
+    fi
+
+    hf_curl() {
+        local dest="$1"; local url="$2"
+        if [ -n "${HF_TOKEN:-}" ]; then
+            curl -fL -H "Authorization: Bearer $HF_TOKEN" -o "$dest" "$url"
+        else
+            curl -fL -o "$dest" "$url"
+        fi
+    }
+
+    local OWLV2_BASE="https://huggingface.co/onnx-community/owlv2-large-patch14-ensemble-ONNX/resolve/main"
+    local OWLV2_RAW="https://huggingface.co/onnx-community/owlv2-large-patch14-ensemble-ONNX/raw/main"
+
+    echo "  ↓ Pobieram OWLv2 large patch14 ensemble ONNX (~1.74 GB)..."
+    echo "    To może chwilę potrwać — duży model dla najlepszej jakości detekcji rzadkich klas."
+    if ! hf_curl "$target_dir/model.onnx" "$OWLV2_BASE/onnx/model.onnx"; then
+        echo "  ✗ Pobieranie owlv2-large model.onnx nieudane."
+        return 1
+    fi
+    echo "    ✓ model.onnx ($(du -h "$target_dir/model.onnx" | cut -f1))"
+
+    echo "  ↓ Pobieram preprocessor_config.json + config.json..."
+    hf_curl "$target_dir/preprocessor_config.json" "$OWLV2_RAW/preprocessor_config.json" \
+        || { echo "  ✗ preprocessor_config.json"; return 1; }
+    hf_curl "$target_dir/config.json" "$OWLV2_RAW/config.json" \
+        || { echo "  ✗ config.json"; return 1; }
+
+    echo "  ↓ Pobieram CLIP BPE tokenizer (vocab.json + merges.txt)..."
+    hf_curl "$target_dir/tokenizer/vocab.json" "$OWLV2_BASE/vocab.json" \
+        || { echo "  ✗ vocab.json"; return 1; }
+    hf_curl "$target_dir/tokenizer/merges.txt" "$OWLV2_BASE/merges.txt" \
+        || { echo "  ✗ merges.txt"; return 1; }
+
+    cat > "$target_dir/labels.txt" <<'EOF'
+person
+face
+hand
+shoe
+pants
+shirt
+fire
+smoke
+helmet
+car
+dog
+cat
+EOF
+
+    cat > "$target_dir/README.md" <<'EOF'
+# OWLv2 large patch14 ensemble (open-vocabulary)
+
+**Source**: `onnx-community/owlv2-large-patch14-ensemble-ONNX` (Google, Apache 2.0)
+
+**Architektura**: ViT-L/patch14 backbone (~430M params, ~3× większy niż base).
+Single fused ONNX (~1.74 GB FP32). Te same 3 inputs / 4 outputs co base — pipeline
+SafeView nie wymaga zmian, ten sam `OnnxOwlV2Detector`.
+
+**Vs owlv2-base**: znacznie szersze pokrycie rzadkich klas (najlepsze zero-shot
+mAP per Google paper). Wolniejszy ~3-4× CPU. Polecane do produkcji jakościowej;
+base zostaje dla szybkich testów / dev-loop.
+
+Pipeline SafeView automatycznie rozpoznaje ten folder jako `DetectorBackend.OwlV2`
+(po obecności `preprocessor_config.json` + `tokenizer/`).
+EOF
+
+    echo "  ✓ owlv2-large gotowy"
+}
+
 # ── Main ────────────────────────────────────────────────────────────────────
-TARGETS=("${@:-yolov8n-coco yolov8s-coco yolo-world-v2-s}")
+TARGETS=("${@:-yolov8n-coco yolov8s-coco owlv2-base}")
 if [ "$#" -eq 0 ]; then
-    TARGETS=(yolov8n-coco yolov8s-coco yolo-world-v2-s)
+    TARGETS=(yolov8n-coco yolov8s-coco owlv2-base)
 fi
 
 for target in "${TARGETS[@]}"; do
@@ -458,13 +446,14 @@ for target in "${TARGETS[@]}"; do
         yolov8s-coco)       export_coco_model "yolov8s" "yolov8s-coco" ;;
         yolov8m-coco)       export_coco_model "yolov8m" "yolov8m-coco" ;;
         yolov8l-coco)       export_coco_model "yolov8l" "yolov8l-coco" ;;
-        yolo-world-v2-s)    export_yolo_world_v2s ;;
         yoloe-11s)          export_yoloe_11s ;;
         owlv2-base)         export_owlv2_base ;;
+        owlv2-large)        export_owlv2_large ;;
         *)
             echo "  ✗ Nieznany model: $target"
             echo "     Dostępne: yolov8n-coco, yolov8s-coco, yolov8m-coco, yolov8l-coco,"
-            echo "              yolo-world-v2-s, yoloe-11s, owlv2-base"
+            echo "              owlv2-base, owlv2-large, yoloe-11s"
+            echo "     YOLO-World v2 USUNIĘTY 2026-04-27 — używaj OWLv2."
             echo "     Dla fire/smoke + PPE — patrz runtime/models/README.md"
             continue
             ;;

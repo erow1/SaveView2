@@ -199,8 +199,6 @@ public static class ModelTestDetectEndpoint
             RoboflowApiKey = src.RoboflowApiKey,
             Enabled = src.Enabled,
             Capabilities = src.Capabilities,
-            SourceModelId = src.SourceModelId,
-            CompiledClassIds = src.CompiledClassIds,
         };
 
     internal sealed class ModelTestMarker { }

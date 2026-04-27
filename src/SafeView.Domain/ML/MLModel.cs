@@ -7,9 +7,9 @@ public enum DetectorBackend
     Onnx = 0,
     Roboflow = 1,
 
-    /// <summary>YOLO-World (open-vocabulary text-prompt) — Apache 2.0. Działa w trybie dynamic
-    /// (prompty w locie) lub compiled (re-parametryzacja).</summary>
-    YoloWorld = 2,
+    // YoloWorld = 2 — usunięty 2026-04-27 (model dawał false positives, prompty matchowały
+    // wizualnie podobne fragmenty zamiast prawdziwych obiektów). Zastąpiony przez OWLv2 (= 4).
+    // Stara wartość zarezerwowana dla backward-compat z dokumentami w bazie.
 
     /// <summary>YOLOE (Ultralytics, text + visual prompts) — AGPL/Enterprise License.
     /// <para><b>Swap note:</b> ten backend wypełnia rolę "visual-prompt slot". Jeśli w przyszłości
@@ -31,7 +31,7 @@ public enum DetectorBackend
 
 /// <summary>
 /// Kapabilitety detektora — flagi informujące pipeline jakie tryby inferencji obsługuje model.
-/// Klasyczne YOLO ma tylko <see cref="ClosedSet"/>. YOLO-World ma ClosedSet (po re-parametryzacji) + TextPrompts.
+/// Klasyczne YOLO ma tylko <see cref="ClosedSet"/>. OWLv2 ma <see cref="TextPrompts"/>.
 /// YOLOE ma wszystkie trzy. Flaga pozwala jednemu modelowi wchodzić w różne role per ROI/Trigger
 /// bez duplikacji wpisu w <c>ml_models</c>.
 /// </summary>
@@ -41,7 +41,7 @@ public enum ModelCapabilities
     None = 0,
     /// <summary>Fixed vocabulary — <see cref="MLModel.Labels"/> określa klasy zapieczone w wagach.</summary>
     ClosedSet = 1,
-    /// <summary>Text-prompt open-vocabulary (YOLO-World, YOLOE text mode).</summary>
+    /// <summary>Text-prompt open-vocabulary (OWLv2, YOLOE text mode).</summary>
     TextPrompts = 2,
     /// <summary>Visual-prompt open-vocabulary (YOLOE — reference crops).</summary>
     VisualPrompts = 4
@@ -83,21 +83,8 @@ public sealed class MLModel : Entity
 
     /// <summary>
     /// Kapabilitety detektora — flagi wskazujące jakie tryby inferencji obsługuje ten model.
-    /// Domyślnie <see cref="ModelCapabilities.ClosedSet"/> (klasyczne YOLO). Dla YOLO-World
-    /// ustaw <c>ClosedSet | TextPrompts</c>; dla YOLOE wszystkie trzy flagi.
+    /// Domyślnie <see cref="ModelCapabilities.ClosedSet"/> (klasyczne YOLO). Dla OWLv2
+    /// ustaw <c>TextPrompts</c>; dla YOLOE wszystkie trzy flagi.
     /// </summary>
     public ModelCapabilities Capabilities { get; set; } = ModelCapabilities.ClosedSet;
-
-    /// <summary>
-    /// ID modelu źródłowego dla skompilowanego (re-parametryzowanego) wariantu. Null dla modeli
-    /// oryginalnych. Używane przy YOLO-World compile flow — pozwala prześledzić genealogię kompilacji
-    /// i ponownie wygenerować warianty po zmianie listy klas.
-    /// </summary>
-    public string? SourceModelId { get; set; }
-
-    /// <summary>
-    /// Lista ID <c>DetectionClass</c> "zamrożonych" w tym modelu przy kompilacji (tylko dla modeli
-    /// z <see cref="SourceModelId"/> != null). Przy inferencji model zwraca te klasy jako closed-set.
-    /// </summary>
-    public List<string> CompiledClassIds { get; set; } = [];
 }

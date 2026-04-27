@@ -63,7 +63,6 @@ public static class DependencyInjection
         services.AddSingleton<IPromptTemplateVersionRepository, MongoPromptTemplateVersionRepository>();
         services.AddSingleton<IPromptTemplateRepository, MongoPromptTemplateRepository>();
         services.AddSingleton<IDetectionClassRepository, MongoDetectionClassRepository>();
-        services.AddSingleton<ICompiledPromptPackRepository, MongoCompiledPromptPackRepository>();
         services.AddSingleton<ILlmProviderRepository, MongoLlmProviderRepository>();
 
         // Hosted service — jednorazowe sprzątanie legacy Zone dokumentów ze starego schema

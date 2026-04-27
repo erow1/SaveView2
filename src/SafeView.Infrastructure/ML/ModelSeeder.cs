@@ -66,9 +66,9 @@ public sealed class ModelSeeder : IHostedService
 
                 // Rozpoznaj backend po strukturze folderu:
                 //   text-encoder.onnx + image-encoder.onnx + tokenizer/ → YOLOE (text + visual)
-                //   text-encoder.onnx + tokenizer/                     → YOLO-World (text open-vocab)
                 //   preprocessor_config.json + tokenizer/              → OWLv2 (Apache 2.0, single-file fused)
                 //   default                                            → klasyczny ONNX (YOLOv5/v8/v9 closed-set)
+                // YOLO-World usunięty 2026-04-27 (zob. ROADMAP).
                 var hasTextEncoder = File.Exists(Path.Combine(subDir, "text-encoder.onnx"));
                 var hasImageEncoder = File.Exists(Path.Combine(subDir, "image-encoder.onnx"));
                 var hasTokenizer = Directory.Exists(Path.Combine(subDir, "tokenizer"));
@@ -90,12 +90,6 @@ public sealed class ModelSeeder : IHostedService
                     caps = ModelCapabilities.TextPrompts; // OWLv2 jest open-vocab only — bez closed-set fallback
                     descPrefix = "OWLv2 (Google, Apache 2.0, ViT-based open-vocab)";
                     inputSize = 960; // OWLv2 wymaga 960×960
-                }
-                else if (hasTextEncoder && hasTokenizer)
-                {
-                    backend = DetectorBackend.YoloWorld;
-                    caps = ModelCapabilities.ClosedSet | ModelCapabilities.TextPrompts;
-                    descPrefix = "YOLO-World open-vocab (Apache 2.0)";
                 }
                 else
                 {

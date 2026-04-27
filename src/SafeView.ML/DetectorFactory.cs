@@ -30,7 +30,6 @@ public sealed class DetectorFactory : IDetectorFactory
             DetectorBackend.Roboflow => _sp.GetServices<IObjectDetector>()
                 .FirstOrDefault(d => d.Backend == "roboflow")
                 ?? throw new InvalidOperationException("Roboflow detector not registered. Add SafeView.Roboflow to DI."),
-            DetectorBackend.YoloWorld => _sp.GetRequiredService<SafeView.ML.YoloWorld.OnnxYoloWorldDetector>(),
             DetectorBackend.YoloE => _sp.GetRequiredService<SafeView.ML.YoloE.OnnxYoloEDetector>(),
             DetectorBackend.OwlV2 => _sp.GetRequiredService<SafeView.ML.OwlV2.OnnxOwlV2Detector>(),
             _ => throw new NotSupportedException($"Backend {model.Backend} nie jest wspierany.")
@@ -56,12 +55,11 @@ public sealed class DetectorFactory : IDetectorFactory
 
         // Wybór konkretnej implementacji per backend. Każdy backend z kapabilitetem TextPrompts
         // musi mieć zarejestrowany singleton implementujący ITextPromptDetector.
-        //   YoloWorld   → OnnxYoloWorldDetector  (Faza 3)
-        //   YoloE       → OnnxYoloEDetector      (Faza 6, text mode)
+        //   OwlV2       → OnnxOwlV2Detector       (Apache 2.0, ViT-based, primary)
+        //   YoloE       → OnnxYoloEDetector       (AGPL, text + visual prompts)
         //   <future>    → dodawane tutaj gdy pojawią się nowe backendy
         return model.Backend switch
         {
-            DetectorBackend.YoloWorld => ResolveTextDetector("YoloWorld", model),
             DetectorBackend.YoloE => ResolveTextDetector("YoloE", model),
             DetectorBackend.OwlV2 => ResolveTextDetector("OwlV2", model),
             _ => throw new InvalidOperationException(

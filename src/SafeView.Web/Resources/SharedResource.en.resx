@@ -876,15 +876,12 @@
   <data name="ModelDialog.Cap.VisualPrompts"><value>Visual prompts</value></data>
   <data name="ModelDialog.Cap.VisualPromptsHint"><value>Open-vocab via reference crops (YOLOE).</value></data>
   <data name="ModelDialog.Cap.WarnNone"><value>At least one capability must be selected.</value></data>
-  <data name="ModelDialog.Cap.WarnYoloWorldText"><value>YOLO-World without 'Text prompts' loses its main value.</value></data>
   <data name="ModelDialog.Cap.WarnYoloEVisual"><value>YOLOE without 'Visual prompts' — reference-crop detection won't work.</value></data>
   <data name="ModelDialog.OnnxBundled"><value>bundled</value></data>
   <data name="ModelDialog.BundledHint"><value>YOLO-World / YOLOE are bundled with extra files (text-encoder, tokenizer). Manage via /admin/prompt-packs or runtime/models/ + Rescan.</value></data>
   <data name="ModelDialog.LicenseDepends"><value>license depends on source</value></data>
   <data name="ModelDialog.LabelsAsPrompts"><value>Default prompts (comma-separated)</value></data>
   <data name="ModelDialog.LabelsAsPromptsHint"><value>English phrases work best. Example: "worker wearing hard hat, forklift truck".</value></data>
-  <data name="ModelDialog.CompiledFrom"><value>Compiled pack from source model {0}</value></data>
-  <data name="ModelDialog.CompiledClasses"><value>{0} classes frozen</value></data>
 
   <!-- Dialog: User -->
   <data name="UserDialog.AddTitle"><value>Add user</value></data>
@@ -982,56 +979,6 @@
   <data name="Triggers.AdvancedHint"><value>Manual mode: bind to specific MLModel + exact labels. Prefer class library when possible — it's simpler and works with open-vocabulary models (YOLO-World, YOLOE).</value></data>
 
   <!-- Compiled prompt packs -->
-  <data name="Nav.PromptPacks"><value>Prompt packs</value></data>
-  <data name="PromptPacks.Title"><value>Compiled prompt packs</value></data>
-  <data name="PromptPacks.Description"><value>Pre-computed text embeddings cache for YOLO-World — speeds up inference by skipping CLIP encode per frame. Compile once, reuse across cameras.</value></data>
-  <data name="PromptPacks.Compile"><value>Compile pack</value></data>
-  <data name="PromptPacks.CompileTitle"><value>Compile new prompt pack</value></data>
-  <data name="PromptPacks.CompileHint"><value>Pick a YOLO-World model and detection classes (Text kind only). The compiler will CLIP-encode all prompts once and store as a pack — subsequent inferences skip encoding.</value></data>
-  <data name="PromptPacks.Compiling"><value>Compiling pack… may take a few seconds.</value></data>
-  <data name="PromptPacks.Compiled"><value>Pack '{0}' compiled.</value></data>
-  <data name="PromptPacks.PackName"><value>Pack name (optional)</value></data>
-  <data name="PromptPacks.PackNameHint"><value>Leave empty for auto-generated name.</value></data>
-  <data name="PromptPacks.SourceModel"><value>Source model</value></data>
-  <data name="PromptPacks.SourceModelHint"><value>YOLO-World model that will use this cache at inference.</value></data>
-  <data name="PromptPacks.SelectClasses"><value>Select detection classes</value></data>
-  <data name="PromptPacks.SelectClassesHint"><value>Only Text / TextAndVisual classes with TextPrompt are listed.</value></data>
-  <data name="PromptPacks.SelectedCount"><value>Selected: {0} classes</value></data>
-  <data name="PromptPacks.Encoder"><value>Encoder</value></data>
-  <data name="PromptPacks.ClassCount"><value>Classes</value></data>
-  <data name="PromptPacks.Dim"><value>Dim</value></data>
-  <data name="PromptPacks.BlobSize"><value>Size</value></data>
-  <data name="PromptPacks.CompiledAt"><value>Compiled</value></data>
-  <data name="PromptPacks.Status"><value>Status</value></data>
-  <data name="PromptPacks.Fresh"><value>Fresh</value></data>
-  <data name="PromptPacks.Stale"><value>Stale — recompile</value></data>
-  <data name="PromptPacks.CheckStaleness"><value>Check if any class prompt changed</value></data>
-  <data name="PromptPacks.IsStale"><value>Pack is stale — one of the class prompts changed. Please recompile.</value></data>
-  <data name="PromptPacks.StillFresh"><value>Pack is still fresh — no prompt changes detected.</value></data>
-  <data name="PromptPacks.DeleteTitle"><value>Delete pack?</value></data>
-  <data name="PromptPacks.DeleteMessage"><value>Delete pack '{0}'? Inference will fall back to live CLIP encoding until re-compiled.</value></data>
-  <data name="PromptPacks.Deleted"><value>Pack deleted.</value></data>
-  <data name="PromptPacks.NoYoloWorldModel"><value>No enabled YOLO-World model registered yet. Download the bundled Apache 2.0 model with one click below.</value></data>
-  <data name="PromptPacks.DownloadYoloWorld"><value>Download YOLO-World v2-s</value></data>
-  <data name="PromptPacks.Downloading"><value>Downloading…</value></data>
-  <data name="PromptPacks.DownloadSize"><value>~200MB (ONNX + CLIP encoder). Takes 1–3 minutes.</value></data>
-  <data name="PromptPacks.DownloadTitle"><value>Download YOLO-World?</value></data>
-  <data name="PromptPacks.DownloadMessage"><value>Runs download script and auto-registers the model as enabled. Request may take up to 15 minutes — keep this tab open.</value></data>
-  <data name="PromptPacks.DownloadConfirm"><value>Download</value></data>
-  <data name="PromptPacks.DownloadInProgress"><value>Please wait — downloading ~200MB and registering. Do not close this tab.</value></data>
-  <data name="PromptPacks.DownloadSuccess"><value>YOLO-World downloaded and activated. You can compile prompt packs now.</value></data>
-  <data name="PromptPacks.DownloadFailed"><value>Download failed:</value></data>
-  <data name="PromptPacks.RegisterExisting"><value>Register downloaded files</value></data>
-  <data name="PromptPacks.Rescanning"><value>Scanning…</value></data>
-  <data name="PromptPacks.RescanSuccess"><value>Models rescanned. If files were present, YOLO-World is now registered.</value></data>
-  <data name="PromptPacks.RescanFailed"><value>Rescan failed:</value></data>
-  <data name="PromptPacks.UploadFiles"><value>Upload files</value></data>
-  <data name="PromptPacks.Uploading"><value>Uploading…</value></data>
-  <data name="PromptPacks.UploadSuccess"><value>Files uploaded and YOLO-World registered. You can compile prompt packs now.</value></data>
-  <data name="PromptPacks.UploadFailed"><value>Upload failed:</value></data>
-  <data name="PromptPacks.UploadTooLarge"><value>File '{0}' too large (max {1} MB) — skipped.</value></data>
-  <data name="PromptPacks.UploadNothingToSend"><value>No files to send.</value></data>
-  <data name="PromptPacks.ManualHint"><value>If 'Download' fails (HF returned 401, or files arrive tiny = HTML error pages):
 1. Delete broken files: rm -rf runtime/models/yolo-world-v2-s
 2. Retry 'Download' — now uses ultralytics CLI (pulls official weights from GitHub CDN).
 3. If still failing, from terminal:

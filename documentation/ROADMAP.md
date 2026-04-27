@@ -85,6 +85,45 @@ Pełna implementacja: auto-detect dynamic/compiled, batch (SAHI), `IClipTextEnco
 
 ## Ukończone (2026-04-27)
 
+### ✅ TICKET #56 — Usunięcie YOLO-World v2 + OWLv2 large jako 2-gi model
+
+**Powód**: pomimo 3 naprawionych bugów w YW (closed-set ultralytics export, CLIP pad token=0 zamiast EOS, post-vs-pre-projection embeddings), model wciąż dawał false positives — prompty matchowały wizualnie podobne fragmenty (np. czerwone paski na ustach Benetton modeli jako "pants") zamiast prawdziwych obiektów. To fundamentalna słabość modelu YOLO-World v2-x dla rzadkich klas (LVIS+Objects365 trening), nie kod. User wybrał OWLv2 jako sole open-vocab path.
+
+**Usunięte (16 plików + 53 resx × 3 lokale)**:
+- `src/SafeView.ML/YoloWorld/OnnxYoloWorldDetector.cs`
+- `src/SafeView.Application/Detection/PromptPackCompiler.cs` + `Abstractions/Detection/IPromptPackCompiler.cs`
+- `src/SafeView.Domain/Detection/CompiledPromptPack.cs` + `Abstractions/Persistence/ICompiledPromptPackRepository.cs`
+- `src/SafeView.Infrastructure/Persistence/MongoCompiledPromptPackRepository.cs`
+- `src/SafeView.Web/Endpoints/DownloadYoloWorldEndpoint.cs`
+- `src/SafeView.Web/Components/Pages/PromptPacks.razor` + `PromptPackCompileDialog.razor` + `PromptPackCompileRequest.cs`
+- `tests/SafeView.ML.Tests/YoloWorldIntegrationTests.cs`
+- `tests/SafeView.Application.Tests/Detection/PromptPackCompilerTests.cs`
+- `runtime/models/yolo-world-v2-s/model.onnx` (broken detection model — text-encoder.onnx + tokenizer/ zachowane dla YOLOE)
+- `MLModel.SourceModelId` + `MLModel.CompiledClassIds` (były dla compiled packs)
+- `DetectorBackend.YoloWorld` enum value (gap przy 2 dla backward-compat z dokumentami w bazie)
+- 53 resx keys × 3 lokale (PL/EN/neutral): `PromptPacks.*`, `Nav.PromptPacks`, `ModelDialog.CompiledFrom/CompiledClasses/Cap.WarnYoloWorldText`
+
+**Zachowane** (używane przez YOLOE — opt-in AGPL):
+- `IClipTextEncoder` + `OnnxClipTextEncoder` + `ExternalLlmClipTextEncoder`
+- `ClipTokenizer` + `YoloWorldOptions` (encoder strategy switching)
+- `IEmbeddingsClient` + `OpenAiCompatibleEmbeddingsClient` + `EmbeddingsClientFactory`
+- `runtime/models/yolo-world-v2-s/{text-encoder.onnx, tokenizer/}` — folder name historical, used przez OnnxClipTextEncoder DI
+
+**Dodane**:
+- `runtime/models/owlv2-large/` — `onnx-community/owlv2-large-patch14-ensemble-ONNX` (~1.74 GB, 430M params, ViT-L/patch14 backbone). Najlepsze zero-shot detection mAP per Google paper.
+- `download-models.sh` target `owlv2-large` + dispatcher updates
+- 2 modele OWLv2 widoczne w `/models`: `owlv2-base` (fast, 614MB) i `owlv2-large` (quality, 1.74GB). Pipeline agnostic — ten sam `OnnxOwlV2Detector`, ModelSeeder rozpoznaje oba foldery po `preprocessor_config.json` + `tokenizer/`.
+
+**Zaktualizowane**:
+- `DetectorFactory.GetTextPromptDetector` — pozostały OwlV2 + YoloE (bez YoloWorld case)
+- `ModelDialog.razor` — backendy OwlV2/YoloE w switchach (brak YoloWorld)
+- `ModelSeeder` — bez detekcji folderu YW
+- CLAUDE.md trap #33 zaktualizowany (jednolite źródło prawdy o usuwaniu YW)
+
+**Tests**: 199/199 zielone (105 Domain + 80 Application + 14 ML — było 210, usunięte 9 PromptPackCompiler + 2 YoloWorldIntegration). Build 0/0.
+
+---
+
 ### ✅ TICKET #55 — OWLv2 jako alternatywny open-vocab detektor
 
 **Motywacja**: YOLO-World v2-x (104.6M params, jquadrino's export) ma słabe pokrycie rzadkich klas i części obiektów. Test na zdjęciu Benetton z 7 osobami: prompt "pants" matchuje czerwone paski na ustach (false positive), prompt "face" max score 0.05 (zero detekcji). Limitacja modelu — trening na LVIS+Objects365 nie pokrywa parts-of-body / fine-grained clothing.

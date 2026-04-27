@@ -7,18 +7,8 @@
 <MudDialog>
     <DialogContent>
         <MudStack Spacing="3">
-            @* ── Info dla compiled pack-ów (derywatywny model) ───────────── *@
-            @if (!string.IsNullOrEmpty(Model.SourceModelId))
-            {
-                <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined"
-                          Icon="@Icons.Material.Filled.Compress">
-                    @string.Format(L["ModelDialog.CompiledFrom"], Model.SourceModelId)
-                    @if (Model.CompiledClassIds.Count > 0)
-                    {
-                        <text> · @string.Format(L["ModelDialog.CompiledClasses"], Model.CompiledClassIds.Count)</text>
-                    }
-                </MudAlert>
-            }
+            @* Compiled prompt packs feature USUNIĘTY 2026-04-27 razem z YOLO-World — alert
+               "Compiled from..." nie ma już zastosowania (OWLv2 nie ma re-parametryzacji). *@
 
             <MudTextField @bind-Value="Model.Name" Label="@L["ModelDialog.Name"]"
                           Required="true" Variant="Variant.Outlined" />
@@ -129,7 +119,7 @@
                     }
                 </MudStack>
 
-                @if (Model.Backend is DetectorBackend.YoloWorld or DetectorBackend.YoloE)
+                @if (Model.Backend is DetectorBackend.OwlV2 or DetectorBackend.YoloE)
                 {
                     <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined"
                               Icon="@Icons.Material.Filled.Info">
@@ -223,7 +213,7 @@
 
     private static ModelCapabilities DefaultCapabilitiesFor(DetectorBackend b) => b switch
     {
-        DetectorBackend.YoloWorld => ModelCapabilities.ClosedSet | ModelCapabilities.TextPrompts,
+        DetectorBackend.OwlV2 => ModelCapabilities.TextPrompts,
         DetectorBackend.YoloE => ModelCapabilities.ClosedSet | ModelCapabilities.TextPrompts | ModelCapabilities.VisualPrompts,
         _ => ModelCapabilities.ClosedSet
     };
@@ -233,9 +223,9 @@
     {
         if (Model.Capabilities == ModelCapabilities.None)
             return L["ModelDialog.Cap.WarnNone"];
-        if (Model.Backend == DetectorBackend.YoloWorld
+        if (Model.Backend == DetectorBackend.OwlV2
             && !Model.Capabilities.HasFlag(ModelCapabilities.TextPrompts))
-            return L["ModelDialog.Cap.WarnYoloWorldText"];
+            return L["ModelDialog.Cap.WarnOwlV2Text"];
         if (Model.Backend == DetectorBackend.YoloE
             && !Model.Capabilities.HasFlag(ModelCapabilities.VisualPrompts))
             return L["ModelDialog.Cap.WarnYoloEVisual"];
@@ -246,7 +236,7 @@
 
     private static Color BackendLicenseColor(DetectorBackend b) => b switch
     {
-        DetectorBackend.YoloWorld => Color.Success,   // Apache 2.0 = permissive
+        DetectorBackend.OwlV2 => Color.Success,       // Apache 2.0 = permissive
         DetectorBackend.YoloE => Color.Warning,       // AGPL = uwaga
         DetectorBackend.Roboflow => Color.Info,       // cloud API
         _ => Color.Default
@@ -254,7 +244,7 @@
 
     private string BackendLicenseLabel(DetectorBackend b) => b switch
     {
-        DetectorBackend.YoloWorld => "Apache 2.0",
+        DetectorBackend.OwlV2 => "Apache 2.0",
         DetectorBackend.YoloE => "AGPL ⚠",
         DetectorBackend.Roboflow => "Cloud API",
         DetectorBackend.Onnx => L["ModelDialog.LicenseDepends"],
@@ -265,7 +255,7 @@
 
     private string LabelsFieldLabel() => Model.Backend switch
     {
-        DetectorBackend.YoloWorld or DetectorBackend.YoloE
+        DetectorBackend.OwlV2 or DetectorBackend.YoloE
             when Model.Capabilities.HasFlag(ModelCapabilities.TextPrompts)
             => L["ModelDialog.LabelsAsPrompts"],
         _ => L["ModelDialog.LabelsLabel"]
@@ -273,7 +263,7 @@
 
     private string LabelsHelperText() => Model.Backend switch
     {
-        DetectorBackend.YoloWorld or DetectorBackend.YoloE
+        DetectorBackend.OwlV2 or DetectorBackend.YoloE
             when Model.Capabilities.HasFlag(ModelCapabilities.TextPrompts)
             => L["ModelDialog.LabelsAsPromptsHint"],
         _ => L["ModelDialog.LabelsHint"]
@@ -291,7 +281,7 @@
             && (string.IsNullOrWhiteSpace(Model.RoboflowModelId) || string.IsNullOrWhiteSpace(Model.RoboflowApiKey)))
             return false;
         // YoloWorld/YoloE muszą mieć plik (bundled przez ModelSeeder albo download endpoint).
-        if (Model.Backend is DetectorBackend.YoloWorld or DetectorBackend.YoloE
+        if (Model.Backend is DetectorBackend.OwlV2 or DetectorBackend.YoloE
             && string.IsNullOrWhiteSpace(Model.OnnxAbsolutePath)
             && string.IsNullOrWhiteSpace(Model.OnnxRelativePath))
             return false;
