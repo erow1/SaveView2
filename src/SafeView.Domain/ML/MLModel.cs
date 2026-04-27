@@ -7,9 +7,15 @@ public enum DetectorBackend
     Onnx = 0,
     Roboflow = 1,
 
-    // YoloWorld = 2 — usunięty 2026-04-27 (model dawał false positives, prompty matchowały
-    // wizualnie podobne fragmenty zamiast prawdziwych obiektów). Zastąpiony przez OWLv2 (= 4).
-    // Stara wartość zarezerwowana dla backward-compat z dokumentami w bazie.
+    /// <summary>
+    /// USUNIĘTY 2026-04-27 — model dawał false positives, prompty matchowały wizualnie
+    /// podobne fragmenty zamiast prawdziwych obiektów. Zastąpiony przez <see cref="OwlV2"/>.
+    /// Wartość zostawiona w enum dla backward-compat z dokumentami w Mongo (enum jest
+    /// serializowany jako string — usunięcie wartości łamałoby deserializację starych
+    /// modeli). Cleanup tych dokumentów robi <c>ModelSeeder</c> przy starcie aplikacji.
+    /// </summary>
+    [Obsolete("Removed 2026-04-27. Use OwlV2 instead. Old DB docs are auto-cleaned by ModelSeeder.")]
+    YoloWorld = 2,
 
     /// <summary>YOLOE (Ultralytics, text + visual prompts) — AGPL/Enterprise License.
     /// <para><b>Swap note:</b> ten backend wypełnia rolę "visual-prompt slot". Jeśli w przyszłości

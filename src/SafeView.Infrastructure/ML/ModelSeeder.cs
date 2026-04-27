@@ -33,6 +33,13 @@ public sealed class ModelSeeder : IHostedService
     {
         try
         {
+            // Migration 2026-04-27: legacy YoloWorld models removed from codebase.
+            // Cleanup any stale documents in `ml_models` z Backend=YoloWorld — bez tego
+            // /models page rzuca FormatException przy deserializacji enum w MongoDB driver.
+            // Po re-add wartości enum jako [Obsolete] deserializacja działa, więc możemy
+            // znaleźć i usunąć typowanym query.
+            await CleanupLegacyYoloWorldModelsAsync(cancellationToken).ConfigureAwait(false);
+
             var modelsRoot = FindModelsRoot();
             if (modelsRoot is null)
             {
@@ -136,6 +143,37 @@ public sealed class ModelSeeder : IHostedService
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    /// <summary>
+    /// Migration 2026-04-27: usuwa dokumenty z legacy <c>Backend = "YoloWorld"</c>. Te modele
+    /// nie mają już impl-a (OnnxYoloWorldDetector skasowany), trzymanie ich w bazie powoduje
+    /// FormatException przy deserializacji enum gdy lista modeli jest ładowana w UI.
+    ///
+    /// Idempotent — drugie wywołanie nie znajdzie nic do usunięcia. Failure logujemy jako
+    /// Warning ale nie przerywamy startup-u (best-effort cleanup).
+    /// </summary>
+    private async Task CleanupLegacyYoloWorldModelsAsync(CancellationToken ct)
+    {
+        try
+        {
+            var all = await _repo.ListAsync(ct).ConfigureAwait(false);
+#pragma warning disable CS0618 // Type or member is obsolete — celowo czytamy YoloWorld value
+            var legacy = all.Where(m => m.Backend == DetectorBackend.YoloWorld).ToList();
+#pragma warning restore CS0618
+            foreach (var m in legacy)
+            {
+                await _repo.DeleteAsync(m.Id, ct).ConfigureAwait(false);
+                _log.LogWarning("ModelSeeder: usunięto legacy YOLO-World model '{Name}' (id={Id}). " +
+                    "YOLO-World v2 zostało usunięte 2026-04-27 — używaj OWLv2.", m.Name, m.Id);
+            }
+            if (legacy.Count > 0)
+                _log.LogInformation("ModelSeeder: cleanup zakończony, usunięto {Count} legacy YW modeli.", legacy.Count);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "ModelSeeder: cleanup legacy YW modeli failure (best-effort, kontynuuję).");
+        }
+    }
 
     /// <summary>
     /// Znajduje katalog <c>runtime/models</c> idąc w górę od AppContext.BaseDirectory,
