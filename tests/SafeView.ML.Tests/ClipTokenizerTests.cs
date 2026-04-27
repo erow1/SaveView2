@@ -65,9 +65,10 @@ public class ClipTokenizerTests : IDisposable
 
         ids.Length.Should().Be(16, "context length = pad/truncate do 16");
         ids[0].Should().Be(49406, "SOS token musi być pierwszy");
-        // EOS powinien być na końcu contentu, reszta pad=0
         ids.Should().Contain(49407, "EOS token musi wystąpić");
-        ids[^1].Should().Be(0, "ostatni token = pad");
+        // CLIP konwencja: pad token = EOS (49407). Token 0 to "!" w vocab — padding nim
+        // kontaminuje embedding przez wszystkie attention layers transformera. Bug fix 2026-04-27.
+        ids[^1].Should().Be(49407, "ostatni token = pad = EOS (CLIP konwencja, NIE 0)");
     }
 
     [Fact]
@@ -101,7 +102,26 @@ public class ClipTokenizerTests : IDisposable
 
         ids[0].Should().Be(49406);
         ids[1].Should().Be(49407, "brak tokenów treści → EOS zaraz po SOS");
-        for (int i = 2; i < 16; i++) ids[i].Should().Be(0);
+        // CLIP konwencja: pad = EOS (49407), nie 0.
+        for (int i = 2; i < 16; i++) ids[i].Should().Be(49407);
+    }
+
+    [Fact]
+    public void Tokenize_PadsWithEosNotZero_RegressionFor20260427Bug()
+    {
+        // Regression: wcześniej PadToken=0 ("!") zamiast EOS (49407). Krótki prompt
+        // jak "face" miał ~74 fałszywe "!" tokeny w padding-u, które kontaminowały
+        // embedding przez transformer attention → "face" nie wykrywało nic w YOLO-World.
+        var t = new ClipTokenizer(_vocabPath, _mergesPath, contextLength: 8);
+        var ids = t.Tokenize("hi");
+
+        // Oczekiwane: [SOS, hi-tokens..., EOS, EOS, EOS, ...]
+        ids[0].Should().Be(49406);
+        // Wszystkie tokeny od pierwszego EOS do końca powinny być EOS (49407), nie 0.
+        var firstEos = Array.IndexOf(ids, 49407L);
+        firstEos.Should().BeGreaterThan(0, "EOS musi się pojawić po treści");
+        for (int i = firstEos; i < ids.Length; i++)
+            ids[i].Should().Be(49407, $"pozycja {i} musi być EOS (49407), nie 0");
     }
 
     [Fact]

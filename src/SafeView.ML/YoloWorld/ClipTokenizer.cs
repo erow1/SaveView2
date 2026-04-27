@@ -29,7 +29,10 @@ public sealed class ClipTokenizer
 {
     private const int SosToken = 49406;
     private const int EosToken = 49407;
-    private const int PadToken = 0;
+    // CLIP konwencja: pad token = EOS (NIE 0). Token id 0 to "!" w vocab CLIP-a — padding nim
+    // kontaminuje embedding ("!" idzie przez wszystkie attention layers transformera). Hugging Face
+    // CLIPTokenizer też pad-uje EOS-em (sprawdzone porównawczo). Bug naprawiony 2026-04-27.
+    private const int PadToken = EosToken;
 
     private static readonly Regex WordRegex = new(
         @"[\p{L}\p{M}]+|\p{N}+|[^\s\p{L}\p{M}\p{N}]+",
