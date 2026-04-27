@@ -46,7 +46,7 @@
                     </MudText>
                     <div style="display:flex; flex-wrap:wrap; gap:6px;">
                         @{
-                            var capsChoices = new[]
+                            var allCaps = new[]
                             {
                                 (Flag: ModelCapabilities.ClosedSet, Label: L["ModelDialog.Cap.ClosedSet"].ToString(),
                                  Hint: L["ModelDialog.Cap.ClosedSetHint"].ToString()),
@@ -55,6 +55,13 @@
                                 (Flag: ModelCapabilities.VisualPrompts, Label: L["ModelDialog.Cap.VisualPrompts"].ToString(),
                                  Hint: L["ModelDialog.Cap.VisualPromptsHint"].ToString())
                             };
+                            // Capability-driven filter: pokazujemy tylko flagi które mają realną
+                            // implementację dla tego backendu. OWLv2 = tylko TextPrompts (current
+                            // SafeView impl, ONNX text-conditioned only — image-guided detection
+                            // wymaga custom exportu, zob. roadmap). YoloE = wszystkie 3. Onnx /
+                            // Roboflow = tylko ClosedSet.
+                            var supportedFlags = SupportedCapabilities(Model.Backend);
+                            var capsChoices = allCaps.Where(c => supportedFlags.HasFlag(c.Flag)).ToList();
                         }
                         @foreach (var (flag, label, hint) in capsChoices)
                         {
@@ -209,12 +216,35 @@
         {
             Model.Capabilities = nextDefault;
         }
+
+        // Zawsze odfiltruj nieobsługiwane flagi (capability-driven UI). Bez tego user mógłby
+        // np. zmienić backend YoloE → OwlV2 i zostać z osieroconym VisualPrompts flagiem,
+        // który nie ma chip-a do wyłączenia w UI po zmianie backendu.
+        Model.Capabilities &= SupportedCapabilities(next);
     }
 
     private static ModelCapabilities DefaultCapabilitiesFor(DetectorBackend b) => b switch
     {
         DetectorBackend.OwlV2 => ModelCapabilities.TextPrompts,
         DetectorBackend.YoloE => ModelCapabilities.ClosedSet | ModelCapabilities.TextPrompts | ModelCapabilities.VisualPrompts,
+        _ => ModelCapabilities.ClosedSet
+    };
+
+    /// <summary>
+    /// Capability-driven filter: zwraca flagi które dany backend FAKTYCZNIE może wspierać w UI.
+    /// Bez tego user mógłby zaznaczyć np. VisualPrompts dla OWLv2 (gdzie nie mamy implementacji)
+    /// → DetectionClassDialog pokazałby panel visual refs, ale przy inferencji wszystko padałoby.
+    /// Pipeline jest capability-driven (factory + matcher), więc UI musi to filtrować.
+    /// </summary>
+    private static ModelCapabilities SupportedCapabilities(DetectorBackend b) => b switch
+    {
+        // OWLv2 — current ONNX export jest text-conditioned only (3 inputs: pixel_values +
+        // input_ids + attention_mask). Image-guided detection wymagałby custom exportu z
+        // Owlv2ForObjectDetection.image_guided_detection — zob. ROADMAP follow-up.
+        DetectorBackend.OwlV2 => ModelCapabilities.TextPrompts,
+        // YOLOE — pełen swap-target: text + visual + closed-set
+        DetectorBackend.YoloE => ModelCapabilities.ClosedSet | ModelCapabilities.TextPrompts | ModelCapabilities.VisualPrompts,
+        // Roboflow / klasyczne ONNX YOLO — tylko closed-set
         _ => ModelCapabilities.ClosedSet
     };
 
