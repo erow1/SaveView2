@@ -133,6 +133,49 @@ toothbrush
 EOF
 }
 
+# ── Specialty BHP model: Hugging Face .pt → ONNX export ───────────────────
+# Pobiera fine-tuned YOLOv8 .pt z HuggingFace, eksportuje do ONNX, zachowuje class names
+# z weights (m.names dict). Działa dla DOWOLNEGO yolov8 fine-tune (PPE, fire, weapon, ...).
+# $1 = HF resolve URL do .pt
+# $2 = target dir name (np. yolov8n-ppe)
+# $3 = display name dla logów
+export_hf_yolov8_pt() {
+    local hf_url="$1"
+    local target_dir="$2"
+    local display="$3"
+    local full_path="$MODELS_ROOT/$target_dir"
+    mkdir -p "$full_path"
+
+    if [ -f "$full_path/model.onnx" ] && [ -f "$full_path/labels.txt" ]; then
+        echo "  ✓ $display już istnieje w $target_dir/, pomijam"
+        return 0
+    fi
+
+    local tmp_pt="/tmp/sv-bhp-${target_dir}.pt"
+    echo "  ↓ Pobieram $display .pt z $hf_url..."
+    if ! curl -fL --progress-bar -o "$tmp_pt" "$hf_url" 2>&1 | tail -2; then
+        echo "  ✗ Pobieranie .pt nieudane."
+        return 1
+    fi
+
+    echo "  → Eksportuję do ONNX + ekstrahuję labels (z m.names dict)..."
+    "$VENV_DIR/bin/python" - "$tmp_pt" "$full_path/model.onnx" "$full_path/labels.txt" <<'PY'
+import sys, os
+from ultralytics import YOLO
+src, dst_onnx, dst_labels = sys.argv[1], sys.argv[2], sys.argv[3]
+m = YOLO(src)
+print(f"  Classes ({len(m.names)}): {list(m.names.values())}")
+onnx_out = m.export(format="onnx", imgsz=640, opset=12, dynamic=True, verbose=False)
+os.rename(onnx_out, dst_onnx)
+with open(dst_labels, "w", encoding="utf-8") as f:
+    for i in range(len(m.names)):
+        f.write(m.names[i] + "\n")
+print(f"  → {dst_onnx} ({os.path.getsize(dst_onnx)/1024/1024:.1f} MB)")
+PY
+    rm -f "$tmp_pt"
+    [ -f "$full_path/model.onnx" ] && echo "  ✓ $display gotowy ($(du -h "$full_path/model.onnx" | cut -f1))" || return 1
+}
+
 # ── Export model function ──────────────────────────────────────────────────
 # $1 = model name (yolov8n, yolov8s, ...)
 # $2 = target dir (yolov8n-coco)
@@ -431,9 +474,11 @@ EOF
 }
 
 # ── Main ────────────────────────────────────────────────────────────────────
-TARGETS=("${@:-yolov8n-coco yolov8s-coco owlv2-base}")
+# Default base — out-of-box dla BHP / industrial safety: COCO general + PPE + fire/smoke + OWLv2 open-vocab
+DEFAULT_TARGETS=(yolov8n-coco yolov8s-coco yolov8n-ppe yolov8s-fire-smoke owlv2-base)
+TARGETS=("${@:-${DEFAULT_TARGETS[@]}}")
 if [ "$#" -eq 0 ]; then
-    TARGETS=(yolov8n-coco yolov8s-coco owlv2-base)
+    TARGETS=("${DEFAULT_TARGETS[@]}")
 fi
 
 for target in "${TARGETS[@]}"; do
@@ -446,15 +491,28 @@ for target in "${TARGETS[@]}"; do
         yolov8s-coco)       export_coco_model "yolov8s" "yolov8s-coco" ;;
         yolov8m-coco)       export_coco_model "yolov8m" "yolov8m-coco" ;;
         yolov8l-coco)       export_coco_model "yolov8l" "yolov8l-coco" ;;
-        yoloe-11s)          export_yoloe_11s ;;
+        # ── BHP specialty fine-tunes ──
+        yolov8n-ppe)        export_hf_yolov8_pt \
+                                "https://huggingface.co/Hansung-Cho/yolov8-ppe-detection/resolve/main/best.pt" \
+                                "yolov8n-ppe" \
+                                "PPE detection (Hansung-Cho, MIT, hardhat/mask/vest/person/cone/machinery/vehicle)" ;;
+        yolov8s-fire-smoke) export_hf_yolov8_pt \
+                                "https://huggingface.co/Mehedi-2-96/fire-smoke-detection-yolo/resolve/main/fire_smoke_yolov8s_model.pt" \
+                                "yolov8s-fire-smoke" \
+                                "Fire/Smoke detection (Mehedi-2-96, fire/other/smoke)" ;;
+        # ── Open-vocab (text prompts) ──
         owlv2-base)         export_owlv2_base ;;
         owlv2-large)        export_owlv2_large ;;
+        # ── Visual prompts (AGPL — opt-in) ──
+        yoloe-11s)          export_yoloe_11s ;;
         *)
             echo "  ✗ Nieznany model: $target"
-            echo "     Dostępne: yolov8n-coco, yolov8s-coco, yolov8m-coco, yolov8l-coco,"
-            echo "              owlv2-base, owlv2-large, yoloe-11s"
+            echo "     Dostępne:"
+            echo "       COCO general:      yolov8n-coco, yolov8s-coco, yolov8m-coco, yolov8l-coco"
+            echo "       BHP specialty:     yolov8n-ppe, yolov8s-fire-smoke"
+            echo "       Open-vocab:        owlv2-base, owlv2-large"
+            echo "       Visual prompts:    yoloe-11s (AGPL)"
             echo "     YOLO-World v2 USUNIĘTY 2026-04-27 — używaj OWLv2."
-            echo "     Dla fire/smoke + PPE — patrz runtime/models/README.md"
             continue
             ;;
     esac

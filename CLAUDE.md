@@ -16,7 +16,7 @@ SafeView — enterprise computer-vision platforma dla bezpieczeństwa przemysło
 - **Blazor Server** + **MudBlazor 8** (UI)
 - **MongoDB** (persistence — przez MongoDB.Driver)
 - **Serilog** (logging — konsola + plik + custom MongoDB sink)
-- **ONNX Runtime** (ML inference — YOLO v5/v8/v9 closed-set, **OWLv2 base patch16 ensemble Apache 2.0** + **OWLv2 large patch14 ensemble** open-vocab text-prompt detectors, YOLOE AGPL text+visual swap-ready, CLIP ViT-B/32 text+image encoders). YOLO-World v2 **usunięty 2026-04-27** (matchowanie wizualnie podobnych fragmentów zamiast klas).
+- **ONNX Runtime** (ML inference — bundled BHP models out-of-box: `yolov8n/s-coco` general (Apache 2.0), `yolov8n-ppe` PPE detection 10 klas (MIT, Hansung-Cho), `yolov8s-fire-smoke` (Mehedi-2-96), **`owlv2-base/large` open-vocab text-prompt** (Apache 2.0), YOLOE AGPL text+visual swap-ready, CLIP ViT-B/32 text+image encoders). YOLO-World v2 **usunięty 2026-04-27** (matchowanie wizualnie podobnych fragmentów zamiast klas).
 - **SixLabors.ImageSharp** (image processing)
 - **xUnit + FluentAssertions + NSubstitute** (testy)
 - **OpenAI-compatible API** (LLM — vLLM, Ollama, OpenAI, LM Studio; chat + embeddings endpoints)

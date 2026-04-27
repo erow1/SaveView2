@@ -85,6 +85,37 @@ Pełna implementacja: auto-detect dynamic/compiled, batch (SAHI), `IClipTextEnco
 
 ## Ukończone (2026-04-27)
 
+### ✅ TICKET #57 — Bundled BHP models out-of-box (PPE + Fire/Smoke)
+
+**Motywacja**: SafeView to platforma BHP/przemysłowa. User przy starcie miał tylko COCO general (osoby, pojazdy) + OWLv2 open-vocab. Brak gotowych specjalistycznych modeli dla 2 najczęstszych use case-ów BHP: PPE compliance + fire/smoke. User musiałby sam pobierać + eksportować — friction.
+
+**Dodane modele** (gitignored binaries, pobierane przez script):
+
+1. **`runtime/models/yolov8n-ppe/`** — `Hansung-Cho/yolov8-ppe-detection` (HF, MIT, 699 dl). YOLOv8n fine-tune, 10 klas:
+   - **Hardhat / NO-Hardhat** (kask brak/jest)
+   - **Mask / NO-Mask**
+   - **Safety Vest / NO-Safety Vest**
+   - **Person, Safety Cone, machinery, vehicle**
+   - 11.7 MB ONNX, ~25ms CPU inference
+
+2. **`runtime/models/yolov8s-fire-smoke/`** — `Mehedi-2-96/fire-smoke-detection-yolo` (HF). YOLOv8s, 3 klasy:
+   - **fire, smoke, other** (other = background-like, ignoruj)
+   - 42.9 MB ONNX, ~45ms CPU inference
+
+**Implementacja**:
+- `scripts/download-models.sh` — nowy helper `export_hf_yolov8_pt(url, dir, display)` pobiera dowolny YOLOv8 .pt z HF + eksportuje do ONNX + ekstrahuje labels z `m.names` dict (zachowuje oryginalną kolejność klas)
+- 2 nowe targets: `yolov8n-ppe`, `yolov8s-fire-smoke`
+- `DEFAULT_TARGETS` rozszerzone — teraz pobiera 5 modeli out-of-box (~250 MB): coco-n + coco-s + ppe + fire-smoke + owlv2-base
+- ModelSeeder już je rozpoznaje (struct: `model.onnx + labels.txt` → DetectorBackend.Onnx, ClosedSet)
+
+**runtime/models/README.md przepisany** — pełny katalog modeli z tabelami, wskazówki BHP (np. "dla PPE używaj `NO-Hardhat`/`NO-Mask`/`NO-Safety Vest` jako trigger condition — bezpośrednio mówi 'ktoś bez ochrony'"), info o licencjach (wszystko Apache 2.0 / MIT — komercyjnie OK).
+
+**False positive trap złapany**: początkowo wybrałem `Notacodinggeek/yolov8n-fire-smoke` — nazwa pliku sugerowała fire/smoke ALE inspekcja `m.names` pokazała 66 klas rosyjskich butelek wódki/koniaku (akdov, balzam_bugulma, conyak, ledoff, tundra...). Klasy zawsze waliduj przez `YOLO(pt).names`, nie nazwy plików.
+
+**Tests**: 199/199 zielone, build 0/0.
+
+---
+
 ### ✅ TICKET #56 — Usunięcie YOLO-World v2 + OWLv2 large jako 2-gi model
 
 **Powód**: pomimo 3 naprawionych bugów w YW (closed-set ultralytics export, CLIP pad token=0 zamiast EOS, post-vs-pre-projection embeddings), model wciąż dawał false positives — prompty matchowały wizualnie podobne fragmenty (np. czerwone paski na ustach Benetton modeli jako "pants") zamiast prawdziwych obiektów. To fundamentalna słabość modelu YOLO-World v2-x dla rzadkich klas (LVIS+Objects365 trening), nie kod. User wybrał OWLv2 jako sole open-vocab path.
