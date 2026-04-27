@@ -138,12 +138,6 @@
                     </MudAlert>
                 }
 
-                @{
-                    var visibleDetections = _result.Detections
-                        .Where(d => _selectedClasses.Count == 0 || _selectedClasses.Contains(d.Label))
-                        .ToList();
-                }
-
                 @* ── Class filter (wyłączone gdy 0 detekcji) ───────────────── *@
                 @if (_availableClasses.Count > 0)
                 {
@@ -178,7 +172,7 @@
                     <svg viewBox="@($"0 0 {_result.SourceWidth} {_result.SourceHeight}")"
                          preserveAspectRatio="none"
                          style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
-                        @foreach (var (d, idx) in visibleDetections.Select((x, i) => (x, i)))
+                        @foreach (var (d, idx) in VisibleDetections().Select((x, i) => (x, i)))
                         {
                             var color = BboxColor(idx);
                             <rect x="@Fmt(d.X)" y="@Fmt(d.Y)"
@@ -186,7 +180,7 @@
                                   fill="none" stroke="@color" stroke-width="3" />
                         }
                     </svg>
-                    @foreach (var (d, idx) in visibleDetections.Select((x, i) => (x, i)))
+                    @foreach (var (d, idx) in VisibleDetections().Select((x, i) => (x, i)))
                     {
                         var color = BboxColor(idx);
                         var leftPct = d.X / Math.Max(1, _result.SourceWidth) * 100;
@@ -200,7 +194,7 @@
                 @* ── Meta ──────────────────────────────────────────────────── *@
                 <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
                     <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">
-                        @visibleDetections.Count / @_result.Detections.Count @L["ModelTest.Detections"]
+                        @VisibleDetections().Count / @_result.Detections.Count @L["ModelTest.Detections"]
                     </MudChip>
                     <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined" Class="mono">
                         @_result.LatencyMs ms
@@ -234,7 +228,7 @@
                 }
 
                 @* ── Tabela detekcji (filtrowana) ──────────────────────────── *@
-                @if (visibleDetections.Count == 0)
+                @if (VisibleDetections().Count == 0)
                 {
                     <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.SearchOff">
                         @L["ModelTest.NoDetections"]
@@ -242,7 +236,7 @@
                 }
                 else
                 {
-                    <MudTable Items="visibleDetections" Dense="true" Elevation="0" Class="sv-card-alt">
+                    <MudTable Items="VisibleDetections()" Dense="true" Elevation="0" Class="sv-card-alt">
                         <HeaderContent>
                             <MudTh>#</MudTh>
                             <MudTh>@L["ModelTest.Label"]</MudTh>
@@ -250,7 +244,7 @@
                             <MudTh>@L["ModelTest.Bbox"]</MudTh>
                         </HeaderContent>
                         <RowTemplate>
-                            <MudTd class="mono">@visibleDetections.IndexOf(context)</MudTd>
+                            <MudTd class="mono">@VisibleDetections().IndexOf(context)</MudTd>
                             <MudTd><strong>@context.Label</strong></MudTd>
                             <MudTd class="mono">@($"{context.Confidence * 100:F1}%")</MudTd>
                             <MudTd class="mono" Style="font-size:11px;">
@@ -479,6 +473,12 @@
     }
 
     private void ResetClassFilter() => _selectedClasses.Clear();
+
+    /// <summary>Detekcje po filtrze klas. Pusty <c>_selectedClasses</c> = pokaż wszystko (UX choice).</summary>
+    private List<TestDetection> VisibleDetections() =>
+        _result?.Detections
+            .Where(d => _selectedClasses.Count == 0 || _selectedClasses.Contains(d.Label))
+            .ToList() ?? new List<TestDetection>();
 
     private static string Fmt(double v) => v.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
 
