@@ -138,16 +138,47 @@
                     </MudAlert>
                 }
 
-                @* ── Obraz + bbox overlay ──────────────────────────────────── *@
+                @{
+                    var visibleDetections = _result.Detections
+                        .Where(d => _selectedClasses.Count == 0 || _selectedClasses.Contains(d.Label))
+                        .ToList();
+                }
+
+                @* ── Class filter (wyłączone gdy 0 detekcji) ───────────────── *@
+                @if (_availableClasses.Count > 0)
+                {
+                    <MudPaper Class="pa-2 sv-card-alt" Elevation="0">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-wrap:wrap;">
+                            <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small"
+                                     Style="color:var(--mud-palette-primary);" />
+                            <MudText Typo="Typo.caption" Class="sv-text-muted">@L["ModelTest.FilterClasses"]:</MudText>
+                            @foreach (var cls in _availableClasses)
+                            {
+                                var picked = _selectedClasses.Count == 0 || _selectedClasses.Contains(cls);
+                                var countInResult = _result.Detections.Count(d => d.Label == cls);
+                                <MudChip T="string" Size="Size.Small"
+                                         Color="@(picked ? Color.Primary : Color.Default)"
+                                         Variant="@(picked ? Variant.Filled : Variant.Outlined)"
+                                         OnClick="@(() => ToggleClass(cls))">
+                                    @cls @if (countInResult > 0) { <text>(@countInResult)</text> }
+                                </MudChip>
+                            }
+                            <MudSpacer />
+                            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ResetClassFilter">
+                                @L["ModelTest.FilterAll"]
+                            </MudButton>
+                        </MudStack>
+                    </MudPaper>
+                }
+
+                @* ── Obraz + bbox overlay (filtrowane) ──────────────────────── *@
                 <div style="position:relative; width:100%; background:#1a1a1a; border-radius:4px; overflow:hidden;">
                     <img src="@_dataUrl" alt="test frame"
                          style="display:block; width:100%; height:auto;" />
-                    @* SVG rysuje tylko prostokąty bboxów; labele jako HTML div overlay
-                       (żeby uniknąć kolizji Razor-a z SVG <text> tag — Razor traktuje go jako directive). *@
                     <svg viewBox="@($"0 0 {_result.SourceWidth} {_result.SourceHeight}")"
                          preserveAspectRatio="none"
                          style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
-                        @foreach (var (d, idx) in _result.Detections.Select((x, i) => (x, i)))
+                        @foreach (var (d, idx) in visibleDetections.Select((x, i) => (x, i)))
                         {
                             var color = BboxColor(idx);
                             <rect x="@Fmt(d.X)" y="@Fmt(d.Y)"
@@ -155,7 +186,7 @@
                                   fill="none" stroke="@color" stroke-width="3" />
                         }
                     </svg>
-                    @foreach (var (d, idx) in _result.Detections.Select((x, i) => (x, i)))
+                    @foreach (var (d, idx) in visibleDetections.Select((x, i) => (x, i)))
                     {
                         var color = BboxColor(idx);
                         var leftPct = d.X / Math.Max(1, _result.SourceWidth) * 100;
@@ -169,7 +200,7 @@
                 @* ── Meta ──────────────────────────────────────────────────── *@
                 <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
                     <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">
-                        @_result.Detections.Count @L["ModelTest.Detections"]
+                        @visibleDetections.Count / @_result.Detections.Count @L["ModelTest.Detections"]
                     </MudChip>
                     <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined" Class="mono">
                         @_result.LatencyMs ms
@@ -202,8 +233,8 @@
                     </MudText>
                 }
 
-                @* ── Tabela detekcji ───────────────────────────────────────── *@
-                @if (_result.Detections.Count == 0)
+                @* ── Tabela detekcji (filtrowana) ──────────────────────────── *@
+                @if (visibleDetections.Count == 0)
                 {
                     <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.SearchOff">
                         @L["ModelTest.NoDetections"]
@@ -211,7 +242,7 @@
                 }
                 else
                 {
-                    <MudTable Items="_result.Detections" Dense="true" Elevation="0" Class="sv-card-alt">
+                    <MudTable Items="visibleDetections" Dense="true" Elevation="0" Class="sv-card-alt">
                         <HeaderContent>
                             <MudTh>#</MudTh>
                             <MudTh>@L["ModelTest.Label"]</MudTh>
@@ -219,7 +250,7 @@
                             <MudTh>@L["ModelTest.Bbox"]</MudTh>
                         </HeaderContent>
                         <RowTemplate>
-                            <MudTd class="mono">@_result.Detections.IndexOf(context)</MudTd>
+                            <MudTd class="mono">@visibleDetections.IndexOf(context)</MudTd>
                             <MudTd><strong>@context.Label</strong></MudTd>
                             <MudTd class="mono">@($"{context.Confidence * 100:F1}%")</MudTd>
                             <MudTd class="mono" Style="font-size:11px;">
@@ -257,6 +288,10 @@
     private readonly List<string> _prompts = new();
     private string _promptDraft = string.Empty;
     private double _confidenceThreshold;  // user-overridable, init z model.ConfidenceThreshold
+    // Class filter — client-side. _selectedClasses pusty = "wszystkie aktywne" (UX choice).
+    // _availableClasses = klasy obecne w wynikach + ze model labels (żeby user widział też puste).
+    private readonly HashSet<string> _selectedClasses = new(StringComparer.Ordinal);
+    private List<string> _availableClasses = new();
 
     protected override void OnInitialized()
     {
@@ -379,6 +414,19 @@
                 _rawJson = PrettyPrint(result[3..]);
                 _result = System.Text.Json.JsonSerializer.Deserialize<TestResult>(result[3..],
                     new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                // Aktualizuj listę dostępnych klas — union model labels (z UsedPrompts albo Model.Labels)
+                // i klas faktycznie zwróconych w detekcjach (ważne np. dla COCO 80 — chcemy widzieć też
+                // klasy które się nie pojawiły w wynikach, żeby user mógł je wybrać przy następnym Reanalyze).
+                if (_result is not null)
+                {
+                    var fromResult = _result.Detections.Select(d => d.Label);
+                    var fromPrompts = _result.UsedPrompts ?? new List<string>();
+                    _availableClasses = fromPrompts.Concat(fromResult)
+                        .Where(s => !string.IsNullOrEmpty(s))
+                        .Distinct(StringComparer.Ordinal)
+                        .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                }
             }
             else
             {
@@ -405,6 +453,32 @@
         }
         catch { return json; }
     }
+
+    /// <summary>Toggle pojedynczej klasy w filtrze (client-side, bez re-analizy).
+    /// Pierwszy klick na chip = zaczynamy filtrować i włączamy tylko tę klasę. Kolejne klicki
+    /// dodają / usuwają. Pusty zbiór po reset = wszystkie widoczne (UX choice — łatwiej niż "all" jako fake-state).</summary>
+    private void ToggleClass(string cls)
+    {
+        // Gdy jeszcze nic nie wybrane (pusty = all), pierwszy klik wycisza wszystko OPRÓCZ klikniętej.
+        if (_selectedClasses.Count == 0)
+        {
+            foreach (var c in _availableClasses)
+                if (c != cls) _selectedClasses.Add(c);
+            // teraz `cls` jest jedyną nieobecną w secie — czyli widoczną. Ale to mylące UX.
+            // Czystsze: pełen reset i dodaj tylko tę klasę.
+            _selectedClasses.Clear();
+            _selectedClasses.Add(cls);
+            return;
+        }
+
+        if (_selectedClasses.Contains(cls)) _selectedClasses.Remove(cls);
+        else _selectedClasses.Add(cls);
+
+        // Gdy user wybrał wszystkie ręcznie — przejdź na "wszystkie aktywne" (pusty set)
+        if (_selectedClasses.Count == _availableClasses.Count) _selectedClasses.Clear();
+    }
+
+    private void ResetClassFilter() => _selectedClasses.Clear();
 
     private static string Fmt(double v) => v.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
 

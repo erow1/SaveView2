@@ -642,6 +642,8 @@
   <data name="ModelTest.Running"><value>Wykrywanie…</value></data>
   <data name="ModelTest.Hint"><value>Wgraj zdjęcie testowe (.jpg/.png, max 20MB). Model uruchomi detekcję i pokaże bboxy + raw output.</value></data>
   <data name="ModelTest.Detections"><value>detekcji</value></data>
+  <data name="ModelTest.FilterClasses"><value>Filtruj klasy</value></data>
+  <data name="ModelTest.FilterAll"><value>Pokaż wszystkie</value></data>
   <data name="ModelTest.NoDetections"><value>Brak detekcji. Spróbuj innego zdjęcia, obniż próg confidence w edycji modelu, albo dla open-vocab: dodaj sensowne etykiety do modelu.</value></data>
   <data name="ModelTest.Label"><value>Etykieta</value></data>
   <data name="ModelTest.Confidence"><value>Pewność</value></data>

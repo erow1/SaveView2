@@ -645,6 +645,8 @@
   <data name="ModelTest.Running"><value>Detecting…</value></data>
   <data name="ModelTest.Hint"><value>Upload a test image (.jpg/.png, max 20MB). The model will run detection and show bounding boxes + raw output.</value></data>
   <data name="ModelTest.Detections"><value>detections</value></data>
+  <data name="ModelTest.FilterClasses"><value>Filter classes</value></data>
+  <data name="ModelTest.FilterAll"><value>Show all</value></data>
   <data name="ModelTest.NoDetections"><value>No detections found. Try a different image, lower confidence threshold, or for open-vocab: add meaningful labels to the model.</value></data>
   <data name="ModelTest.Label"><value>Label</value></data>
   <data name="ModelTest.Confidence"><value>Confidence</value></data>
