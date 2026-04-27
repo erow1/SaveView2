@@ -96,7 +96,10 @@ public sealed class ModelSeeder : IHostedService
                     backend = DetectorBackend.OwlV2;
                     caps = ModelCapabilities.TextPrompts; // OWLv2 jest open-vocab only — bez closed-set fallback
                     descPrefix = "OWLv2 (Google, Apache 2.0, ViT-based open-vocab)";
-                    inputSize = 960; // OWLv2 wymaga 960×960
+                    // Czytamy InputSize z preprocessor_config.json — różne warianty OWLv2 mają różne
+                    // patch sizes (base patch16 → 960, large patch14 → 1008). Niezgodność = ONNX
+                    // rzuca shape mismatch w embeddings Add op.
+                    inputSize = ReadOwlV2InputSize(Path.Combine(subDir, "preprocessor_config.json")) ?? 960;
                 }
                 else
                 {
@@ -168,6 +171,25 @@ public sealed class ModelSeeder : IHostedService
             }
             if (legacy.Count > 0)
                 _log.LogInformation("ModelSeeder: cleanup zakończony, usunięto {Count} legacy YW modeli.", legacy.Count);
+
+            // Migration: dla każdego OWLv2 modelu zsynchronizuj InputSize z preprocessor_config.json
+            // (early seed code hardcode-ował 960; OWLv2 large potrzebuje 1008 — niezgodność = ONNX
+            // shape mismatch w Add op embeddings vision_model).
+            foreach (var m in all.Where(x => x.Backend == DetectorBackend.OwlV2))
+            {
+                var path = m.OnnxAbsolutePath;
+                if (string.IsNullOrEmpty(path) || !File.Exists(path)) continue;
+                var preprocPath = Path.Combine(Path.GetDirectoryName(path)!, "preprocessor_config.json");
+                var actualSize = ReadOwlV2InputSize(preprocPath);
+                if (actualSize is { } px && px != m.InputSize)
+                {
+                    var oldSize = m.InputSize;
+                    m.InputSize = px;
+                    await _repo.UpdateAsync(m, ct).ConfigureAwait(false);
+                    _log.LogInformation("ModelSeeder: zaktualizowano InputSize OWLv2 '{Name}' {Old} → {New} " +
+                        "(z preprocessor_config.json).", m.Name, oldSize, px);
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -191,6 +213,28 @@ public sealed class ModelSeeder : IHostedService
         // fallback — sprawdź cwd
         var cwdCandidate = Path.Combine(Directory.GetCurrentDirectory(), "runtime", "models");
         return Directory.Exists(cwdCandidate) ? cwdCandidate : null;
+    }
+
+    /// <summary>
+    /// Czyta <c>size.height</c> z <c>preprocessor_config.json</c> OWLv2 (Hugging Face format).
+    /// Returns null gdy brak pliku, niepoprawny JSON, albo brak pola size.height — caller fallback.
+    /// </summary>
+    private static int? ReadOwlV2InputSize(string preprocPath)
+    {
+        if (!File.Exists(preprocPath)) return null;
+        try
+        {
+            using var stream = File.OpenRead(preprocPath);
+            using var doc = System.Text.Json.JsonDocument.Parse(stream);
+            if (doc.RootElement.TryGetProperty("size", out var size)
+                && size.TryGetProperty("height", out var h)
+                && h.TryGetInt32(out var px) && px > 0)
+            {
+                return px;
+            }
+        }
+        catch { /* malformed JSON → fallback */ }
+        return null;
     }
 
     private static List<string> ReadLabels(string labelsPath)

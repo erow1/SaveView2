@@ -118,8 +118,22 @@ public static class ModelTestDetectEndpoint
                     }
                     catch (Exception ex)
                     {
-                        log.LogWarning(ex, "Test-detect failed for model {Id}", id);
-                        return Results.Problem($"inference failed: {ex.Message}");
+                        // LogError → trafia do system_events (Serilog → Mongo sink) jako Severity=Error,
+                        // user widzi w /admin/system-events. Wcześniej LogWarning + 500 Problem
+                        // ginęło w "warning noise"; teraz jednoznaczne Error + body z dokładnym message
+                        // (UI renderuje czerwony banner dzięki MudAlert Severity.Error w ModelTestDialog).
+                        log.LogError(ex, "Test-detect inference failed for model {Id} ({Name})", id, model.Name);
+                        return Results.Ok(new
+                        {
+                            modelId = model.Id,
+                            modelName = model.Name,
+                            backend = model.Backend.ToString(),
+                            capabilities = model.Capabilities.ToString(),
+                            error = $"Inference failed: {ex.GetType().Name}: {ex.Message}",
+                            usedFlow = "error",
+                            usedPrompts = customPrompts ?? model.Labels,
+                            detections = Array.Empty<object>()
+                        });
                     }
 
                     if (!result.Success)

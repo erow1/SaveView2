@@ -38,8 +38,12 @@ public sealed class OnnxOwlV2Detector : IObjectDetector, ITextPromptDetector, ID
 {
     public string Backend => "OwlV2";
 
-    /// <summary>OWLv2 wymaga 960×960 (paper + onnx-community export).</summary>
-    private const int OwlV2InputSize = 960;
+    /// <summary>
+    /// Domyślny rozmiar wejścia gdy <see cref="MLModel.InputSize"/> nie jest ustawiony.
+    /// OWLv2 base patch16 = 960; OWLv2 large patch14 = 1008. Per-model wartość czytana
+    /// z preprocessor_config.json przez <c>ModelSeeder</c>.
+    /// </summary>
+    private const int DefaultInputSize = 960;
 
     /// <summary>OWLv2 tokenizer config — short prompts dla detection (krótsze niż CLIP 77).</summary>
     private const int OwlV2MaxTokens = 16;
@@ -104,8 +108,10 @@ public sealed class OnnxOwlV2Detector : IObjectDetector, ITextPromptDetector, ID
         using var image = await Image.LoadAsync<Rgb24>(imagePath, ct).ConfigureAwait(false);
         int srcW = image.Width, srcH = image.Height;
 
-        // 1. Image preprocessing: letterbox 960×960 + CLIP normalize
-        var (pixelValues, scale, padX, padY) = PreprocessImage(image);
+        // 1. Image preprocessing: letterbox SxS + CLIP normalize. S = model.InputSize
+        // (z preprocessor_config.json przez ModelSeeder; base patch16 = 960, large patch14 = 1008).
+        int inputSize = model.InputSize > 0 ? model.InputSize : DefaultInputSize;
+        var (pixelValues, scale, padX, padY) = PreprocessImage(image, inputSize);
 
         // 2. Tokenize prompts (override max_length=16 dla OWLv2)
         var inputIds = new DenseTensor<long>([prompts.Count, OwlV2MaxTokens]);
@@ -140,7 +146,7 @@ public sealed class OnnxOwlV2Detector : IObjectDetector, ITextPromptDetector, ID
             return DetectionResult.Failed("OWLv2: brak oczekiwanych outputów 'logits' / 'pred_boxes'.");
 
         // 5. Postprocess: sigmoid logits, denormalize boxes, NMS
-        var detections = Postprocess(logits, predBoxes, prompts, model, scale, padX, padY, srcW, srcH);
+        var detections = Postprocess(logits, predBoxes, prompts, model, scale, padX, padY, srcW, srcH, inputSize);
 
         sw.Stop();
         return new DetectionResult(true, detections, srcW, srcH, sw.Elapsed);
@@ -149,26 +155,26 @@ public sealed class OnnxOwlV2Detector : IObjectDetector, ITextPromptDetector, ID
     // ─── Preprocessing ─────────────────────────────────────────────────────
 
     private static (DenseTensor<float> Tensor, float Scale, int PadX, int PadY)
-        PreprocessImage(Image<Rgb24> src)
+        PreprocessImage(Image<Rgb24> src, int inputSize)
     {
-        var scale = Math.Min((float)OwlV2InputSize / src.Width, (float)OwlV2InputSize / src.Height);
+        var scale = Math.Min((float)inputSize / src.Width, (float)inputSize / src.Height);
         var newW = (int)Math.Round(src.Width * scale);
         var newH = (int)Math.Round(src.Height * scale);
-        var padX = (OwlV2InputSize - newW) / 2;
-        var padY = (OwlV2InputSize - newH) / 2;
+        var padX = (inputSize - newW) / 2;
+        var padY = (inputSize - newH) / 2;
 
         using var resized = src.Clone(ctx => ctx.Resize(newW, newH));
-        using var canvas = new Image<Rgb24>(OwlV2InputSize, OwlV2InputSize,
+        using var canvas = new Image<Rgb24>(inputSize, inputSize,
             new Rgb24(LetterboxPadGray, LetterboxPadGray, LetterboxPadGray));
         canvas.Mutate(ctx => ctx.DrawImage(resized, new Point(padX, padY), 1f));
 
-        var tensor = new DenseTensor<float>([1, 3, OwlV2InputSize, OwlV2InputSize]);
+        var tensor = new DenseTensor<float>([1, 3, inputSize, inputSize]);
         canvas.ProcessPixelRows(rows =>
         {
-            for (int y = 0; y < OwlV2InputSize; y++)
+            for (int y = 0; y < inputSize; y++)
             {
                 var row = rows.GetRowSpan(y);
-                for (int x = 0; x < OwlV2InputSize; x++)
+                for (int x = 0; x < inputSize; x++)
                 {
                     var p = row[x];
                     // /255 then (v-mean)/std per channel, CLIP-style
@@ -189,7 +195,8 @@ public sealed class OnnxOwlV2Detector : IObjectDetector, ITextPromptDetector, ID
         Tensor<float> predBoxes,      // [1, 3600, 4] cxywh normalized [0,1] in padded space
         IReadOnlyList<string> prompts,
         MLModel model,
-        float scale, int padX, int padY, int srcW, int srcH)
+        float scale, int padX, int padY, int srcW, int srcH,
+        int inputSize)
     {
         var ld = logits.Dimensions.ToArray();
         var bd = predBoxes.Dimensions.ToArray();
@@ -214,11 +221,11 @@ public sealed class OnnxOwlV2Detector : IObjectDetector, ITextPromptDetector, ID
             }
             if (bestCls < 0 || bestScore < confTh) continue;
 
-            // Decode box: cxywh normalized [0,1] in 960×960 padded space → xyxy in 960-space
-            var cx = predBoxes[0, i, 0] * OwlV2InputSize;
-            var cy = predBoxes[0, i, 1] * OwlV2InputSize;
-            var w = predBoxes[0, i, 2] * OwlV2InputSize;
-            var h = predBoxes[0, i, 3] * OwlV2InputSize;
+            // Decode box: cxywh normalized [0,1] in InputSize×InputSize padded space → xyxy in input-space
+            var cx = predBoxes[0, i, 0] * inputSize;
+            var cy = predBoxes[0, i, 1] * inputSize;
+            var w = predBoxes[0, i, 2] * inputSize;
+            var h = predBoxes[0, i, 3] * inputSize;
             var x1 = cx - w / 2;
             var y1 = cy - h / 2;
             var x2 = cx + w / 2;
