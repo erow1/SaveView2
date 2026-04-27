@@ -82,6 +82,7 @@ public static class ModelTestDetectEndpoint
 
                     DetectionResult result;
                     string usedFlow; // info dla UI co faktycznie użyto
+                    string? warning = null;
                     try
                     {
                         if (customPrompts is { Count: > 0 }
@@ -96,6 +97,10 @@ public static class ModelTestDetectEndpoint
                             var detector = detectorFactory.GetFor(model);
                             result = await detector.DetectAsync(model, tempPath, ct);
                             usedFlow = "default";
+                            // Hint dla usera: ten model nie wspiera dynamic vocab, więc prompty zostały zignorowane.
+                            if (customPrompts is { Count: > 0 })
+                                warning = "Custom prompts zostały zignorowane — ten model nie ma capability TextPrompts " +
+                                          "(closed-set / compiled). Aby użyć text promptów, włącz dynamic export YOLO-World.";
                         }
                     }
                     catch (Exception ex)
@@ -105,7 +110,21 @@ public static class ModelTestDetectEndpoint
                     }
 
                     if (!result.Success)
-                        return Results.Problem($"detection failed: {result.ErrorMessage}");
+                    {
+                        // Detector zwrócił błąd biznesowy (np. defensive guard "compiled + custom prompts").
+                        // Zwracamy 200 ale z błędem w body — UI może to ładnie pokazać zamiast generic 500.
+                        return Results.Ok(new
+                        {
+                            modelId = model.Id,
+                            modelName = model.Name,
+                            backend = model.Backend.ToString(),
+                            capabilities = model.Capabilities.ToString(),
+                            error = result.ErrorMessage,
+                            usedFlow,
+                            usedPrompts = customPrompts ?? model.Labels,
+                            detections = Array.Empty<object>()
+                        });
+                    }
 
                     return Results.Ok(new
                     {
@@ -120,6 +139,7 @@ public static class ModelTestDetectEndpoint
                         iouThreshold = model.IouThreshold,
                         usedFlow,                                         // "text-prompts" | "default"
                         usedPrompts = customPrompts ?? model.Labels,      // dokładnie co poszło do modelu
+                        warning,                                          // null albo komunikat dla usera
                         detections = result.Detections.Select(d => new
                         {
                             classId = d.ClassId,

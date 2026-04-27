@@ -96,6 +96,21 @@
 
             @if (_result is not null)
             {
+                @* ── Error / Warning bannery ──────────────────────────────── *@
+                @if (!string.IsNullOrEmpty(_result.Error))
+                {
+                    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.ErrorOutline">
+                        <strong>Detector zwrócił błąd:</strong><br />
+                        @_result.Error
+                    </MudAlert>
+                }
+                else if (!string.IsNullOrEmpty(_result.Warning))
+                {
+                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.WarningAmber">
+                        @_result.Warning
+                    </MudAlert>
+                }
+
                 @* ── Obraz + bbox overlay ──────────────────────────────────── *@
                 <div style="position:relative; width:100%; background:#1a1a1a; border-radius:4px; overflow:hidden;">
                     <img src="@_dataUrl" alt="test frame"
@@ -342,6 +357,8 @@
         public double ConfidenceThreshold { get; set; }
         public double IouThreshold { get; set; }
         public string? UsedFlow { get; set; }
+        public string? Warning { get; set; }      // backend hint (np. text prompts ignored)
+        public string? Error { get; set; }        // detector business-error (np. compiled + custom prompts)
         public List<string> UsedPrompts { get; set; } = new();
         public List<TestDetection> Detections { get; set; } = new();
     }

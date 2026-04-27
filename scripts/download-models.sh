@@ -167,16 +167,21 @@ export_coco_model() {
 }
 
 # ── YOLO-World v2 open-vocab (Apache 2.0, Tencent) ─────────────────────────
-# Pobiera z HuggingFace gotowe ONNX (nie wymaga eksportu przez Python/torch).
-# Repo: onnx-community/YOLO-World-v2-s (autor: community, Apache 2.0 od Tencent)
-# Alternatywa: Xenova/yolo-world (też ONNX, browser-oriented).
+# Pobiera z HuggingFace gotowe ONNX — JEDYNA ścieżka (poprzedni ultralytics export
+# produkował closed-set model z zamrożonym vocab COCO, co psuło text-prompt path).
+#
+# Źródła:
+#   • Detection model: jquadrino/yolo-world-onnx — 2 inputs (image + text_features [N,classes,512]),
+#     2 outputs (scores [N,8400,classes] sigmoid + boxes [N,8400,4] xyxy w 640×640).
+#     ~400 MB FP32. Licencja MIT.
+#   • CLIP text encoder + tokenizer: Xenova/clip-vit-base-patch32 — embed dim 512, MIT.
 #
 # Struktura runtime/models/yolo-world-v2-s/:
-#   model.onnx             — image detection ONNX (open-vocab, 2 inputs: image + text_embeddings)
+#   model.onnx             — image detection (2 inputs / 2 outputs split format)
 #   text-encoder.onnx      — CLIP ViT-B/32 text encoder
-#   tokenizer/vocab.json   — CLIP BPE vocab (49408 tokens)
+#   tokenizer/vocab.json   — CLIP BPE vocab
 #   tokenizer/merges.txt   — CLIP BPE merges
-#   labels.txt             — default lista klas (seed — user może użyć dowolnych promptów w TriggerDialog)
+#   labels.txt             — seed labels (vendor opcjonalny — user podaje custom prompts)
 #   README.md              — opis
 export_yolo_world_v2s() {
     local target_dir="$MODELS_ROOT/yolo-world-v2-s"
@@ -188,8 +193,6 @@ export_yolo_world_v2s() {
         return 0
     fi
 
-    # HF_TOKEN (opcjonalny) — dla repos gated. Używamy funkcji-wrappera zamiast tablicy,
-    # żeby uniknąć problemu z `set -u` na pustej tablicy `${AUTH[@]}`.
     hf_curl() {
         local dest="$1"; local url="$2"
         if [ -n "${HF_TOKEN:-}" ]; then
@@ -199,42 +202,24 @@ export_yolo_world_v2s() {
         fi
     }
 
-    if [ -n "${HF_TOKEN:-}" ]; then
-        echo "  ℹ Używam HF_TOKEN z środowiska."
-    fi
+    [ -n "${HF_TOKEN:-}" ] && echo "  ℹ Używam HF_TOKEN z środowiska."
 
-    local CLIP_BASE="https://huggingface.co/openai/clip-vit-base-patch32/resolve/main"
+    local CLIP_BASE="https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main"
+    local YW_BASE="https://huggingface.co/jquadrino/yolo-world-onnx/resolve/main"
 
-    # Primary ścieżka: ultralytics Python venv pobiera oficjalne wagi + eksportuje do ONNX.
-    # Ten sam flow co dla YOLOv8 classical (już sprawdzony). Nie wymaga HuggingFace ani token.
-    # Ultralytics samo pobiera z własnego CDN (github releases) — stabilne.
-    echo "  ↓ Eksportuję YOLO-World v2-s przez ultralytics (pobiera wagi + konwertuje ONNX)..."
-    (
-        cd "$target_dir"
-        # yolov8s-worldv2 = YOLO-World v2 small. Ultralytics od v8.1+ ma to natywnie.
-        "$VENV_DIR/bin/yolo" export "model=yolov8s-worldv2.pt" format=onnx imgsz=640 opset=12 dynamic=True 2>&1 | tail -8
-    )
-
-    # Ultralytics zapisuje plik o takiej samej nazwie co model (yolov8s-worldv2.onnx).
-    # Zmieniamy nazwę na konsystentne model.onnx + usuwamy .pt żeby oszczędzić dysk.
-    if [ -f "$target_dir/yolov8s-worldv2.onnx" ]; then
-        mv "$target_dir/yolov8s-worldv2.onnx" "$target_dir/model.onnx"
-        rm -f "$target_dir/yolov8s-worldv2.pt"
-        echo "    ✓ model.onnx z ultralytics ($(du -h "$target_dir/model.onnx" | cut -f1))"
-    else
-        echo "  ✗ ultralytics export nie wyprodukował pliku ONNX."
-        echo "     Sprawdź czy ultralytics jest zainstalowany w wersji >= 8.1 i czy ma dostęp do netu."
-        echo "     Alternatywnie: pobierz yolov8s-worldv2 ręcznie i umieść jako $target_dir/model.onnx"
+    echo "  ↓ Pobieram YOLO-World detection ONNX (~400 MB) z jquadrino/yolo-world-onnx..."
+    if ! hf_curl "$target_dir/model.onnx" "$YW_BASE/yolo-world.onnx"; then
+        echo "  ✗ Pobieranie yolo-world.onnx nieudane. Sprawdź dostęp do huggingface.co."
         return 1
     fi
+    echo "    ✓ model.onnx ($(du -h "$target_dir/model.onnx" | cut -f1))"
 
-    echo "  ↓ Pobieram CLIP text encoder ONNX (~150 MB)..."
-    if hf_curl "$target_dir/text-encoder.onnx" "$CLIP_BASE/onnx/text_model.onnx" 2>/dev/null; then
-        echo "    ✓ text-encoder z openai/clip-vit-base-patch32"
-    else
-        echo "  ✗ Nie udało się pobrać CLIP text-encoder. Sprawdź dostęp do huggingface.co."
+    echo "  ↓ Pobieram CLIP text encoder ONNX (~242 MB) z Xenova/clip-vit-base-patch32..."
+    if ! hf_curl "$target_dir/text-encoder.onnx" "$CLIP_BASE/onnx/text_model.onnx"; then
+        echo "  ✗ Nie udało się pobrać CLIP text-encoder."
         return 1
     fi
+    echo "    ✓ text-encoder.onnx ($(du -h "$target_dir/text-encoder.onnx" | cut -f1))"
 
     echo "  ↓ Pobieram CLIP BPE tokenizer (vocab.json + merges.txt)..."
     hf_curl "$target_dir/tokenizer/vocab.json" "$CLIP_BASE/vocab.json" \
@@ -242,8 +227,6 @@ export_yolo_world_v2s() {
     hf_curl "$target_dir/tokenizer/merges.txt" "$CLIP_BASE/merges.txt" \
         || { echo "  ✗ Nie udało się pobrać merges.txt"; return 1; }
 
-    # Default seed labels — dowolna lista, user tak naprawdę użyje prompts z DetectionClass.
-    # Wpis ma tylko pomóc ModelSeeder-owi zainicjować model z sensowną listą COCO-like.
     cat > "$target_dir/labels.txt" <<'EOF'
 person
 car
@@ -257,16 +240,22 @@ smoke
 EOF
 
     cat > "$target_dir/README.md" <<'EOF'
-# YOLO-World v2-s (open-vocabulary)
+# YOLO-World v2 (open-vocabulary, dynamic 2-input)
 
-Licencja: Apache 2.0 (Tencent AI Lab). Open-vocabulary detektor — klasy podawane są
-jako prompty tekstowe przy inferencji (nie są zamrożone w wagach).
+**Source**: `jquadrino/yolo-world-onnx` (HuggingFace, MIT) + `Xenova/clip-vit-base-patch32` (CLIP text encoder).
 
-Bundled files:
-- `model.onnx` — detection model, 2 inputs (image + text_embeddings)
-- `text-encoder.onnx` — CLIP ViT-B/32 text encoder
-- `tokenizer/` — CLIP BPE vocab + merges
-- `labels.txt` — seed labels (nie jest używany przy dynamic prompt — user podaje swoje)
+**Architektura**:
+- `model.onnx` — 2 inputs: `images [B,3,640,640]` + `text_features [B,classes,512]`
+- 2 outputs: `scores [B,8400,classes]` (sigmoid probs) + `boxes [B,8400,4]` (xyxy w 640×640 input space)
+- Open-vocabulary: vocabulary nie jest zamrożone w wagach — passujesz dowolne klasy jako embeddings z CLIP-a runtime
+- Producer: pytorch 2.3.1, opset 12
+
+**WAŻNE — historyczny bug fix (2026-04-27)**:
+Wcześniejsza wersja tego folderu zawierała `model.onnx` z `ultralytics yolo export model=yolov8s-worldv2.pt`,
+który produkował **closed-set** model z zamrożonym vocab COCO (1 input, brak text path). Custom prompts były
+silently ignorowane przez sieć, a my relabel-owaliśmy detekcje przez `prompts[s.cls]` → user widział "person"
+z labelem "dog". Naprawione przez przejście na jquadrino's dynamic export + defensive guard w
+`OnnxYoloWorldDetector.DetectWithPromptsAsync` (rzuca clear error gdy isDynamic=false + custom prompts).
 
 Pipeline SafeView automatycznie rozpoznaje ten folder jako `DetectorBackend.YoloWorld`
 i ustawia `Capabilities = ClosedSet | TextPrompts`.

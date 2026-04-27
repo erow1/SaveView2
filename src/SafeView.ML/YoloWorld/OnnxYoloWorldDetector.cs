@@ -115,6 +115,22 @@ public sealed class OnnxYoloWorldDetector : IObjectDetector, ITextPromptDetector
             return DetectionResult.Failed($"Nie udało się wczytać modelu: {ex.Message}");
         }
 
+        // ── Defensive guard (bug 2026-04-27): compiled-mode model + custom prompts ──
+        // Compiled YOLO-World ma vocabulary zamrożone w wagach (1 input, brak text path).
+        // Custom prompts są ignorowane przez sieć, ale dawniej silently relabel-owaliśmy
+        // detekcje przez prompts[s.cls] — co produkowało "person z labelem dog". Teraz failujemy
+        // jasno gdy caller przesłał prompty inne niż model.Labels (czyli explicite chce text-prompt).
+        bool callerOverridesLabels =
+            prompts.Count != model.Labels.Count
+            || !prompts.SequenceEqual(model.Labels, StringComparer.Ordinal);
+        if (!isDynamic && callerOverridesLabels)
+        {
+            return DetectionResult.Failed(
+                "Model YOLO-World jest skompilowany z zamrożonym vocabulary (1 input ONNX, brak text path). " +
+                "Custom text prompts NIE wpływają na inferencję. Pobierz dynamic export modelu " +
+                "(scripts/download-models.sh yolo-world-v2-s).");
+        }
+
         var sw = Stopwatch.StartNew();
 
         using var image = await Image.LoadAsync<Rgb24>(imagePath, ct).ConfigureAwait(false);
@@ -144,11 +160,33 @@ public sealed class OnnxYoloWorldDetector : IObjectDetector, ITextPromptDetector
         }
 
         using var outputs = session.Run(inputs);
-        var output = outputs[0].AsTensor<float>();
 
         // NumClasses dla postprocess: liczba promptów (dynamic) albo model.Labels.Count (compiled).
         int nc = isDynamic ? prompts.Count : Math.Max(1, model.Labels.Count);
-        var detections = Postprocess(output, prompts, nc, model, scale, padX, padY, srcW, srcH);
+
+        // Output format autodetect:
+        //  • 1 output  → YOLOv8 fused [1, 4+nc, N]      (compiled / ultralytics-export)
+        //  • 2 outputs → split scores [1,N,nc] + boxes [1,N,4] xyxy in input-space
+        //                (jquadrino/yolo-world-onnx i podobne dynamic exports)
+        List<Detection> detections;
+        if (outputs.Count >= 2)
+        {
+            var scoresOut = outputs[0].AsTensor<float>();
+            var boxesOut = outputs[1].AsTensor<float>();
+            // Niektóre exporty mogą mieć kolejność boxes-first; rozróżniamy po kształcie.
+            if (scoresOut.Dimensions.Length == 3 && scoresOut.Dimensions[2] == 4
+                && boxesOut.Dimensions.Length == 3 && boxesOut.Dimensions[2] == nc)
+            {
+                (scoresOut, boxesOut) = (boxesOut, scoresOut);
+            }
+            detections = PostprocessSplit(scoresOut, boxesOut, prompts, nc, model,
+                scale, padX, padY, srcW, srcH);
+        }
+        else
+        {
+            var output = outputs[0].AsTensor<float>();
+            detections = Postprocess(output, prompts, nc, model, scale, padX, padY, srcW, srcH);
+        }
 
         sw.Stop();
         return new DetectionResult(true, detections, srcW, srcH, sw.Elapsed);
@@ -246,17 +284,40 @@ public sealed class OnnxYoloWorldDetector : IObjectDetector, ITextPromptDetector
         }
 
         using var outputs = session.Run(inputs);
-        var output = outputs[0].AsTensor<float>();
         sw.Stop();
 
         int nc = isDynamic ? prompts.Count : Math.Max(1, model.Labels.Count);
         var results = new DetectionResult[n];
-        for (int k = 0; k < n; k++)
+
+        if (outputs.Count >= 2)
         {
-            var dets = PostprocessBatchItem(output, k, prompts, nc, model,
-                scales[k], padXs[k], padYs[k], srcSizes[k].W, srcSizes[k].H);
-            results[k] = new DetectionResult(true, dets, srcSizes[k].W, srcSizes[k].H,
-                TimeSpan.FromMilliseconds(sw.ElapsedMilliseconds / (double)n));
+            // Split format (jquadrino i podobne dynamic) — scores [n,N,nc] + boxes [n,N,4] xyxy
+            var scoresOut = outputs[0].AsTensor<float>();
+            var boxesOut = outputs[1].AsTensor<float>();
+            if (scoresOut.Dimensions.Length == 3 && scoresOut.Dimensions[2] == 4
+                && boxesOut.Dimensions.Length == 3 && boxesOut.Dimensions[2] == nc)
+            {
+                (scoresOut, boxesOut) = (boxesOut, scoresOut);
+            }
+            for (int k = 0; k < n; k++)
+            {
+                var dets = PostprocessSplitBatchItem(scoresOut, boxesOut, k, prompts.ToList(), nc, model,
+                    scales[k], padXs[k], padYs[k], srcSizes[k].W, srcSizes[k].H);
+                results[k] = new DetectionResult(true, dets, srcSizes[k].W, srcSizes[k].H,
+                    TimeSpan.FromMilliseconds(sw.ElapsedMilliseconds / (double)n));
+            }
+        }
+        else
+        {
+            // Fused YOLOv8 format (compiled / ultralytics export)
+            var output = outputs[0].AsTensor<float>();
+            for (int k = 0; k < n; k++)
+            {
+                var dets = PostprocessBatchItem(output, k, prompts.ToList(), nc, model,
+                    scales[k], padXs[k], padYs[k], srcSizes[k].W, srcSizes[k].H);
+                results[k] = new DetectionResult(true, dets, srcSizes[k].W, srcSizes[k].H,
+                    TimeSpan.FromMilliseconds(sw.ElapsedMilliseconds / (double)n));
+            }
         }
 
         _log.LogDebug("YOLO-World batch: {N} obrazów w {Ms}ms ({Per}ms/image)",
@@ -294,6 +355,67 @@ public sealed class OnnxYoloWorldDetector : IObjectDetector, ITextPromptDetector
         });
 
         return (scale, padX, padY);
+    }
+
+    private static List<Detection> PostprocessSplitBatchItem(
+        Tensor<float> scoresOut, Tensor<float> boxesOut, int batchIdx,
+        List<string> prompts, int nc,
+        MLModel model, float scale, int padX, int padY, int srcW, int srcH)
+    {
+        var sd = scoresOut.Dimensions.ToArray();
+        var bd = boxesOut.Dimensions.ToArray();
+        if (sd.Length != 3 || bd.Length != 3) return [];
+        if (batchIdx >= sd[0] || batchIdx >= bd[0]) return [];
+
+        int n = Math.Min(sd[1], bd[1]);
+        int classCount = Math.Min(sd[2], nc);
+        if (classCount <= 0 || n <= 0) return [];
+
+        float confTh = (float)model.ConfidenceThreshold;
+        var raw = new List<(float x1, float y1, float x2, float y2, float conf, int cls)>(128);
+        for (int i = 0; i < n; i++)
+        {
+            float bestConf = 0f;
+            int bestCls = -1;
+            for (int c = 0; c < classCount; c++)
+            {
+                var s = scoresOut[batchIdx, i, c];
+                if (s > bestConf) { bestConf = s; bestCls = c; }
+            }
+            if (bestCls < 0 || bestConf < confTh) continue;
+            raw.Add((boxesOut[batchIdx, i, 0], boxesOut[batchIdx, i, 1],
+                     boxesOut[batchIdx, i, 2], boxesOut[batchIdx, i, 3],
+                     bestConf, bestCls));
+        }
+
+        var kept = new List<Detection>();
+        foreach (var group in raw.GroupBy(r => r.cls))
+        {
+            var sorted = group.OrderByDescending(r => r.conf).ToList();
+            var survivors = new List<(float x1, float y1, float x2, float y2, float conf, int cls)>();
+            foreach (var cand in sorted)
+            {
+                bool suppressed = false;
+                foreach (var s in survivors)
+                    if (IoUXyxy(cand, s) > model.IouThreshold) { suppressed = true; break; }
+                if (!suppressed) survivors.Add(cand);
+            }
+            foreach (var s in survivors)
+            {
+                float x1 = (s.x1 - padX) / scale;
+                float y1 = (s.y1 - padY) / scale;
+                float x2 = (s.x2 - padX) / scale;
+                float y2 = (s.y2 - padY) / scale;
+                x1 = Math.Clamp(x1, 0, srcW); y1 = Math.Clamp(y1, 0, srcH);
+                x2 = Math.Clamp(x2, 0, srcW); y2 = Math.Clamp(y2, 0, srcH);
+                if (x2 <= x1 || y2 <= y1) continue;
+
+                string label = s.cls < prompts.Count ? prompts[s.cls]
+                    : (s.cls < model.Labels.Count ? model.Labels[s.cls] : $"class_{s.cls}");
+                kept.Add(new Detection(s.cls, label, s.conf, new BoundingBox(x1, y1, x2 - x1, y2 - y1)));
+            }
+        }
+        return kept;
     }
 
     private static List<Detection> PostprocessBatchItem(
@@ -491,6 +613,87 @@ public sealed class OnnxYoloWorldDetector : IObjectDetector, ITextPromptDetector
         return (tensor, scale, padX, padY);
     }
 
+    /// <summary>
+    /// Postprocess dla split-output dynamic exportów (np. <c>jquadrino/yolo-world-onnx</c>):
+    /// scores <c>[1, N, nc]</c> = sigmoid probs per (anchor, class), boxes <c>[1, N, 4]</c> =
+    /// xyxy w 640×640 input-space (już zdekodowane, sometimes przed-NMS).
+    /// </summary>
+    private static List<Detection> PostprocessSplit(
+        Tensor<float> scoresOut,
+        Tensor<float> boxesOut,
+        IReadOnlyList<string> prompts,
+        int nc,
+        MLModel model,
+        float scale, int padX, int padY, int srcW, int srcH)
+    {
+        var sd = scoresOut.Dimensions.ToArray();
+        var bd = boxesOut.Dimensions.ToArray();
+        if (sd.Length != 3 || bd.Length != 3 || sd[0] != 1 || bd[0] != 1) return [];
+        int n = Math.Min(sd[1], bd[1]);
+        int classCount = Math.Min(sd[2], nc);
+        if (classCount <= 0 || n <= 0) return [];
+
+        float confTh = (float)model.ConfidenceThreshold;
+        var raw = new List<(float x1, float y1, float x2, float y2, float conf, int cls)>(128);
+
+        for (int i = 0; i < n; i++)
+        {
+            float bestConf = 0f;
+            int bestCls = -1;
+            for (int c = 0; c < classCount; c++)
+            {
+                var s = scoresOut[0, i, c];
+                if (s > bestConf) { bestConf = s; bestCls = c; }
+            }
+            if (bestCls < 0 || bestConf < confTh) continue;
+            raw.Add((boxesOut[0, i, 0], boxesOut[0, i, 1], boxesOut[0, i, 2], boxesOut[0, i, 3],
+                     bestConf, bestCls));
+        }
+
+        var kept = new List<Detection>();
+        foreach (var group in raw.GroupBy(r => r.cls))
+        {
+            var sorted = group.OrderByDescending(r => r.conf).ToList();
+            var survivors = new List<(float x1, float y1, float x2, float y2, float conf, int cls)>();
+            foreach (var cand in sorted)
+            {
+                bool suppressed = false;
+                foreach (var s in survivors)
+                    if (IoUXyxy(cand, s) > model.IouThreshold) { suppressed = true; break; }
+                if (!suppressed) survivors.Add(cand);
+            }
+            foreach (var s in survivors)
+            {
+                // Rescale: input-space xyxy → original image pixel xyxy
+                float x1 = (s.x1 - padX) / scale;
+                float y1 = (s.y1 - padY) / scale;
+                float x2 = (s.x2 - padX) / scale;
+                float y2 = (s.y2 - padY) / scale;
+                x1 = Math.Clamp(x1, 0, srcW); y1 = Math.Clamp(y1, 0, srcH);
+                x2 = Math.Clamp(x2, 0, srcW); y2 = Math.Clamp(y2, 0, srcH);
+                if (x2 <= x1 || y2 <= y1) continue;
+
+                string label = s.cls < prompts.Count ? prompts[s.cls]
+                    : (s.cls < model.Labels.Count ? model.Labels[s.cls] : $"class_{s.cls}");
+                kept.Add(new Detection(s.cls, label, s.conf, new BoundingBox(x1, y1, x2 - x1, y2 - y1)));
+            }
+        }
+        return kept;
+    }
+
+    private static float IoUXyxy(
+        (float x1, float y1, float x2, float y2, float conf, int cls) a,
+        (float x1, float y1, float x2, float y2, float conf, int cls) b)
+    {
+        float ix = Math.Max(0, Math.Min(a.x2, b.x2) - Math.Max(a.x1, b.x1));
+        float iy = Math.Max(0, Math.Min(a.y2, b.y2) - Math.Max(a.y1, b.y1));
+        float inter = ix * iy;
+        float aArea = Math.Max(0, a.x2 - a.x1) * Math.Max(0, a.y2 - a.y1);
+        float bArea = Math.Max(0, b.x2 - b.x1) * Math.Max(0, b.y2 - b.y1);
+        float union = aArea + bArea - inter;
+        return union <= 0 ? 0 : inter / union;
+    }
+
     private static List<Detection> Postprocess(
         Tensor<float> output,
         IReadOnlyList<string> prompts,
@@ -564,7 +767,8 @@ public sealed class OnnxYoloWorldDetector : IObjectDetector, ITextPromptDetector
                 x1 = Math.Clamp(x1, 0, srcW); y1 = Math.Clamp(y1, 0, srcH);
                 x2 = Math.Clamp(x2, 0, srcW); y2 = Math.Clamp(y2, 0, srcH);
 
-                // Label = prompt który model przypisał do detekcji; fallback do model.Labels (compiled).
+                // Label = klasa z vocabulary kondycjonującego sieć (dynamic: user prompts;
+                // compiled: model.Labels — defensive guard powyżej blokuje custom prompts dla compiled).
                 string label;
                 if (s.cls < prompts.Count) label = prompts[s.cls];
                 else if (s.cls < model.Labels.Count) label = model.Labels[s.cls];

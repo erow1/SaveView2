@@ -83,6 +83,33 @@ Pełna implementacja: auto-detect dynamic/compiled, batch (SAHI), `IClipTextEnco
 
 ---
 
+## Ukończone (2026-04-27)
+
+### ✅ TICKET #53 — YOLO-World text-prompt fix (closed-set bug)
+
+**Bug**: na `/models` test detect, niezależnie od user prompts, model zawsze wykrywał osoby z różnymi labelami.
+
+**Root cause**: `runtime/models/yolo-world-v2-s/model.onnx` był produkowany przez `ultralytics yolo export model=yolov8s-worldv2.pt format=onnx`, co eksportuje **closed-set** model z zamrożonym vocab COCO (1 input, brak text path). Detektor cicho szedł do compiled path (skip CLIP encode), wracał z 80 wbudowanymi class scores, a `Postprocess` relabel-ował przez `prompts[s.cls]` — czyli osoby (COCO class 0) dostawały label = pierwszy user prompt. CLIP `text-encoder.onnx` w ogóle nie został pobrany (skrypt cicho przeszedł `2>/dev/null`).
+
+**Fix (3 niezależne kawałki)**:
+
+1. **Defensive guard w detector** — `OnnxYoloWorldDetector.DetectWithPromptsAsync` sprawdza `isDynamic && prompts.SequenceEqual(model.Labels)`. Gdy compiled + custom prompts → `DetectionResult.Failed("Model jest skompilowany z zamrożonym vocabulary...")`. Eliminuje silent lying.
+
+2. **Postprocess refactor** — autodetect output format: `outputs.Count >= 2` → split (scores [B,N,nc] + boxes [B,N,4] xyxy), inaczej fused YOLOv8 [B,4+nc,N]. Nowa metoda `PostprocessSplit` + `PostprocessSplitBatchItem` + helper `IoUXyxy`.
+
+3. **UI hint** — `ModelTestDetectEndpoint` zwraca `warning` field gdy fallback do default flow ignoruje user prompts. `ModelTestDialog.razor` renderuje MudAlert (warning gdy text ignored, error gdy detector zwrócił business-error).
+
+**Replacement model**: `runtime/models/yolo-world-v2-s/`:
+- `model.onnx` ← `jquadrino/yolo-world-onnx` (HF, MIT, ~400 MB FP32) — 2 inputs (image + text_features [B,classes,512]), 2 outputs (scores [B,8400,classes] sigmoid + boxes [B,8400,4] xyxy w 640×640)
+- `text-encoder.onnx` ← `Xenova/clip-vit-base-patch32` (~242 MB) — CLIP ViT-B/32 text, embed dim 512
+- `tokenizer/vocab.json` + `merges.txt` ← Xenova clip BPE
+
+**Download script**: `scripts/download-models.sh` całkowicie przepisany dla yolo-world-v2-s (dropped ultralytics path, jedyna ścieżka HF).
+
+**Tests**: 209/209 zielone (poprzednio 204 — +5 ApiCamera tests w międzyczasie). Build 0/0.
+
+---
+
 ## Ukończone (2026-04-26)
 
 ### ✅ TICKET #52 — Swagger / OpenAPI (`Swashbuckle.AspNetCore` 7.2.0)

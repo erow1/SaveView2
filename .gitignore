@@ -17,10 +17,13 @@ runtime/binaries/*/ffmpeg.exe
 runtime/binaries/*/mediamtx
 runtime/binaries/*/mediamtx.exe
 
-# Bundled ML models (YOLO ONNX) — pobierane przez scripts/download-models.sh
+# Bundled ML models (YOLO ONNX, tokenizer, README) — pobierane przez scripts/download-models.sh
 runtime/models/*/model.onnx
 runtime/models/*/*.onnx
 runtime/models/*/*.pt
+runtime/models/*/tokenizer/
+runtime/models/*/labels.txt
+runtime/models/*/README.md
 runtime/models/.venv/
 
 # Rider / VS / VSCode
