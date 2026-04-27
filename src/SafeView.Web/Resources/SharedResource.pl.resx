@@ -975,13 +975,6 @@
   <data name="Triggers.AdvancedManualConfig"><value>Konfiguracja ręczna (zaawansowane)</value></data>
   <data name="Triggers.AdvancedHint"><value>Tryb ręczny: wiązanie z konkretnym modelem MLModel + dokładnymi etykietami. Preferuj bibliotekę klas gdy to możliwe — prostsze i działa z modelami open-vocabulary (YOLO-World, YOLOE).</value></data>
 
-  <!-- Compiled prompt packs -->
-1. Usuń uszkodzone pliki: rm -rf runtime/models/yolo-world-v2-s
-2. Ponów 'Pobierz' — używa teraz ultralytics CLI (pobiera oficjalne wagi z GitHub CDN, bez HuggingFace dla modelu detekcji).
-3. Gdy nadal nie działa, z terminala:
-   runtime/models/.venv/bin/yolo export model=yolov8s-worldv2.pt format=onnx imgsz=640 opset=12 dynamic=True
-   plus ręcznie pobierz CLIP text encoder z openai/clip-vit-base-patch32 na HF (to repo jest zawsze public).
-4. Kliknij 'Rescan' — auto-usuwa pliki &lt; 1MB i rejestruje prawidłowe modele.</value></data>
 
   <!-- Setup wizard -->
   <data name="Wizard.Title"><value>Kreator konfiguracji</value></data>

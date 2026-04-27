@@ -973,13 +973,6 @@
   <data name="Triggers.AdvancedManualConfig"><value>Manual configuration (advanced)</value></data>
   <data name="Triggers.AdvancedHint"><value>Manual mode: bind to specific MLModel + exact labels. Prefer class library when possible — it's simpler and works with open-vocabulary models (YOLO-World, YOLOE).</value></data>
 
-  <!-- Compiled prompt packs -->
-1. Delete broken files: rm -rf runtime/models/yolo-world-v2-s
-2. Retry 'Download' — now uses ultralytics CLI (pulls official weights from GitHub CDN, no HuggingFace needed for the detection model).
-3. If still failing, from terminal:
-   runtime/models/.venv/bin/yolo export model=yolov8s-worldv2.pt format=onnx imgsz=640 opset=12 dynamic=True
-   then manually grab CLIP text encoder + tokenizer from openai/clip-vit-base-patch32 on HF (that repo is always public).
-4. Click 'Rescan' — auto-cleans files &lt; 1MB and registers valid models.</value></data>
 
   <!-- Setup wizard -->
   <data name="Wizard.Title"><value>Setup wizard</value></data>
