@@ -634,6 +634,9 @@
   <data name="Models.Test"><value>Test on image</value></data>
   <data name="Models.TestTitle"><value>Quick test</value></data>
   <data name="ModelTest.PickImage"><value>Pick image</value></data>
+  <data name="ModelTest.Reanalyze"><value>Re-analyze</value></data>
+  <data name="ModelTest.ConfidenceThreshold"><value>Confidence threshold</value></data>
+  <data name="ModelTest.ConfidenceHint"><value>Minimum detection score (0.05–0.95). Lower = more detections (incl. weak ones); higher = only strong ones. Slide and click Re-analyze.</value></data>
   <data name="ModelTest.Running"><value>Detecting…</value></data>
   <data name="ModelTest.Hint"><value>Upload a test image (.jpg/.png, max 20MB). The model will run detection and show bounding boxes + raw output.</value></data>
   <data name="ModelTest.Detections"><value>detections</value></data>

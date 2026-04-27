@@ -80,6 +80,19 @@ public static class ModelTestDetectEndpoint
                         }
                     }
 
+                    // Opcjonalny override confidence threshold per-request — UI suwak. NIE mutujemy
+                    // entity (inne wywołania pipeline-u zachowują swój threshold). Klonujemy
+                    // tylko jeśli user naprawdę zmienił względem default-u modelu.
+                    var rawConf = form["confidence_threshold"].ToString();
+                    if (!string.IsNullOrWhiteSpace(rawConf)
+                        && double.TryParse(rawConf, System.Globalization.NumberStyles.Float,
+                            System.Globalization.CultureInfo.InvariantCulture, out var confOverride)
+                        && confOverride >= 0.01 && confOverride <= 0.99
+                        && Math.Abs(confOverride - model.ConfidenceThreshold) > 0.001)
+                    {
+                        model = CloneWithThreshold(model, confOverride);
+                    }
+
                     DetectionResult result;
                     string usedFlow; // info dla UI co faktycznie użyto
                     string? warning = null;
@@ -163,6 +176,32 @@ public static class ModelTestDetectEndpoint
 
         return endpoints;
     }
+
+    /// <summary>
+    /// Płytki klon MLModel z przesłoniętym <c>ConfidenceThreshold</c>. Detektory czytają threshold
+    /// w postprocess, więc per-request override musi pójść przez nową instancję — bez tego nadpisalibyśmy
+    /// shared singleton (model w bazie) co rozjebałoby pipeline detekcji innym wywołaniom.
+    /// </summary>
+    private static SafeView.Domain.ML.MLModel CloneWithThreshold(SafeView.Domain.ML.MLModel src, double threshold)
+        => new()
+        {
+            Id = src.Id,
+            Name = src.Name,
+            Description = src.Description,
+            Backend = src.Backend,
+            OnnxRelativePath = src.OnnxRelativePath,
+            OnnxAbsolutePath = src.OnnxAbsolutePath,
+            InputSize = src.InputSize,
+            Labels = src.Labels,
+            ConfidenceThreshold = threshold,
+            IouThreshold = src.IouThreshold,
+            RoboflowModelId = src.RoboflowModelId,
+            RoboflowApiKey = src.RoboflowApiKey,
+            Enabled = src.Enabled,
+            Capabilities = src.Capabilities,
+            SourceModelId = src.SourceModelId,
+            CompiledClassIds = src.CompiledClassIds,
+        };
 
     internal sealed class ModelTestMarker { }
 }

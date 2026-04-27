@@ -636,6 +636,9 @@
   <data name="Models.Test"><value>Testuj na zdjęciu</value></data>
   <data name="Models.TestTitle"><value>Szybki test</value></data>
   <data name="ModelTest.PickImage"><value>Wybierz zdjęcie</value></data>
+  <data name="ModelTest.Reanalyze"><value>Analizuj ponownie</value></data>
+  <data name="ModelTest.ConfidenceThreshold"><value>Próg pewności</value></data>
+  <data name="ModelTest.ConfidenceHint"><value>Minimalny score detekcji (0.05–0.95). Niższy = więcej detekcji (też słabszych); wyższy = tylko mocne. Przesuń suwak i kliknij Analizuj ponownie.</value></data>
   <data name="ModelTest.Running"><value>Wykrywanie…</value></data>
   <data name="ModelTest.Hint"><value>Wgraj zdjęcie testowe (.jpg/.png, max 20MB). Model uruchomi detekcję i pokaże bboxy + raw output.</value></data>
   <data name="ModelTest.Detections"><value>detekcji</value></data>

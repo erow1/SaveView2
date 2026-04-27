@@ -26,7 +26,34 @@
                         </MudButton>
                     </ActivatorContent>
                 </MudFileUpload>
+                @if (_imageBytes is not null)
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                               StartIcon="@Icons.Material.Filled.Replay"
+                               OnClick="Reanalyze" Disabled="@_running">
+                        @L["ModelTest.Reanalyze"]
+                    </MudButton>
+                }
             </MudStack>
+
+            @* ── Confidence threshold slider ─────────────────────────────── *@
+            <MudPaper Class="pa-3 sv-card-alt" Elevation="0">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small"
+                             Style="color:var(--mud-palette-primary);" />
+                    <MudText Typo="Typo.subtitle2" Style="min-width:140px;">@L["ModelTest.ConfidenceThreshold"]</MudText>
+                    <MudSlider T="double" Value="_confidenceThreshold"
+                               ValueChanged="@(v => _confidenceThreshold = v)"
+                               Min="0.05" Max="0.95" Step="0.05"
+                               Color="Color.Primary" Style="flex:1;" />
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="mono">
+                        @($"{_confidenceThreshold:F2}")
+                    </MudChip>
+                </MudStack>
+                <MudText Typo="Typo.caption" Class="sv-text-muted mt-1">
+                    @L["ModelTest.ConfidenceHint"]
+                </MudText>
+            </MudPaper>
 
             @* ── Custom text prompts (tylko dla open-vocab modeli) ───────── *@
             @if (Model.Capabilities.HasFlag(ModelCapabilities.TextPrompts))
@@ -221,11 +248,15 @@
     [Parameter] public MLModel Model { get; set; } = new();
 
     private bool _running;
-    private string? _dataUrl;   // data: URL dla <img> preview (w przeglądarce, bez serwera)
+    private string? _dataUrl;             // data: URL dla <img> preview (w przeglądarce, bez serwera)
+    private byte[]? _imageBytes;          // cache image dla re-analyze (bez ponownego uploadu)
+    private string? _imageContentType;
+    private string? _imageName;
     private TestResult? _result;
     private string? _rawJson;
     private readonly List<string> _prompts = new();
     private string _promptDraft = string.Empty;
+    private double _confidenceThreshold;  // user-overridable, init z model.ConfidenceThreshold
 
     protected override void OnInitialized()
     {
@@ -235,6 +266,10 @@
             foreach (var l in Model.Labels.Where(s => !string.IsNullOrWhiteSpace(s)))
                 _prompts.Add(l);
         }
+
+        // Init slider value z domyślnego threshold modelu (zwykle 0.25); user może zmieniać per-test
+        // bez mutacji entity (server otrzymuje override jako form field).
+        _confidenceThreshold = Model.ConfidenceThreshold > 0 ? Model.ConfidenceThreshold : 0.25;
     }
 
     private void AddPromptFromDraft()
@@ -266,26 +301,57 @@
             Snackbar.Add(L["ModelTest.ImageTooLarge"], Severity.Warning);
             return;
         }
-        _running = true;
-        _result = null;
-        _rawJson = null;
-        StateHasChanged();
         try
         {
             await using var stream = file.OpenReadStream(Max);
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms);
-            var bytes = ms.ToArray();
-            var b64 = Convert.ToBase64String(bytes);
-            _dataUrl = $"data:{file.ContentType};base64,{b64}";
+            _imageBytes = ms.ToArray();
+            _imageContentType = string.IsNullOrEmpty(file.ContentType) ? "image/jpeg" : file.ContentType;
+            _imageName = string.IsNullOrEmpty(file.Name) ? "frame.jpg" : file.Name;
+            _dataUrl = $"data:{_imageContentType};base64,{Convert.ToBase64String(_imageBytes)}";
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Błąd: {ex.Message}", Severity.Error);
+            return;
+        }
+
+        await RunAnalysisAsync();
+    }
+
+    /// <summary>
+    /// Re-analyze: powtarza inferencję na CACHED bajtach obrazu z aktualnym
+    /// confidence threshold + prompts. Bez ponownego uploadu.
+    /// </summary>
+    private async Task Reanalyze()
+    {
+        if (_imageBytes is null) return;
+        await RunAnalysisAsync();
+    }
+
+    private async Task RunAnalysisAsync()
+    {
+        if (_imageBytes is null) return;
+
+        _running = true;
+        _result = null;
+        _rawJson = null;
+        StateHasChanged();
+
+        try
+        {
+            var b64 = Convert.ToBase64String(_imageBytes);
 
             // Serializujemy prompts jako JSON array — endpoint parse-uje zarówno JSON jak CSV.
             var promptsJson = Model.Capabilities.HasFlag(ModelCapabilities.TextPrompts) && _prompts.Count > 0
                 ? System.Text.Json.JsonSerializer.Serialize(_prompts)
                 : "";
 
+            var confidenceStr = _confidenceThreshold.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
+
             var result = await JS.InvokeAsync<string>("eval", $@"
-                (async (b64, type, name, promptsJson) => {{
+                (async (b64, type, name, promptsJson, confidence) => {{
                     try {{
                         const bin = atob(b64);
                         const bytes = new Uint8Array(bin.length);
@@ -294,6 +360,7 @@
                         const fd = new FormData();
                         fd.append('image', blob, name);
                         if (promptsJson) fd.append('prompts', promptsJson);
+                        if (confidence) fd.append('confidence_threshold', confidence);
                         const resp = await fetch('/api/models/{Model.Id}/test-detect', {{
                             method: 'POST', credentials: 'same-origin', body: fd
                         }});
@@ -301,9 +368,10 @@
                         return resp.ok ? ('ok:' + text) : ('err:' + resp.status + ':' + text);
                     }} catch (e) {{ return 'err:' + e.message; }}
                 }})({System.Text.Json.JsonSerializer.Serialize(b64)},
-                    {System.Text.Json.JsonSerializer.Serialize(file.ContentType)},
-                    {System.Text.Json.JsonSerializer.Serialize(file.Name)},
-                    {System.Text.Json.JsonSerializer.Serialize(promptsJson)})
+                    {System.Text.Json.JsonSerializer.Serialize(_imageContentType ?? "image/jpeg")},
+                    {System.Text.Json.JsonSerializer.Serialize(_imageName ?? "frame.jpg")},
+                    {System.Text.Json.JsonSerializer.Serialize(promptsJson)},
+                    {System.Text.Json.JsonSerializer.Serialize(confidenceStr)})
             ");
 
             if (result.StartsWith("ok:", StringComparison.Ordinal))
