@@ -186,14 +186,15 @@
                     @foreach (var (d, idx) in VisibleDetections().Select((x, i) => (x, i)))
                     {
                         var color = BboxPalette.ColorAt(idx);
+                        var bg = BboxPalette.Rgba(color, 0.65);
                         var leftPct = d.X / Math.Max(1, _result.SourceWidth) * 100;
                         var topPct = d.Y / Math.Max(1, _result.SourceHeight) * 100;
-                        // Detekcje blisko górnej krawędzi → etykieta wewnątrz bbox-u
-                        // (zapobiega clip-owaniu przez parent z overflow:hidden).
-                        var inside = topPct < 3 ? " sv-bbox-label--inside" : string.Empty;
-                        <div class="sv-bbox-label@inside"
-                             style="@($"--bbox-color:{color}; left:{Fmt(leftPct)}%; top:{Fmt(topPct)}%;")">
-                            @d.Label <span style="opacity:0.85;">@($"{d.Confidence * 100:F0}%")</span>
+                        var inside = topPct < 3;
+                        var transform = inside ? "translate(-1px, 0)" : "translate(-1px, -100%)";
+                        var radius = inside ? "3px 3px 0 0" : "3px 3px 3px 0";
+                        var conf = (d.Confidence * 100).ToString("F0", System.Globalization.CultureInfo.InvariantCulture);
+                        <div style="@($"position:absolute; left:{Fmt(leftPct)}%; top:{Fmt(topPct)}%; transform:{transform}; background:{bg}; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); border:1px solid {color}; border-radius:{radius}; color:#fff; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:11px; font-weight:600; letter-spacing:0.2px; padding:1px 6px; text-shadow:0 1px 2px rgba(0,0,0,0.7); pointer-events:none; white-space:nowrap; line-height:1.5;")">
+                            @d.Label <span style="opacity:0.85;">@conf%</span>
                         </div>
                     }
                 </div>

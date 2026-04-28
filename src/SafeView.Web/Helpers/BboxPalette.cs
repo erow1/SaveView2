@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace SafeView.Web.Helpers;
 
 /// <summary>
@@ -8,7 +10,7 @@ namespace SafeView.Web.Helpers;
 /// </summary>
 public static class BboxPalette
 {
-    /// <summary>Hex (#RRGGBB) z paletyo deterministycznie po indeksie detekcji.</summary>
+    /// <summary>Hex (#RRGGBB) z palety deterministycznie po indeksie detekcji.</summary>
     public static readonly string[] Colors =
     [
         "#4DA6FF", // niebieski
@@ -22,4 +24,23 @@ public static class BboxPalette
     ];
 
     public static string ColorAt(int index) => Colors[((index % Colors.Length) + Colors.Length) % Colors.Length];
+
+    /// <summary>
+    /// Hex (#RRGGBB) → rgba(r,g,b,a) z InvariantCulture (kropki). Używane do generowania
+    /// tła etykiety w inline-style — niezależne od CSS color-mix i lokalizacji.
+    /// </summary>
+    public static string Rgba(string hex, double alpha)
+    {
+        var h = hex.TrimStart('#');
+        if (h.Length != 6) return hex;
+        try
+        {
+            var r = Convert.ToInt32(h[..2], 16);
+            var g = Convert.ToInt32(h[2..4], 16);
+            var b = Convert.ToInt32(h[4..6], 16);
+            var a = alpha.ToString("F2", CultureInfo.InvariantCulture);
+            return $"rgba({r},{g},{b},{a})";
+        }
+        catch { return hex; }
+    }
 }
