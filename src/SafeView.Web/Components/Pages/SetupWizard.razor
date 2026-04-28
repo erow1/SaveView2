@@ -136,15 +136,14 @@
     private string _newZoneName = "Cała strefa";
     private List<Zone> _zonesForCamera = new();
 
-    // Step 4 — Classes + per-class trigger drafts
-    // Każda wybrana klasa ma swój roboczy obiekt Trigger (mutowany przez sub-kreator
-    // TriggerEditDialog). Defaulty ustawione przy pierwszym wybraniu klasy. ActionIds
-    // pozostawiamy puste — akcję dorzucamy w FinishAsync (utworzona dopiero w step 5).
+    // Step 4 — Lista draftów triggerów (każdy z własnymi warunkami/klasami).
+    // Trigger jest pierwszorzędną encją kreatora — class to tylko jeden element warunku.
+    // ActionIds zostają puste; akcję doklejamy w FinishAsync (utworzona w step 5).
     private List<DetectionClass> _availableClasses = new();
     private List<SafeView.Domain.ML.MLModel> _availableModels = new();
     private List<SafeView.Domain.Vllm.PromptTemplate> _availableTemplates = new();
     private List<SafeView.Domain.Llm.LlmProvider> _availableLlmProviders = new();
-    private Dictionary<string, Trigger> _triggerByClassId = new(StringComparer.Ordinal);
+    private List<Trigger> _triggerDrafts = new();
 
     // Step 4 — Action
     private ActionType _actionType = ActionType.InAppNotification;
@@ -324,102 +323,83 @@
                 <MudText Typo="Typo.h6">@L["Wizard.Step2.Title"]</MudText>
                 <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Wizard.Step2.Subtitle"]</MudText>
             </div>
-            <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Outlined"
-                       Color="Color.Primary" OnClick="OpenNewClassDialog">
+            <MudButton StartIcon="@Icons.Material.Filled.Category" Variant="Variant.Text" Size="Size.Small"
+                       OnClick="OpenNewClassDialog">
                 @L["Wizard.Step2.NewClass"]
+            </MudButton>
+            <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Filled"
+                       Color="Color.Primary" OnClick="AddNewTrigger">
+                @L["Wizard.Step2.AddTrigger"]
             </MudButton>
         </MudStack>
 
-        @if (_availableClasses.Count == 0)
+        @if (_triggerDrafts.Count == 0)
         {
-            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Warning">
-                @L["Wizard.Step2.NoClasses"]
-            </MudAlert>
+            <MudPaper Class="pa-6" Elevation="0" Style="border:2px dashed var(--mud-palette-lines-default); border-radius:6px; text-align:center;">
+                <MudIcon Icon="@Icons.Material.Filled.Bolt" Size="Size.Large"
+                         Style="color:var(--mud-palette-text-secondary); margin-bottom:8px;" />
+                <MudText Typo="Typo.body1">@L["Wizard.Step2.NoTriggers"]</MudText>
+                <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Wizard.Step2.NoTriggersHint"]</MudText>
+                <MudButton StartIcon="@Icons.Material.Filled.Add" Variant="Variant.Outlined"
+                           Color="Color.Primary" OnClick="AddNewTrigger" Class="mt-3">
+                    @L["Wizard.Step2.AddTrigger"]
+                </MudButton>
+            </MudPaper>
         }
         else
         {
-            @foreach (var grp in _availableClasses.GroupBy(c => c.Category).OrderBy(g => g.Key, StringComparer.Ordinal))
-            {
-                <MudText Typo="Typo.overline" Class="mono sv-text-muted">@grp.Key</MudText>
-                <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px;">
-                    @foreach (var c in grp.OrderBy(x => x.Name, StringComparer.Ordinal))
-                    {
-                        var picked = _triggerByClassId.ContainsKey(c.Id);
-                        <MudPaper Class="pa-3" Elevation="0"
-                                  Style="@($"cursor:pointer; border:2px solid {(picked ? "var(--mud-palette-primary)" : "var(--mud-palette-lines-default)")}; border-radius:6px;")"
-                                  @onclick="@(() => TogglePickClass(c.Id))">
-                            <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
-                                <MudIcon Icon="@IconForCategory(c.Category)" Size="Size.Medium"
-                                         Style="@($"color:{(picked ? "var(--mud-palette-primary)" : "var(--mud-palette-text-secondary)")};")" />
-                                <div style="flex:1;">
-                                    <MudText Typo="Typo.body1" Style="@(picked ? "font-weight:600;" : "")">@c.Name</MudText>
-                                    @if (!string.IsNullOrEmpty(c.Description))
-                                    {
-                                        <MudText Typo="Typo.caption" Class="sv-text-muted" Style="white-space:normal;">
-                                            @c.Description
-                                        </MudText>
-                                    }
-                                </div>
-                                @if (picked)
-                                {
-                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small"
-                                             Style="color:var(--mud-palette-primary);" />
-                                }
+            <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(380px,1fr)); gap:12px;">
+                @for (var ti = 0; ti < _triggerDrafts.Count; ti++)
+                {
+                    var idx = ti; var trigger = _triggerDrafts[idx];
+                    var displayName = string.IsNullOrWhiteSpace(trigger.Name)
+                        ? string.Format(L["Wizard.Step2.UnnamedTrigger"], idx + 1)
+                        : trigger.Name;
+                    var valid = IsValidDraft(trigger);
+                    <MudPaper Class="pa-3" Elevation="0"
+                              Style="@($"border:1px solid {(valid ? "var(--mud-palette-lines-default)" : "var(--mud-palette-warning)")}; border-radius:6px;")">
+                        <MudStack Spacing="2">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.Bolt" Size="Size.Small"
+                                         Style="color:var(--mud-palette-primary);" />
+                                <MudText Typo="Typo.subtitle2">@displayName</MudText>
+                                <MudSpacer />
+                                <MudTooltip Text="@L["Common.Edit"]">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                                   OnClick="@(() => EditTrigger(trigger))" />
+                                </MudTooltip>
+                                <MudTooltip Text="@L["Wizard.Step2.DeleteTrigger"]">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                   Color="Color.Error"
+                                                   OnClick="@(() => DeleteTrigger(trigger))" />
+                                </MudTooltip>
                             </MudStack>
-                        </MudPaper>
-                    }
-                </div>
-            }
-            <MudText Typo="Typo.caption" Class="sv-text-muted">
-                @string.Format(L["Wizard.Step2.Selected"], _triggerByClassId.Count)
-            </MudText>
-
-            @* ── Per-class trigger preview cards z ołówkiem otwierającym sub-kreator ────── *@
-            @if (_triggerByClassId.Count > 0)
-            {
-                <MudDivider />
-                <MudStack Row="true" AlignItems="AlignItems.Center">
-                    <div style="flex:1;">
-                        <MudText Typo="Typo.subtitle1">@L["Wizard.Step2.RefineTriggers"]</MudText>
-                        <MudText Typo="Typo.caption" Class="sv-text-muted">
-                            @L["Wizard.Step2.RefineTriggersHint"]
-                        </MudText>
-                    </div>
-                </MudStack>
-                <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(360px,1fr)); gap:12px;">
-                    @foreach (var (classId, trigger) in _triggerByClassId)
-                    {
-                        var klass = _availableClasses.FirstOrDefault(k => k.Id == classId);
-                        <MudPaper Class="pa-3" Elevation="0"
-                                  Style="border:1px solid var(--mud-palette-lines-default); border-radius:6px;">
-                            <MudStack Spacing="2">
-                                <MudStack Row="true" AlignItems="AlignItems.Center">
-                                    <MudIcon Icon="@Icons.Material.Filled.Bolt" Size="Size.Small"
-                                             Style="color:var(--mud-palette-primary);" />
-                                    <MudText Typo="Typo.subtitle2">@(klass?.Name ?? classId)</MudText>
-                                    <MudSpacer />
-                                    <MudButton Size="Size.Small" Variant="Variant.Outlined"
-                                               StartIcon="@Icons.Material.Filled.Edit"
-                                               OnClick="@(() => OpenTriggerSubWizard(classId))">
-                                        @L["Common.Edit"]
-                                    </MudButton>
-                                </MudStack>
+                            @if (!valid)
+                            {
+                                <MudAlert Severity="Severity.Warning" Dense="true" Variant="Variant.Outlined">
+                                    @L["Wizard.Step2.TriggerEmpty"]
+                                </MudAlert>
+                            }
+                            else
+                            {
                                 <div style="display:flex; flex-wrap:wrap; gap:4px;">
-                                    @foreach (var chip in TriggerStatusChips(trigger))
+                                    @foreach (var (text, primary) in TriggerStatusChips(trigger))
                                     {
-                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
-                                            @chip
+                                        <MudChip T="string" Size="Size.Small"
+                                                 Color="@(primary ? Color.Primary : Color.Default)"
+                                                 Variant="Variant.Outlined">
+                                            @text
                                         </MudChip>
                                     }
                                 </div>
-                            </MudStack>
-                        </MudPaper>
-                    }
-                </div>
-                <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Info">
-                    @L["Wizard.Step2.ActionWillBeAttached"]
-                </MudAlert>
-            }
+                            }
+                        </MudStack>
+                    </MudPaper>
+                }
+            </div>
+            <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Info">
+                @L["Wizard.Step2.ActionWillBeAttached"]
+            </MudAlert>
         }
     </MudStack>;
 
@@ -677,17 +657,14 @@
                     <span class="sv-text-muted"> · @selCam.Location</span>
                 }
             </MudListItem>
-            <MudListItem T="string" Icon="@Icons.Material.Filled.Category">
+            <MudListItem T="string" Icon="@Icons.Material.Filled.Bolt">
                 <strong>@L["Wizard.Step2.Title"]:</strong>
-                @foreach (var (id, _) in _triggerByClassId)
+                @foreach (var t in _triggerDrafts.Where(IsValidDraft))
                 {
-                    var c = _availableClasses.FirstOrDefault(x => x.Id == id);
-                    if (c is not null)
-                    {
-                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined" Class="ma-1">
-                            @c.Name
-                        </MudChip>
-                    }
+                    var label = !string.IsNullOrWhiteSpace(t.Name) ? t.Name : SummarizeTrigger(t);
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined" Class="ma-1">
+                        @label
+                    </MudChip>
                 }
             </MudListItem>
             <MudListItem T="string" Icon="@Icons.Material.Filled.SelectAll">
@@ -725,60 +702,66 @@
 
         <MudDivider />
         <MudText Typo="Typo.caption" Class="sv-text-muted">
-            @string.Format(L["Wizard.Step5.WillCreate"], _triggerByClassId.Count)
+            @string.Format(L["Wizard.Step5.WillCreate"], _triggerDrafts.Count(IsValidDraft))
         </MudText>
     </MudStack>;
+
+    /// <summary>Krótkie podsumowanie triggera bez nazwy — używane gdy user nie nadał name'a.</summary>
+    private string SummarizeTrigger(Trigger t)
+    {
+        var first = t.Conditions.FirstOrDefault(c => !string.IsNullOrEmpty(c.DetectionClassId)
+                                                  || !string.IsNullOrEmpty(c.ModelId));
+        if (first is null) return "?";
+        if (!string.IsNullOrEmpty(first.DetectionClassId))
+        {
+            var k = _availableClasses.FirstOrDefault(c => c.Id == first.DetectionClassId);
+            return k?.Name ?? first.DetectionClassId!;
+        }
+        return first.Labels.Count > 0 ? string.Join("/", first.Labels) : (first.ModelId ?? "?");
+    }
 
     // ── Logic ─────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Toggle wyboru klasy. Przy pierwszym wyborze tworzymy roboczy <see cref="Trigger"/> z
-    /// sensownymi defaultami (1 warunek dla tej klasy, MinCount=1, MinConfidence z klasy,
-    /// CenterInZone). Drugi click usuwa klasę razem z jej draftem (zmiany użytkownika tracone
-    /// — to celowe, bo wybranie ponownie to "świeży start").
+    /// Tworzy pusty trigger, dodaje do listy i otwiera sub-kreator. Po zamknięciu jeśli user
+    /// nic nie skonfigurował (brak klasy/modelu w żadnym warunku) usuwamy draft — żeby nie
+    /// zostawiać "śmieciowych" pustych triggerów na liście.
     /// </summary>
-    private void TogglePickClass(string classId)
+    private async Task AddNewTrigger()
     {
-        if (_triggerByClassId.ContainsKey(classId))
+        var draft = new Trigger
         {
-            _triggerByClassId.Remove(classId);
-            return;
-        }
-        var klass = _availableClasses.FirstOrDefault(c => c.Id == classId);
-        if (klass is null) return;
-        _triggerByClassId[classId] = new Trigger
-        {
-            Name = klass.Name, // camera prefix doklejany w FinishAsync
+            Name = string.Empty,
             Enabled = true,
-            Conditions =
-            [
-                new TriggerCondition
-                {
-                    DetectionClassId = classId,
-                    MinCount = 1,
-                    MinConfidence = klass.RecommendedMinConfidence,
-                    BboxRule = BboxRule.CenterInZone
-                }
-            ]
-            // ActionIds — celowo puste; FinishAsync przyklei utworzoną akcję
+            Conditions = [new TriggerCondition()]
         };
+        _triggerDrafts.Add(draft);
+        await OpenTriggerEditAsync(draft);
+        if (!IsValidDraft(draft))
+            _triggerDrafts.Remove(draft);
+        StateHasChanged();
+    }
+
+    private async Task EditTrigger(Trigger t) => await OpenTriggerEditAsync(t);
+
+    private void DeleteTrigger(Trigger t)
+    {
+        _triggerDrafts.Remove(t);
     }
 
     /// <summary>
-    /// Otwiera <c>TriggerEditDialog</c> dla draftu klasy. ActionIds = lista pusta — akcja jeszcze
-    /// nie istnieje (kreator tworzy ją w step 5). Trigger jest mutowany in-place przez sub-kreator
-    /// — anulowanie sub-kreatora NIE cofa zmian (akceptowalne kompromis dla MVP, user może
-    /// odznaczyć klasę i wybrać ponownie żeby dostać świeży draft).
+    /// Otwiera TriggerEditDialog. Akcje pusta lista — TriggerWizardCore pokaże w sub-kroku f
+    /// alert "brak akcji"; akcję dokleja FinishAsync. Mutacja in-place: anulowanie nie cofa
+    /// zmian (limit MVP — full snapshot/rollback w iteracji 2 jeśli zaboli).
     /// </summary>
-    private async Task OpenTriggerSubWizard(string classId)
+    private async Task OpenTriggerEditAsync(Trigger t)
     {
-        if (!_triggerByClassId.TryGetValue(classId, out var trigger)) return;
         var parameters = new DialogParameters
         {
-            ["Trigger"] = trigger,
+            ["Trigger"] = t,
             ["IsNew"] = true,
             ["Models"] = _availableModels,
-            ["Actions"] = new List<DetectionAction>(), // akcja powstanie w step 5
+            ["Actions"] = new List<DetectionAction>(),
             ["Templates"] = _availableTemplates,
             ["DetectionClasses"] = _availableClasses,
             ["LlmProviders"] = _availableLlmProviders,
@@ -791,27 +774,42 @@
         StateHasChanged();
     }
 
-    /// <summary>Krótkie chipy stanu triggera — pokazują niedefaultowe ustawienia bez rozwijania.</summary>
-    private IEnumerable<string> TriggerStatusChips(Trigger t)
+    /// <summary>Trigger jest "valid" gdy ma co najmniej jeden warunek z wybraną klasą lub modelem.</summary>
+    private static bool IsValidDraft(Trigger t)
+        => t.Conditions.Any(c => !string.IsNullOrEmpty(c.DetectionClassId)
+                              || !string.IsNullOrEmpty(c.ModelId));
+
+    /// <summary>
+    /// Chipy stanu triggera — pokazują klasy + niedefaultowe ustawienia. Klasy są pierwszorzędne
+    /// (kolorowe), reszta jako sekundarne dodatki.
+    /// </summary>
+    private IEnumerable<(string Text, bool Primary)> TriggerStatusChips(Trigger t)
     {
-        if (t.Conditions.FirstOrDefault()?.MinConfidence is { } mc)
-            yield return $"≥{mc * 100:F0}%";
-        if (t.Schedule is { } s)
-            yield return $"{s.StartMinute / 60:D2}-{s.EndMinute / 60:D2}";
-        if (t.CooldownSeconds > 0)
-            yield return $"cd {t.CooldownSeconds}s";
-        if (t.PersistentFrames > 1)
-            yield return $"{t.PersistentFrames}f";
+        foreach (var cond in t.Conditions)
+        {
+            if (!string.IsNullOrEmpty(cond.DetectionClassId))
+            {
+                var k = _availableClasses.FirstOrDefault(c => c.Id == cond.DetectionClassId);
+                if (k is not null) yield return (k.Name, true);
+            }
+            else if (!string.IsNullOrEmpty(cond.ModelId))
+            {
+                var labels = cond.Labels.Count > 0 ? string.Join("/", cond.Labels) : "*";
+                yield return (labels, true);
+            }
+        }
+        if (t.Schedule is { } s) yield return ($"{s.StartMinute / 60:D2}-{s.EndMinute / 60:D2}", false);
+        if (t.CooldownSeconds > 0) yield return ($"cd {t.CooldownSeconds}s", false);
+        if (t.PersistentFrames > 1) yield return ($"{t.PersistentFrames}f", false);
         if (t.VllmCheck is { Enabled: true } v)
-            yield return v.TemplateId is not null
+        {
+            yield return (v.TemplateId is not null
                 ? $"AI: {_availableTemplates.FirstOrDefault(x => x.Id == v.TemplateId)?.Name ?? "ON"}"
-                : "AI";
-        if (t.Conditions.Any(c => c.Containment is not null))
-            yield return L["Wizard.Step2.ChipContainment"];
-        if (t.Conditions.Any(c => c.Motion is not null))
-            yield return L["Wizard.Step2.ChipMotion"];
-        if (t.SpatialFilters.Count > 0)
-            yield return $"spatial ×{t.SpatialFilters.Count}";
+                : "AI", false);
+        }
+        if (t.Conditions.Any(c => c.Containment is not null)) yield return (L["Wizard.Step2.ChipContainment"], false);
+        if (t.Conditions.Any(c => c.Motion is not null)) yield return (L["Wizard.Step2.ChipMotion"], false);
+        if (t.SpatialFilters.Count > 0) yield return ($"spatial ×{t.SpatialFilters.Count}", false);
     }
 
     private bool CanAdvance() => _step switch
@@ -823,7 +821,7 @@
         3 => _zoneMode == ZoneMode.FullRoi
              ? !string.IsNullOrWhiteSpace(_newZoneName)
              : !string.IsNullOrEmpty(_selectedZoneId),
-        4 => _triggerByClassId.Count > 0,
+        4 => _triggerDrafts.Any(IsValidDraft),
         5 => !string.IsNullOrWhiteSpace(_actionName)
              && (_actionType != ActionType.Email || !string.IsNullOrWhiteSpace(_emailTo))
              && (_actionType != ActionType.Webhook || !string.IsNullOrWhiteSpace(_webhookUrl)),
@@ -964,7 +962,9 @@
             {
                 await ClassRepo.InsertAsync(saved);
                 await ReloadClassesAsync();
-                TogglePickClass(saved.Id); // auto-pick z draftem triggera
+                // Klasa jest teraz dostępna w pickerach wewnątrz TriggerEditDialog. User
+                // dodaje ją do wybranego/nowego triggera ręcznie — celowo bez auto-create
+                // triggera, bo trigger to pierwszorzędna jednostka kreatora.
                 Snackbar.Add(L["Wizard.Step2.ClassAdded"], Severity.Success);
             }
             catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
@@ -1033,15 +1033,17 @@
             };
             await ActionRepo.InsertAsync(action);
 
-            // 5. Triggery — z drafty per klasa zbudowane w step 4 (sub-kreator) lub defaulty.
-            // Do każdego draftu doklejamy prefix kamery do nazwy + akcję utworzoną w step 5.
+            // 5. Triggery — drafty zbudowane przez sub-kreator w step 4. Dla każdego doklejamy
+            // prefix kamery (gdy user nie nadał własnej nazwy) + akcję utworzoną w step 5.
+            // Niewalidne drafty (bez klasy/modelu) są skipowane defensywnie.
             var triggerIds = new List<string>();
-            foreach (var (classId, trigger) in _triggerByClassId)
+            foreach (var trigger in _triggerDrafts)
             {
-                var klass = _availableClasses.FirstOrDefault(c => c.Id == classId);
-                if (klass is null) continue;
-                if (string.IsNullOrEmpty(trigger.Name) || trigger.Name == klass.Name)
-                    trigger.Name = $"{camera.Name} — {klass.Name}";
+                if (!IsValidDraft(trigger)) continue;
+                if (string.IsNullOrWhiteSpace(trigger.Name))
+                    trigger.Name = $"{camera.Name} — {SummarizeTrigger(trigger)}";
+                else if (!trigger.Name.Contains(camera.Name, StringComparison.Ordinal))
+                    trigger.Name = $"{camera.Name} — {trigger.Name}";
                 if (!trigger.ActionIds.Contains(action.Id))
                     trigger.ActionIds.Add(action.Id);
                 await TriggerRepo.InsertAsync(trigger);
