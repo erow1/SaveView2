@@ -32,13 +32,30 @@ public sealed class TriggerEvaluator : ITriggerEvaluator
         Trigger trigger,
         string zoneId,
         IReadOnlyList<DetectionResult> detectionsInZone)
-        => Evaluate(trigger, zoneId, detectionsInZone, detectionClasses: null);
+        => Evaluate(trigger, zoneId, detectionsInZone, detectionClasses: null, allDetections: null, tracks: null);
 
     public TriggerEvaluationResult Evaluate(
         Trigger trigger,
         string zoneId,
         IReadOnlyList<DetectionResult> detectionsInZone,
         IReadOnlyDictionary<string, DetectionClass>? detectionClasses)
+        => Evaluate(trigger, zoneId, detectionsInZone, detectionClasses, allDetections: null, tracks: null);
+
+    public TriggerEvaluationResult Evaluate(
+        Trigger trigger,
+        string zoneId,
+        IReadOnlyList<DetectionResult> detectionsInZone,
+        IReadOnlyDictionary<string, DetectionClass>? detectionClasses,
+        IReadOnlyList<DetectionResult>? allDetections)
+        => Evaluate(trigger, zoneId, detectionsInZone, detectionClasses, allDetections, tracks: null);
+
+    public TriggerEvaluationResult Evaluate(
+        Trigger trigger,
+        string zoneId,
+        IReadOnlyList<DetectionResult> detectionsInZone,
+        IReadOnlyDictionary<string, DetectionClass>? detectionClasses,
+        IReadOnlyList<DetectionResult>? allDetections,
+        IReadOnlyDictionary<DetectionResult, TrackedInfo>? tracks)
     {
         ArgumentNullException.ThrowIfNull(trigger);
 
@@ -55,7 +72,7 @@ public sealed class TriggerEvaluator : ITriggerEvaluator
             return TriggerEvaluationResult.Skipped(ActionSkipReason.Schedule);
 
         // 2. Wszystkie warunki (AND) — czy pasują do detekcji w tej klatce
-        var conditionsMet = AllConditionsMatch(trigger.Conditions, detectionsInZone, detectionClasses);
+        var conditionsMet = AllConditionsMatch(trigger.Conditions, detectionsInZone, detectionClasses, allDetections, tracks);
 
         var key = (trigger.Id, zoneId);
         var state = _state.GetOrAdd(key, _ => new EvaluatorState());
@@ -113,12 +130,14 @@ public sealed class TriggerEvaluator : ITriggerEvaluator
     private static bool AllConditionsMatch(
         IReadOnlyList<TriggerCondition> conditions,
         IReadOnlyList<DetectionResult> detections,
-        IReadOnlyDictionary<string, DetectionClass>? detectionClasses)
+        IReadOnlyDictionary<string, DetectionClass>? detectionClasses,
+        IReadOnlyList<DetectionResult>? allDetections,
+        IReadOnlyDictionary<DetectionResult, TrackedInfo>? tracks)
     {
         foreach (var cond in conditions)
         {
             var matching = detections.Count(d =>
-                TriggerConditionMatcher.Matches(cond, d, detectionClasses, enforceMinConfidence: true));
+                TriggerConditionMatcher.Matches(cond, d, detectionClasses, enforceMinConfidence: true, allDetections, tracks));
 
             if (matching < Math.Max(1, cond.MinCount))
                 return false;

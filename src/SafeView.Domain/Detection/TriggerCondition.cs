@@ -46,4 +46,17 @@ public sealed class TriggerCondition
 
     /// <summary>Minimum detekcji tego typu w strefie żeby uznać warunek za spełniony.</summary>
     public int MinCount { get; set; } = 1;
+
+    /// <summary>
+    /// Opcjonalna reguła zawartości — sprawdza czy WEWNĄTRZ bbox-a tej detekcji znajduje się
+    /// (lub nie) detekcja innej klasy. Pozwala wyrazić relacyjne warunki typu "person bez kasku"
+    /// jednym condition-em. Null = brak filtru (zachowanie legacy).
+    /// </summary>
+    public ContainmentRule? Containment { get; set; }
+
+    /// <summary>
+    /// Opcjonalna reguła ruchu — sprawdza kierunek/prędkość detekcji (na bazie tracka). Wymaga
+    /// homografii kamery i <c>IObjectTracker</c>-a podłączonego w pipeline. Null = brak filtru.
+    /// </summary>
+    public MotionRule? Motion { get; set; }
 }

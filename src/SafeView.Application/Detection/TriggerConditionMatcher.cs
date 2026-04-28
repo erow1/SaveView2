@@ -34,6 +34,37 @@ public static class TriggerConditionMatcher
         DetectionResult detection,
         IReadOnlyDictionary<string, DetectionClass>? detectionClasses,
         bool enforceMinConfidence)
+        => Matches(cond, detection, detectionClasses, enforceMinConfidence,
+            allDetections: null, tracks: null);
+
+    /// <summary>
+    /// Wariant z dostępem do listy wszystkich detekcji z klatki — wymagany do ewaluacji
+    /// <see cref="TriggerCondition.Containment"/>. Gdy <paramref name="allDetections"/> null
+    /// i warunek ma containment, filtr jest pomijany (zachowanie defensive — nie blokujemy
+    /// triggera gdy caller nie dostarczył kontekstu).
+    /// </summary>
+    public static bool Matches(
+        TriggerCondition cond,
+        DetectionResult detection,
+        IReadOnlyDictionary<string, DetectionClass>? detectionClasses,
+        bool enforceMinConfidence,
+        IReadOnlyList<DetectionResult>? allDetections)
+        => Matches(cond, detection, detectionClasses, enforceMinConfidence,
+            allDetections, tracks: null);
+
+    /// <summary>
+    /// Wariant z info trackera — wymagany do ewaluacji <see cref="TriggerCondition.Motion"/>.
+    /// Gdy <paramref name="tracks"/> null albo nie zawiera tej detekcji a warunek ma motion rule,
+    /// detekcja jest **odrzucana** (motion rule wymaga pozytywnej weryfikacji prędkości/kierunku
+    /// — domyślne "fail-closed" jest bezpieczniejsze niż palenie triggera bez danych).
+    /// </summary>
+    public static bool Matches(
+        TriggerCondition cond,
+        DetectionResult detection,
+        IReadOnlyDictionary<string, DetectionClass>? detectionClasses,
+        bool enforceMinConfidence,
+        IReadOnlyList<DetectionResult>? allDetections,
+        IReadOnlyDictionary<DetectionResult, TrackedInfo>? tracks)
     {
         ArgumentNullException.ThrowIfNull(cond);
         ArgumentNullException.ThrowIfNull(detection);
@@ -55,7 +86,117 @@ public static class TriggerConditionMatcher
             && detection.Confidence < cond.MinConfidence.Value)
             return false;
 
+        if (cond.Containment is { } rule && allDetections is not null
+            && !ContainmentHolds(detection, rule, allDetections, detectionClasses))
+            return false;
+
+        if (cond.Motion is { } motion && !MotionHolds(detection, motion, tracks))
+            return false;
+
         return true;
+    }
+
+    /// <summary>
+    /// Czy reguła ruchu jest spełniona dla detekcji. Wymaga info z trackera (dict tracks).
+    /// Fail-closed: brak tracka albo zbyt mało próbek = nie matchuje.
+    /// </summary>
+    private static bool MotionHolds(
+        DetectionResult detection,
+        MotionRule rule,
+        IReadOnlyDictionary<DetectionResult, TrackedInfo>? tracks)
+    {
+        if (tracks is null || !tracks.TryGetValue(detection, out var info)) return false;
+
+        if (info.SamplesInTrack < Math.Max(2, rule.MinTrackSamples)) return false;
+
+        if (rule.MinSpeedMps is { } minS)
+        {
+            if (info.SpeedMps is null || info.SpeedMps.Value < minS) return false;
+        }
+        if (rule.MaxSpeedMps is { } maxS)
+        {
+            if (info.SpeedMps is null || info.SpeedMps.Value > maxS) return false;
+        }
+
+        if (rule.ExpectedHeadingDegrees is { } expected)
+        {
+            if (info.HeadingDegrees is null) return false;
+            var diff = MotionMath.AbsoluteDifferenceDegrees(expected, info.HeadingDegrees.Value);
+            if (diff > rule.DirectionToleranceDegrees) return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Czy reguła zawartości jest spełniona dla detekcji A (subject). Iteruje wszystkie inne
+    /// detekcje z klatki, wybiera te które matchują "klasę B" z reguły, sprawdza czy są
+    /// geometrycznie wewnątrz subject-a, a potem aplikuje operator (Any/None).
+    /// </summary>
+    private static bool ContainmentHolds(
+        DetectionResult subject,
+        ContainmentRule rule,
+        IReadOnlyList<DetectionResult> all,
+        IReadOnlyDictionary<string, DetectionClass>? classes)
+    {
+        var hasInsider = false;
+        foreach (var other in all)
+        {
+            if (ReferenceEquals(other, subject)) continue;
+            if (!MatchesOther(other, rule, classes)) continue;
+            if (!ContainmentChecker.IsContained(other.Bbox, subject.Bbox, rule.Criterion, rule.IoMinThreshold))
+                continue;
+
+            hasInsider = true;
+            break;
+        }
+
+        return rule.Operator switch
+        {
+            ContainmentOperator.ContainsAny => hasInsider,
+            ContainmentOperator.ContainsNone => !hasInsider,
+            _ => false
+        };
+    }
+
+    private static bool MatchesOther(
+        DetectionResult det,
+        ContainmentRule rule,
+        IReadOnlyDictionary<string, DetectionClass>? classes)
+    {
+        if (!string.IsNullOrEmpty(rule.OtherDetectionClassId)
+            && classes is not null
+            && classes.TryGetValue(rule.OtherDetectionClassId!, out var klass))
+        {
+            return MatchesOtherClass(klass, det);
+        }
+
+        if (string.IsNullOrEmpty(rule.OtherModelId)) return false;
+        if (det.ModelId != rule.OtherModelId) return false;
+        if (rule.OtherLabels.Count > 0 && !rule.OtherLabels.Contains(det.Label)) return false;
+        return true;
+    }
+
+    private static bool MatchesOtherClass(DetectionClass klass, DetectionResult det)
+    {
+        switch (klass.Kind)
+        {
+            case DetectionClassKind.ClosedSetBinding:
+                if (string.IsNullOrEmpty(klass.ClosedSetModelId) || string.IsNullOrEmpty(klass.ClosedSetLabel))
+                    return false;
+                return det.ModelId == klass.ClosedSetModelId
+                    && string.Equals(det.Label, klass.ClosedSetLabel, StringComparison.OrdinalIgnoreCase);
+
+            case DetectionClassKind.Text:
+            case DetectionClassKind.Visual:
+            case DetectionClassKind.TextAndVisual:
+                if (!string.IsNullOrEmpty(klass.TextPrompt))
+                    return string.Equals(det.Label, klass.TextPrompt, StringComparison.OrdinalIgnoreCase);
+                return true;
+
+            default:
+                return false;
+        }
     }
 
     private static bool MatchesClass(DetectionClass klass, TriggerCondition cond, DetectionResult detection)

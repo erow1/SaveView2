@@ -119,6 +119,10 @@ public static class DependencyInjection
         services.AddSingleton<ITriggerEvaluator, TriggerEvaluator>();
         services.AddSingleton<IActionDispatcher, ActionDispatcher>();
 
+        // Centroid tracker — singleton in-memory, per-kamera state. Karmi MotionRule w warunkach.
+        services.AddSingleton<SafeView.Application.Abstractions.Detection.IObjectTracker,
+                              SafeView.Application.Detection.ObjectTracker>();
+
         // ApiCamera — auto-provisioning pełnokadrowej ROI/Zone po utworzeniu kamery typu Api
         services.AddSingleton<SafeView.Application.Abstractions.Detection.IApiCameraProvisioner,
                               SafeView.Application.Detection.ApiCameraProvisioner>();

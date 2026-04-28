@@ -54,6 +54,7 @@ public sealed class DetectionPipeline : IDetectionPipeline, IFrameObserver
     private readonly IPerformanceMetrics? _metrics;
     private readonly IDetectionSnapshotStore? _snapshots;
     private readonly IFlowEventPublisher? _flow;
+    private readonly IObjectTracker? _tracker;
     private readonly IClock _clock;
     private readonly ILogger<DetectionPipeline> _log;
 
@@ -75,7 +76,8 @@ public sealed class DetectionPipeline : IDetectionPipeline, IFrameObserver
         IDetectionSnapshotStore? snapshots = null,
         IIncidentRepository? incidents = null,
         IFlowEventPublisher? flow = null,
-        IDetectionClassRepository? detectionClasses = null)
+        IDetectionClassRepository? detectionClasses = null,
+        IObjectTracker? tracker = null)
     {
         _rois = rois;
         _zones = zones;
@@ -95,6 +97,7 @@ public sealed class DetectionPipeline : IDetectionPipeline, IFrameObserver
         _incidents = incidents;
         _flow = flow;
         _detectionClasses = detectionClasses; // optional — null = tylko legacy path
+        _tracker = tracker; // optional — null = brak motion rules (cond.Motion zostanie odrzucony fail-closed)
     }
 
     public Task OnFrameAsync(Camera camera, SnapshotResult frame, CancellationToken ct)
@@ -306,6 +309,15 @@ public sealed class DetectionPipeline : IDetectionPipeline, IFrameObserver
             ? SafeView.Domain.Cameras.HomographyCalculator.Compute(camera.CalibrationPoints)
             : null;
 
+        // Tracker update — raz per klatka. Zwraca dict (DetectionResult → TrackedInfo) keyed by
+        // reference, używany dalej przez matcher do ewaluacji TriggerCondition.Motion.
+        // Brak homografii → tracker zwraca pusty dict (motion rules zaczną zwracać false).
+        IReadOnlyDictionary<DetectionResult, TrackedInfo>? tracks = null;
+        if (_tracker is not null)
+        {
+            tracks = _tracker.UpdateAndEnrich(camera.Id, occurredAt, allDetections, homography);
+        }
+
         // Dla każdej Zone × Trigger — ewaluuj, dispatcher akcji
         foreach (var zone in cameraZones)
         {
@@ -313,8 +325,8 @@ public sealed class DetectionPipeline : IDetectionPipeline, IFrameObserver
             {
                 if (!triggers.TryGetValue(triggerId, out var trigger)) continue;
 
-                var matchingDetections = FilterDetectionsForZone(allDetections, trigger, zone, detectionClasses);
-                var result = _triggerEvaluator.Evaluate(trigger, zone.Id, matchingDetections, detectionClasses);
+                var matchingDetections = FilterDetectionsForZone(allDetections, trigger, zone, detectionClasses, tracks);
+                var result = _triggerEvaluator.Evaluate(trigger, zone.Id, matchingDetections, detectionClasses, allDetections, tracks);
                 if (!result.Fired) continue;
 
                 if (trigger.SpatialFilters.Count > 0)
@@ -724,13 +736,15 @@ public sealed class DetectionPipeline : IDetectionPipeline, IFrameObserver
     /// Filtruje detekcje które pasują do zone przez bbox-rule warunków trigger-a.
     /// Detekcja jest dodana jeśli matchuje przynajmniej jeden z condition-ów. Matching
     /// delegowany do <see cref="TriggerConditionMatcher"/> (enforceMinConfidence=false —
-    /// confidence gate leży w evaluatorze).
+    /// confidence gate leży w evaluatorze). <paramref name="all"/> jest przekazywane
+    /// dalej do matchera żeby ContainmentRule miało dostęp do całej klatki.
     /// </summary>
     private static List<DetectionResult> FilterDetectionsForZone(
         IReadOnlyList<DetectionResult> all,
         Trigger trigger,
         Zone zone,
-        IReadOnlyDictionary<string, SafeView.Domain.Detection.DetectionClass>? detectionClasses)
+        IReadOnlyDictionary<string, SafeView.Domain.Detection.DetectionClass>? detectionClasses,
+        IReadOnlyDictionary<DetectionResult, TrackedInfo>? tracks)
     {
         var polygon = zone.Polygon.Select(p => (p.X, p.Y)).ToList();
         var result = new List<DetectionResult>();
@@ -739,7 +753,7 @@ public sealed class DetectionPipeline : IDetectionPipeline, IFrameObserver
         {
             foreach (var cond in trigger.Conditions)
             {
-                if (!TriggerConditionMatcher.Matches(cond, d, detectionClasses, enforceMinConfidence: false))
+                if (!TriggerConditionMatcher.Matches(cond, d, detectionClasses, enforceMinConfidence: false, allDetections: all, tracks: tracks))
                     continue;
 
                 var inZone = BboxRuleEvaluator.Evaluate(

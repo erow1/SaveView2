@@ -215,6 +215,32 @@
   <data name="Triggers.PairMode.All"><value>All pairs</value></data>
   <data name="Triggers.AddSpatialFilter"><value>Add spatial filter</value></data>
   <data name="Triggers.SpatialRequiresCalibration"><value>Requires camera calibration.</value></data>
+  <data name="Triggers.ContainmentSection"><value>Containment requirement (B inside A)</value></data>
+  <data name="Triggers.ContainmentHint"><value>Filter detections of this condition by what is (or is not) inside their bbox. Example: "person without helmet" — pick None + class Helmet.</value></data>
+  <data name="Triggers.ContainmentEnabled"><value>Enabled</value></data>
+  <data name="Triggers.ContainmentOperator"><value>Operator</value></data>
+  <data name="Triggers.ContainmentOperator.Any"><value>Contains at least one</value></data>
+  <data name="Triggers.ContainmentOperator.None"><value>Contains none</value></data>
+  <data name="Triggers.ContainmentCriterion"><value>Containment criterion</value></data>
+  <data name="Triggers.ContainmentCriterion.Center"><value>Center inside (recommended)</value></data>
+  <data name="Triggers.ContainmentCriterion.IoMin"><value>IoMin overlap (precise)</value></data>
+  <data name="Triggers.ContainmentCriterion.Fully"><value>Fully inside (strict)</value></data>
+  <data name="Triggers.ContainmentIoMinThreshold"><value>IoMin threshold</value></data>
+  <data name="Triggers.ContainmentOtherClass"><value>What is inside</value></data>
+  <data name="Triggers.ContainmentOtherClassHint"><value>Detection class checked inside the bbox of the matched object.</value></data>
+  <data name="Triggers.MotionSection"><value>Motion (direction + speed)</value></data>
+  <data name="Triggers.MotionHint"><value>Track-based filter — fires only when the object moves in a specified direction or speed range. Requires camera calibration.</value></data>
+  <data name="Triggers.MotionEnabled"><value>Enabled</value></data>
+  <data name="Triggers.MotionRequiresCalibration"><value>Motion rules use ground projection — calibrate the camera (4 floor points) so the tracker can compute meters/second and floor heading.</value></data>
+  <data name="Triggers.MotionDirectionEnabled"><value>Direction gate</value></data>
+  <data name="Triggers.MotionExpectedHeading"><value>Expected heading (°)</value></data>
+  <data name="Triggers.MotionExpectedHeadingHint"><value>0 = +X axis on floor, 90 = +Y, CCW</value></data>
+  <data name="Triggers.MotionTolerance"><value>Tolerance</value></data>
+  <data name="Triggers.MotionMinSpeed"><value>Min speed (m/s)</value></data>
+  <data name="Triggers.MotionMaxSpeed"><value>Max speed (m/s)</value></data>
+  <data name="Triggers.MotionSpeedHint"><value>Optional</value></data>
+  <data name="Triggers.MotionMinSamples"><value>Min track samples</value></data>
+  <data name="Triggers.MotionMinSamplesHint"><value>2 = pierwsza po wykryciu pomijana</value></data>
   <data name="Calibration.Title"><value>Camera calibration</value></data>
   <data name="Calibration.Description"><value>Pick floor points and enter their real-world X,Y in meters.</value></data>
   <data name="Calibration.Instructions"><value>Click points on the image and enter world meters.</value></data>

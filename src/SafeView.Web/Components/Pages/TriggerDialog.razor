@@ -196,6 +196,173 @@
                                 }
                             </div>
                         </MudStack>
+
+                        @* ── Motion (kierunek + prędkość z trackera) ─────── *@
+                        <MudExpansionPanels Elevation="0">
+                            <MudExpansionPanel Text="@L["Triggers.MotionSection"]" Expanded="@(c.Motion is not null)">
+                                <MudStack Spacing="2">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                                        <MudText Typo="Typo.caption" Class="sv-text-muted">
+                                            @L["Triggers.MotionHint"]
+                                        </MudText>
+                                        <MudSpacer />
+                                        <MudSwitch T="bool"
+                                                   Value="@(c.Motion is not null)"
+                                                   ValueChanged="@((bool on) => c.Motion = on ? new MotionRule() : null)"
+                                                   Color="Color.Primary" Size="Size.Small"
+                                                   Label="@L["Triggers.MotionEnabled"]" />
+                                    </MudStack>
+
+                                    @if (c.Motion is { } mr)
+                                    {
+                                        <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined"
+                                                  Icon="@Icons.Material.Filled.Info">
+                                            @L["Triggers.MotionRequiresCalibration"]
+                                        </MudAlert>
+
+                                        @* Direction gate *@
+                                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                            <MudSwitch T="bool"
+                                                       Value="@(mr.ExpectedHeadingDegrees.HasValue)"
+                                                       ValueChanged="@((bool on) => mr.ExpectedHeadingDegrees = on ? (mr.ExpectedHeadingDegrees ?? 0) : null)"
+                                                       Color="Color.Primary" Size="Size.Small"
+                                                       Label="@L["Triggers.MotionDirectionEnabled"]" />
+                                            @if (mr.ExpectedHeadingDegrees is { } hd)
+                                            {
+                                                <MudNumericField T="double"
+                                                                 Value="@hd"
+                                                                 ValueChanged="@((double v) => mr.ExpectedHeadingDegrees = v)"
+                                                                 Label="@L["Triggers.MotionExpectedHeading"]"
+                                                                 HelperText="@L["Triggers.MotionExpectedHeadingHint"]"
+                                                                 Min="0" Max="360" Step="5"
+                                                                 Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                                                 Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:160px;" />
+                                                <div style="min-width:240px;">
+                                                    <MudText Typo="Typo.caption" Class="sv-text-muted">
+                                                        @L["Triggers.MotionTolerance"]:
+                                                        <b>@($"±{mr.DirectionToleranceDegrees:F0}°")</b>
+                                                    </MudText>
+                                                    <MudSlider T="double" Value="mr.DirectionToleranceDegrees"
+                                                               ValueChanged="@((double v) => mr.DirectionToleranceDegrees = Math.Round(v))"
+                                                               Min="5" Max="180" Step="5" />
+                                                </div>
+                                            }
+                                        </MudStack>
+
+                                        @* Speed gate *@
+                                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                            <MudNumericField T="double?" @bind-Value="mr.MinSpeedMps"
+                                                             Label="@L["Triggers.MotionMinSpeed"]"
+                                                             HelperText="@L["Triggers.MotionSpeedHint"]"
+                                                             Min="0" Max="50" Step="0.1" Immediate="true"
+                                                             Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                                             Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:160px;" />
+                                            <MudNumericField T="double?" @bind-Value="mr.MaxSpeedMps"
+                                                             Label="@L["Triggers.MotionMaxSpeed"]"
+                                                             HelperText="@L["Triggers.MotionSpeedHint"]"
+                                                             Min="0" Max="50" Step="0.1" Immediate="true"
+                                                             Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                                             Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:160px;" />
+                                            <MudNumericField T="int" @bind-Value="mr.MinTrackSamples"
+                                                             Label="@L["Triggers.MotionMinSamples"]"
+                                                             HelperText="@L["Triggers.MotionMinSamplesHint"]"
+                                                             Min="2" Max="10" Step="1"
+                                                             Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:160px;" />
+                                        </MudStack>
+                                    }
+                                </MudStack>
+                            </MudExpansionPanel>
+                        </MudExpansionPanels>
+
+                        @* ── Containment (relacyjny filtr "B wewnątrz A") ─── *@
+                        <MudExpansionPanels Elevation="0">
+                            <MudExpansionPanel Text="@L["Triggers.ContainmentSection"]" Expanded="@(c.Containment is not null)">
+                                <MudStack Spacing="2">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                                        <MudText Typo="Typo.caption" Class="sv-text-muted">
+                                            @L["Triggers.ContainmentHint"]
+                                        </MudText>
+                                        <MudSpacer />
+                                        <MudSwitch T="bool"
+                                                   Value="@(c.Containment is not null)"
+                                                   ValueChanged="@((bool on) => c.Containment = on ? new ContainmentRule() : null)"
+                                                   Color="Color.Primary" Size="Size.Small"
+                                                   Label="@L["Triggers.ContainmentEnabled"]" />
+                                    </MudStack>
+
+                                    @if (c.Containment is { } cr)
+                                    {
+                                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                            <MudSelect T="ContainmentOperator" @bind-Value="cr.Operator"
+                                                       Label="@L["Triggers.ContainmentOperator"]"
+                                                       Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width:220px;">
+                                                <MudSelectItem Value="ContainmentOperator.ContainsAny">@L["Triggers.ContainmentOperator.Any"]</MudSelectItem>
+                                                <MudSelectItem Value="ContainmentOperator.ContainsNone">@L["Triggers.ContainmentOperator.None"]</MudSelectItem>
+                                            </MudSelect>
+                                            <MudSelect T="ContainmentCriterion" @bind-Value="cr.Criterion"
+                                                       Label="@L["Triggers.ContainmentCriterion"]"
+                                                       Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width:220px;">
+                                                <MudSelectItem Value="ContainmentCriterion.Center">@L["Triggers.ContainmentCriterion.Center"]</MudSelectItem>
+                                                <MudSelectItem Value="ContainmentCriterion.IoMin">@L["Triggers.ContainmentCriterion.IoMin"]</MudSelectItem>
+                                                <MudSelectItem Value="ContainmentCriterion.Fully">@L["Triggers.ContainmentCriterion.Fully"]</MudSelectItem>
+                                            </MudSelect>
+                                            @if (cr.Criterion == ContainmentCriterion.IoMin)
+                                            {
+                                                <div style="min-width:220px;">
+                                                    <MudText Typo="Typo.caption" Class="sv-text-muted">
+                                                        @L["Triggers.ContainmentIoMinThreshold"]:
+                                                        <b>@($"{cr.IoMinThreshold * 100:F0}%")</b>
+                                                    </MudText>
+                                                    <MudSlider T="double" Value="cr.IoMinThreshold"
+                                                               ValueChanged="@((double v) => cr.IoMinThreshold = Math.Round(v, 2))"
+                                                               Min="0.1" Max="1" Step="0.05" />
+                                                </div>
+                                            }
+                                        </MudStack>
+
+                                        @* Klasa B (co ma być wewnątrz). Domyślnie picker DetectionClass; legacy fallback w expansion. *@
+                                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                            <MudSelect T="string" Value="cr.OtherDetectionClassId"
+                                                       ValueChanged="@((string v) => OnContainmentClassSelected(cr, v))"
+                                                       Label="@L["Triggers.ContainmentOtherClass"]"
+                                                       HelperText="@L["Triggers.ContainmentOtherClassHint"]"
+                                                       Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                       Style="min-width:320px;" Clearable="true">
+                                                @foreach (var grp in DetectionClasses.GroupBy(x => x.Category).OrderBy(g => g.Key, StringComparer.Ordinal))
+                                                {
+                                                    @foreach (var klass in grp.OrderBy(x => x.Name, StringComparer.Ordinal))
+                                                    {
+                                                        <MudSelectItem Value="@klass.Id">[@grp.Key] @klass.Name</MudSelectItem>
+                                                    }
+                                                }
+                                            </MudSelect>
+                                        </MudStack>
+
+                                        @if (string.IsNullOrEmpty(cr.OtherDetectionClassId))
+                                        {
+                                            <MudExpansionPanels Elevation="0">
+                                                <MudExpansionPanel Text="@L["Triggers.AdvancedManualConfig"]">
+                                                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                                        <MudSelect T="string" @bind-Value="cr.OtherModelId" Label="@L["Triggers.Model"]"
+                                                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width:200px;" Clearable="true">
+                                                            @foreach (var m in Models)
+                                                            {
+                                                                <MudSelectItem Value="@m.Id">@m.Name</MudSelectItem>
+                                                            }
+                                                        </MudSelect>
+                                                        <MudTextField Value="@string.Join(",", cr.OtherLabels)"
+                                                                      ValueChanged="@((string s) => cr.OtherLabels = s.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList())"
+                                                                      Label="@L["Triggers.Labels"]"
+                                                                      HelperText="@L["Triggers.LabelsHint"]"
+                                                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                                    </MudStack>
+                                                </MudExpansionPanel>
+                                            </MudExpansionPanels>
+                                        }
+                                    }
+                                </MudStack>
+                            </MudExpansionPanel>
+                        </MudExpansionPanels>
                     </MudStack>
                 </MudPaper>
             }
@@ -580,4 +747,16 @@
     }
 
     private void Save() => MudDialog.Close(DialogResult.Ok(Trigger));
+
+    /// <summary>
+    /// Gdy user wybiera klasę B (co ma być wewnątrz A), czyścimy legacy ModelId+Labels żeby
+    /// matcher jednoznacznie szedł class-based path. Analogicznie do <see cref="OnClassSelected"/>.
+    /// </summary>
+    private static void OnContainmentClassSelected(ContainmentRule cr, string? classId)
+    {
+        cr.OtherDetectionClassId = string.IsNullOrEmpty(classId) ? null : classId;
+        if (string.IsNullOrEmpty(classId)) return;
+        cr.OtherModelId = string.Empty;
+        cr.OtherLabels = new List<string>();
+    }
 }

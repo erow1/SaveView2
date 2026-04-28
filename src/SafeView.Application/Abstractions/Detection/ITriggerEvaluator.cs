@@ -33,6 +33,31 @@ public interface ITriggerEvaluator
         IReadOnlyList<DetectionResult> detectionsInZone,
         IReadOnlyDictionary<string, DetectionClass>? detectionClasses);
 
+    /// <summary>
+    /// Wariant z dostępem do pełnej listy detekcji z klatki — wymagany do ewaluacji
+    /// <see cref="TriggerCondition.Containment"/> (containment check potrzebuje obiektów
+    /// poza strefą i poza warunkiem).
+    /// </summary>
+    TriggerEvaluationResult Evaluate(
+        Trigger trigger,
+        string zoneId,
+        IReadOnlyList<DetectionResult> detectionsInZone,
+        IReadOnlyDictionary<string, DetectionClass>? detectionClasses,
+        IReadOnlyList<DetectionResult>? allDetections);
+
+    /// <summary>
+    /// Pełny wariant z info trackera — wymagany do ewaluacji <see cref="TriggerCondition.Motion"/>
+    /// (kierunek/prędkość). <paramref name="tracks"/> mapuje DetectionResult → TrackedInfo,
+    /// keyed by reference equality (caller dostarcza tę samą instancję detekcji).
+    /// </summary>
+    TriggerEvaluationResult Evaluate(
+        Trigger trigger,
+        string zoneId,
+        IReadOnlyList<DetectionResult> detectionsInZone,
+        IReadOnlyDictionary<string, DetectionClass>? detectionClasses,
+        IReadOnlyList<DetectionResult>? allDetections,
+        IReadOnlyDictionary<DetectionResult, TrackedInfo>? tracks);
+
     /// <summary>Czyści cały stan (przy restarcie lub zmianie konfiguracji).</summary>
     void Reset();
 }

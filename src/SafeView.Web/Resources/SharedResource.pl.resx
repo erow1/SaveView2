@@ -215,6 +215,32 @@
   <data name="Triggers.PairMode.All"><value>Wszystkie pary</value></data>
   <data name="Triggers.AddSpatialFilter"><value>Dodaj filtr przestrzenny</value></data>
   <data name="Triggers.SpatialRequiresCalibration"><value>Trigger nie wypali dla kamer bez kalibracji homografii (strona Kalibracja dla kamery).</value></data>
+  <data name="Triggers.ContainmentSection"><value>Wymaganie zawartości (B wewnątrz A)</value></data>
+  <data name="Triggers.ContainmentHint"><value>Filtruje detekcje tego warunku w zależności od tego co jest (lub nie ma) wewnątrz ich bboxu. Przykład: "osoba bez kasku" — wybierz Brak + klasa Kask.</value></data>
+  <data name="Triggers.ContainmentEnabled"><value>Włączone</value></data>
+  <data name="Triggers.ContainmentOperator"><value>Operator</value></data>
+  <data name="Triggers.ContainmentOperator.Any"><value>Zawiera co najmniej jeden</value></data>
+  <data name="Triggers.ContainmentOperator.None"><value>Nie zawiera żadnego</value></data>
+  <data name="Triggers.ContainmentCriterion"><value>Kryterium zawierania</value></data>
+  <data name="Triggers.ContainmentCriterion.Center"><value>Środek wewnątrz (zalecane)</value></data>
+  <data name="Triggers.ContainmentCriterion.IoMin"><value>Pokrycie IoMin (precyzyjne)</value></data>
+  <data name="Triggers.ContainmentCriterion.Fully"><value>W całości wewnątrz (ścisłe)</value></data>
+  <data name="Triggers.ContainmentIoMinThreshold"><value>Próg IoMin</value></data>
+  <data name="Triggers.ContainmentOtherClass"><value>Co jest wewnątrz</value></data>
+  <data name="Triggers.ContainmentOtherClassHint"><value>Klasa detekcji sprawdzana wewnątrz bboxu obiektu który zaliczył warunek.</value></data>
+  <data name="Triggers.MotionSection"><value>Ruch (kierunek + prędkość)</value></data>
+  <data name="Triggers.MotionHint"><value>Filtr oparty o tracker — odpala tylko gdy obiekt porusza się w określonym kierunku albo zakresie prędkości. Wymaga kalibracji kamery.</value></data>
+  <data name="Triggers.MotionEnabled"><value>Włączone</value></data>
+  <data name="Triggers.MotionRequiresCalibration"><value>Reguły ruchu używają projekcji na podłogę — skalibruj kamerę (4 punkty na podłodze) żeby tracker mógł liczyć metry/sekundę i kierunek na podłodze.</value></data>
+  <data name="Triggers.MotionDirectionEnabled"><value>Filtr kierunku</value></data>
+  <data name="Triggers.MotionExpectedHeading"><value>Oczekiwany kierunek (°)</value></data>
+  <data name="Triggers.MotionExpectedHeadingHint"><value>0 = oś +X na podłodze, 90 = +Y, przeciwnie do wskazówek zegara</value></data>
+  <data name="Triggers.MotionTolerance"><value>Tolerancja</value></data>
+  <data name="Triggers.MotionMinSpeed"><value>Min prędkość (m/s)</value></data>
+  <data name="Triggers.MotionMaxSpeed"><value>Maks prędkość (m/s)</value></data>
+  <data name="Triggers.MotionSpeedHint"><value>Opcjonalne</value></data>
+  <data name="Triggers.MotionMinSamples"><value>Min próbek w tracku</value></data>
+  <data name="Triggers.MotionMinSamplesHint"><value>2 = pierwsza klatka po wykryciu pominięta</value></data>
   <data name="Calibration.Title"><value>Kalibracja kamery</value></data>
   <data name="Calibration.Description"><value>Kliknij min. 4 punkty na podłodze i wpisz ich współrzędne w metrach. Punkty powinny być rozrzucone (nie w linii).</value></data>
   <data name="Calibration.Instructions"><value>Kliknij punkt na obrazie (np. narożnik siatki podłogi, znacznik), potem wpisz jego X i Y w metrach względem dowolnego punktu odniesienia. Powtórz dla min. 4 punktów.</value></data>
