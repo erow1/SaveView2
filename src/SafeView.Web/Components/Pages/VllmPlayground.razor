@@ -251,6 +251,21 @@
                         </MudText>
 
                         <MudExpansionPanels Elevation="0">
+                            @if (_result.Diagnostics is { Count: > 0 } diag)
+                            {
+                                <MudExpansionPanel Text="@L["VllmPlayground.Diagnostics"]" Expanded="true">
+                                    <table class="mono" style="font-size:11px; border-collapse:collapse;">
+                                        @foreach (var kv in diag)
+                                        {
+                                            var isWarning = kv.Key == "image.attached" && !kv.Value.StartsWith("yes");
+                                            <tr>
+                                                <td style="padding:2px 12px 2px 0; opacity:0.65; vertical-align:top;">@kv.Key</td>
+                                                <td style="padding:2px 0; @(isWarning ? "color:var(--mud-palette-warning); font-weight:600;" : "")">@kv.Value</td>
+                                            </tr>
+                                        }
+                                    </table>
+                                </MudExpansionPanel>
+                            }
                             <MudExpansionPanel Text="@L["VllmPlayground.RawResponse"]">
                                 <pre class="mono" style="font-size:11px; white-space:pre-wrap; margin:0;">@(_result.RawResponse ?? "")</pre>
                             </MudExpansionPanel>

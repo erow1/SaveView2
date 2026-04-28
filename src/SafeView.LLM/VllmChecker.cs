@@ -56,20 +56,60 @@ public sealed class VllmChecker : IVllmChecker
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(context);
 
+        // Diagnostyka — kluczowe info pokazywane w playground "Diagnostyka" panel,
+        // żeby user mógł szybko stwierdzić czy obraz dotarł i jaki model został wywołany.
+        var diag = new Dictionary<string, string>(StringComparer.Ordinal);
+        diag["provider.id"] = config.LlmProviderId ?? "(default)";
+        diag["model.requested"] = string.IsNullOrWhiteSpace(config.ModelName)
+            ? "(empty — fallback to provider DefaultModel)"
+            : config.ModelName!;
+        diag["schema.length"] = (config.SchemaJson?.Length ?? FallbackSchema.Length).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
         if (!config.Enabled)
+        {
+            diag["check"] = "disabled";
             return new VllmCheckResult(true, 1.0, "VLLM check disabled", null,
-                Severity: ResponseSeverity.Medium, Quality: ImageQuality.Good, Action: RecommendedAction.Investigate);
+                Severity: ResponseSeverity.Medium, Quality: ImageQuality.Good, Action: RecommendedAction.Investigate,
+                Diagnostics: diag);
+        }
+
+        // Image attachment — najczęstszy powód "LLM bez sensu": obraz nie dociera (text-only model
+        // albo plik nie istnieje), więc model halucynuje na tekście promptu.
+        string? imagePath = null;
+        if (config.IncludeFrame)
+        {
+            if (!string.IsNullOrEmpty(context.FrameSnapshotPath) && File.Exists(context.FrameSnapshotPath))
+            {
+                imagePath = context.FrameSnapshotPath;
+                try
+                {
+                    var fi = new FileInfo(imagePath);
+                    diag["image.attached"] = "yes";
+                    diag["image.bytes"] = fi.Length.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    diag["image.path"] = imagePath;
+                }
+                catch
+                {
+                    diag["image.attached"] = "yes (stat failed)";
+                }
+            }
+            else
+            {
+                diag["image.attached"] = string.IsNullOrEmpty(context.FrameSnapshotPath)
+                    ? "no (FrameSnapshotPath empty)"
+                    : "no (file not found)";
+            }
+        }
+        else
+        {
+            diag["image.attached"] = "no (IncludeFrame=false)";
+        }
 
         var userPrompt = RenderTemplate(config.PromptTemplate, context);
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, config.SystemPrompt ?? ""),
-            new(
-                ChatRole.User,
-                userPrompt,
-                ImagePath: config.IncludeFrame && File.Exists(context.FrameSnapshotPath)
-                    ? context.FrameSnapshotPath
-                    : null)
+            new(ChatRole.User, userPrompt, ImagePath: imagePath)
         };
 
         var schema = !string.IsNullOrWhiteSpace(config.SchemaJson) ? config.SchemaJson : FallbackSchema;
@@ -79,29 +119,40 @@ public sealed class VllmChecker : IVllmChecker
             MaxTokens: 600,
             JsonSchema: schema);
 
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             // Wybierz klienta: per-trigger provider albo default (IsDefault=true). Cache jest w factory.
             var chat = await _factory.GetForAsync(config.LlmProviderId, ct).ConfigureAwait(false);
+            diag["backend"] = chat.Backend;
             var resp = await chat.ChatAsync(messages, options, ct).ConfigureAwait(false);
+            sw.Stop();
+            diag["latency.ms"] = sw.ElapsedMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            diag["model.actual"] = resp.Model ?? "(unknown)";
+            diag["tokens.prompt"] = resp.PromptTokens.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            diag["tokens.completion"] = resp.CompletionTokens.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
             if (!resp.Success)
             {
                 _log.LogWarning("VLLM check failed: {Err}", resp.ErrorMessage);
-                return new VllmCheckResult(false, 0, $"LLM error: {resp.ErrorMessage}", resp.Content, IsError: true);
+                return new VllmCheckResult(false, 0, $"LLM error: {resp.ErrorMessage}", resp.Content, IsError: true,
+                    Diagnostics: diag);
             }
-            return Parse(resp.Content, config);
+            return Parse(resp.Content, config) with { Diagnostics = diag };
         }
         catch (OperationCanceledException) { throw; }
         catch (InvalidOperationException ex)
         {
             // Brak skonfigurowanego providera (lub provider o ID nie istnieje + nie ma default).
             _log.LogWarning("VLLM check: brak skonfigurowanego providera LLM ({Msg})", ex.Message);
-            return new VllmCheckResult(false, 0, $"LLM provider not configured: {ex.Message}", null, IsError: true);
+            return new VllmCheckResult(false, 0, $"LLM provider not configured: {ex.Message}", null, IsError: true,
+                Diagnostics: diag);
         }
         catch (Exception ex)
         {
             _log.LogWarning(ex, "VLLM check exception");
-            return new VllmCheckResult(false, 0, $"Exception: {ex.Message}", null, IsError: true);
+            return new VllmCheckResult(false, 0, $"Exception: {ex.Message}", null, IsError: true,
+                Diagnostics: diag);
         }
     }
 

@@ -103,6 +103,7 @@
   <data name="VllmPlayground.Alternatives"><value>Alternative explanations</value></data>
   <data name="VllmPlayground.Duration"><value>Duration</value></data>
   <data name="VllmPlayground.RawResponse"><value>Raw LLM response</value></data>
+  <data name="VllmPlayground.Diagnostics"><value>Diagnostics — what was actually sent</value></data>
   <data name="VllmPlayground.GenerateBtn"><value>Generate from description</value></data>
   <data name="VllmPlayground.Generating"><value>Generating…</value></data>
   <data name="VllmPlayground.GenerateTitle"><value>VLLM prompt generator</value></data>

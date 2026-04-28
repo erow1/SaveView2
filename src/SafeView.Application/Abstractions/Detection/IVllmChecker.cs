@@ -25,7 +25,14 @@ public sealed record VllmCheckResult(
     ImageQuality Quality = ImageQuality.Good,
     RecommendedAction Action = RecommendedAction.Ignore,
     IReadOnlyList<string>? Observations = null,
-    IReadOnlyList<string>? AlternativeExplanations = null);
+    IReadOnlyList<string>? AlternativeExplanations = null,
+    /// <summary>
+    /// Opcjonalna metryka diagnostyczna — dla UI playground/debug. Klucze: <c>model.requested</c>,
+    /// <c>model.actual</c>, <c>image.attached</c>, <c>image.bytes</c>, <c>provider.id</c>,
+    /// <c>backend</c>, <c>schema.length</c>, <c>tokens.prompt</c>, <c>tokens.completion</c>,
+    /// <c>latency.ms</c>. Null w produkcyjnym pipeline dla niskiego overhead-u.
+    /// </summary>
+    IReadOnlyDictionary<string, string>? Diagnostics = null);
 
 /// <summary>
 /// Pyta VLLM "czy trigger to prawdziwy alert czy false-positive?" z dołączoną klatką (opcjonalnie).

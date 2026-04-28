@@ -72,7 +72,9 @@ public sealed class OpenAiCompatibleChatClient : IChatClient
     public async Task<ChatResponse> ChatAsync(IReadOnlyList<ChatMessage> messages, ChatOptions? options = null, CancellationToken ct = default)
     {
         options ??= new ChatOptions();
-        var model = options.Model ?? _opts.DefaultModel;
+        // FIX: pusty string nie wpada w `??` — używamy IsNullOrWhiteSpace żeby fallback do
+        // _opts.DefaultModel działał też gdy caller wyczyścił TextField w UI (zwraca "" nie null).
+        var model = string.IsNullOrWhiteSpace(options.Model) ? _opts.DefaultModel : options.Model!;
 
         var body = new JsonObject
         {
@@ -86,6 +88,13 @@ public sealed class OpenAiCompatibleChatClient : IChatClient
         {
             ApplyStructuredOutput(body, options.JsonSchema!);
         }
+
+        // Debug log — kluczowy dla diagnozy "LLM odpowiada bez sensu". Pokazuje czy obraz
+        // został zalączony, jaki model jest wołany, ile messages, czy strict-schema jest aktywny.
+        var imageCount = messages.Count(m => !string.IsNullOrEmpty(m.ImagePath));
+        _log.LogDebug(
+            "LLM request: backend={Backend} model={Model} messages={Count} images={Images} schema={HasSchema}",
+            _opts.Backend, model, messages.Count, imageCount, options.JsonSchema is not null);
 
         var sw = Stopwatch.StartNew();
         HttpResponseMessage resp;
