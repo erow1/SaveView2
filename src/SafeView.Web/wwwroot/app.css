@@ -216,3 +216,48 @@ body:not(.theme-dark):not(.theme-light) {
     border-radius: 4px;
     font-size: 14px;
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+   Bbox / detection overlay — shared style across the app.
+   Source of truth: ModelTestDialog. Used by:
+     • ModelTestDialog (model test)
+     • IncidentDetail (incident snapshot review)
+     • monitor.js (live multi-tile)
+   Color is per-detection (rotating palette) passed via inline style:
+     --bbox-color (hex). Background uses color-mix for translucency,
+     supported in Chrome 111+ / Safari 16.2+ / Firefox 113+.
+   ────────────────────────────────────────────────────────────────────── */
+.sv-bbox-label {
+    position: absolute;
+    transform: translate(-1px, -100%);
+    background: color-mix(in srgb, var(--bbox-color, #2EC27E) 55%, transparent);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid var(--bbox-color, #2EC27E);
+    border-radius: 3px 3px 3px 0;
+    color: #fff;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    padding: 1px 6px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+    pointer-events: none;
+    white-space: nowrap;
+    line-height: 1.5;
+}
+/* Smaller variant for tile-density displays (monitor.js multi-tile grid). */
+.sv-bbox-label-sm {
+    font-size: 9px;
+    padding: 0 4px;
+    line-height: 1.4;
+    border-radius: 2px 2px 2px 0;
+}
+/* SVG rect class for detection bboxes — paired with .sv-bbox-label.
+   Use inline `stroke` and `fill` attrs (or `style`) to set the per-detection color.
+   stroke-width 1.5 + non-scaling-stroke + rx/ry rounded corners. */
+.sv-bbox-rect {
+    fill-opacity: 0.10;
+    stroke-width: 1.5;
+    vector-effect: non-scaling-stroke;
+}

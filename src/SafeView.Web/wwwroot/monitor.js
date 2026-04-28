@@ -15,6 +15,11 @@
         return el;
     }
 
+    // Paleta lustro do SafeView.Web.Helpers.BboxPalette — trzymamy spójność
+    // wizualną z ModelTestDialog i IncidentDetail. 8-kolorowa rotacja po indeksie.
+    const BBOX_PALETTE = ['#4DA6FF', '#2EC27E', '#F5A524', '#FF5964', '#A855F7', '#EC4899', '#14B8A6', '#EAB308'];
+    const bboxColor = (i) => BBOX_PALETTE[((i % BBOX_PALETTE.length) + BBOX_PALETTE.length) % BBOX_PALETTE.length];
+
     function projectFoot(d, H) {
         if (!H) return null;
         const px = d.x + d.width / 2;
@@ -24,29 +29,16 @@
         return { x: (H.m00 * px + H.m01 * py + H.m02) / w, y: (H.m10 * px + H.m11 * py + H.m12) / w, pixelX: px, pixelY: py };
     }
 
-    function makeLabel(nx, ny, nw, color, text, position) {
+    // Reużywa shared CSS class .sv-bbox-label + .sv-bbox-label-sm (definicje w app.css).
+    // Color przekazywany przez --bbox-color CSS variable; resztę styli (frosted glass,
+    // border-radius, fontset) trzyma CSS — żeby ModelTestDialog/IncidentDetail/monitor
+    // wszystkie wyglądały identycznie.
+    function makeLabel(nx, ny, _nw, color, text) {
         const el = document.createElement('div');
-        const nearTop = ny < 0.05;
-        const labelBelow = position === 'inside' || nearTop;
-        el.style.cssText = [
-            'position:absolute',
-            `left:${nx * 100}%`,
-            labelBelow ? `top:${ny * 100}%` : `top:calc(${ny * 100}% - 18px)`,
-            `max-width:${Math.max(nw * 100, 10)}%`,
-            'height:18px',
-            'display:flex',
-            'align-items:center',
-            'padding:0 5px',
-            `background:${color}`,
-            'color:#fff',
-            'font:600 9px/1 "JetBrains Mono", ui-monospace, monospace',
-            'letter-spacing:0.02em',
-            'white-space:nowrap',
-            'overflow:hidden',
-            'text-overflow:ellipsis',
-            'border-radius:2px 2px 0 0',
-            'pointer-events:none'
-        ].join(';');
+        el.className = 'sv-bbox-label sv-bbox-label-sm';
+        el.style.setProperty('--bbox-color', color);
+        el.style.left = `${nx * 100}%`;
+        el.style.top = `${ny * 100}%`;
         el.textContent = text;
         return el;
     }
@@ -89,15 +81,17 @@
         }
 
         if (toggles.detections && data.detections) {
-            for (const d of data.detections) {
+            data.detections.forEach((d, i) => {
+                const color = bboxColor(i);
                 svg.appendChild(svgNs('rect', {
+                    'class': 'sv-bbox-rect',
                     x: d.x, y: d.y, width: d.width, height: d.height,
-                    fill: 'none', stroke: '#2EC27E', 'stroke-width': 1.5,
-                    'vector-effect': 'non-scaling-stroke'
+                    fill: color, stroke: color,
+                    rx: 0.003, ry: 0.003
                 }));
                 const text = `${d.label} ${(d.confidence * 100).toFixed(0)}%`;
-                lbl.appendChild(makeLabel(d.x, d.y, d.width, 'rgba(46,194,126,0.88)', text, 'auto'));
-            }
+                lbl.appendChild(makeLabel(d.x, d.y, d.width, color, text));
+            });
         }
 
         if (toggles.distances && toggles.detections && data.homography && data.detections && data.detections.length >= 2) {

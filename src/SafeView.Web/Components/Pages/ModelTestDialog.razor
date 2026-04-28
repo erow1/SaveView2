@@ -1,5 +1,6 @@
 @namespace SafeView.Web.Components.Pages
 @using SafeView.Domain.ML
+@using SafeView.Web.Helpers
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
 @inject IStringLocalizer<SharedResource> L
@@ -174,24 +175,21 @@
                          style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
                         @foreach (var (d, idx) in VisibleDetections().Select((x, i) => (x, i)))
                         {
-                            var color = BboxColor(idx);
-                            // vector-effect:non-scaling-stroke — stała grubość ramki niezależnie od skalowania SVG.
-                            // Bez tego stroke-width=1.5 w viewBox 4000×3000 = niewidzialne włos.
-                            <rect x="@Fmt(d.X)" y="@Fmt(d.Y)"
+                            var color = BboxPalette.ColorAt(idx);
+                            <rect class="sv-bbox-rect"
+                                  x="@Fmt(d.X)" y="@Fmt(d.Y)"
                                   width="@Fmt(d.Width)" height="@Fmt(d.Height)"
-                                  fill="@color" fill-opacity="0.10"
-                                  stroke="@color" stroke-width="1.5"
-                                  vector-effect="non-scaling-stroke"
+                                  fill="@color" stroke="@color"
                                   rx="2" ry="2" />
                         }
                     </svg>
                     @foreach (var (d, idx) in VisibleDetections().Select((x, i) => (x, i)))
                     {
-                        var color = BboxColor(idx);
-                        var bgRgba = Rgba(color, 0.55);
+                        var color = BboxPalette.ColorAt(idx);
                         var leftPct = d.X / Math.Max(1, _result.SourceWidth) * 100;
                         var topPct = d.Y / Math.Max(1, _result.SourceHeight) * 100;
-                        <div style="@($"position:absolute; left:{Fmt(leftPct)}%; top:{Fmt(topPct)}%; transform:translate(-1px,-100%); background:{bgRgba}; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); border:1px solid {color}; border-radius:3px 3px 3px 0; color:#fff; font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; letter-spacing:0.2px; padding:1px 6px; text-shadow:0 1px 2px rgba(0,0,0,0.7); pointer-events:none; white-space:nowrap; line-height:1.5;")">
+                        <div class="sv-bbox-label"
+                             style="@($"--bbox-color:{color}; left:{Fmt(leftPct)}%; top:{Fmt(topPct)}%;")">
                             @d.Label <span style="opacity:0.85;">@($"{d.Confidence * 100:F0}%")</span>
                         </div>
                     }
@@ -488,29 +486,8 @@
 
     private static string Fmt(double v) => v.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
 
-    // Deterministyczna paleta żeby kolejne bboxy miały różne kolory — łatwiejsze debugowanie.
-    private static string BboxColor(int idx)
-    {
-        var palette = new[] { "#4DA6FF", "#2EC27E", "#F5A524", "#FF5964", "#A855F7", "#EC4899", "#14B8A6", "#EAB308" };
-        return palette[idx % palette.Length];
-    }
-
-    /// <summary>Hex (#RRGGBB) → rgba(r,g,b,a). Fallback na ten sam hex gdy parsing fail
-    /// (defensive — nie psujemy stylu gdy paleta zawiera niespodzianke).</summary>
-    private static string Rgba(string hex, double alpha)
-    {
-        var h = hex.TrimStart('#');
-        if (h.Length != 6) return hex;
-        try
-        {
-            var r = Convert.ToInt32(h[..2], 16);
-            var g = Convert.ToInt32(h[2..4], 16);
-            var b = Convert.ToInt32(h[4..6], 16);
-            var a = alpha.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
-            return $"rgba({r},{g},{b},{a})";
-        }
-        catch { return hex; }
-    }
+    // Paleta + konwersje delegowane do SafeView.Web.Helpers.BboxPalette (shared
+    // z IncidentDetail i monitor.js żeby styl był spójny w całej apce).
 
     private sealed class TestResult
     {

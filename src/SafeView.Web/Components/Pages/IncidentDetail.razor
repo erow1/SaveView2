@@ -1,5 +1,6 @@
 @page "/incidents/{Id}"
 @attribute [Authorize(Policy = "perm:incidents:view")]
+@using SafeView.Web.Helpers
 @inject SafeView.Application.Abstractions.Persistence.IIncidentRepository IncidentRepo
 @inject SafeView.Application.Abstractions.LLM.IIncidentAnalyzer Analyzer
 @inject NavigationManager Nav
@@ -94,19 +95,25 @@
                                  style="width:100%; max-height:70vh; display:block; object-fit:contain;" />
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1" preserveAspectRatio="none"
                                  style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;">
-                                @foreach (var d in _incident.Detections)
+                                @for (var i = 0; i < _incident.Detections.Count; i++)
                                 {
-                                    <rect x="@Num(d.X)" y="@Num(d.Y)" width="@Num(d.Width)" height="@Num(d.Height)"
-                                          fill="none" stroke="#2EC27E" stroke-width="2" vector-effect="non-scaling-stroke" />
+                                    var d = _incident.Detections[i];
+                                    var color = BboxPalette.ColorAt(i);
+                                    <rect class="sv-bbox-rect"
+                                          x="@Num(d.X)" y="@Num(d.Y)"
+                                          width="@Num(d.Width)" height="@Num(d.Height)"
+                                          fill="@color" stroke="@color"
+                                          rx="0.003" ry="0.003" />
                                 }
                             </svg>
                             <div style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;">
-                                @foreach (var d in _incident.Detections)
+                                @for (var i = 0; i < _incident.Detections.Count; i++)
                                 {
-                                    var labelBelow = d.Y < 0.035f;
-                                    var top = labelBelow ? $"{d.Y * 100:0.##}%" : $"calc({d.Y * 100:0.##}% - 22px)";
-                                    <div style="@($"position:absolute;left:{d.X * 100:0.##}%;top:{top};max-width:{Math.Max(d.Width * 100, 10):0.##}%;height:22px;display:flex;align-items:center;padding:0 8px;background:rgba(46,194,126,0.85);color:#fff;font:600 11px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:3px 3px 0 0;box-shadow:0 1px 2px rgba(0,0,0,0.4);")">
-                                        @d.Label @($"{d.Confidence * 100:F0}%")
+                                    var d = _incident.Detections[i];
+                                    var color = BboxPalette.ColorAt(i);
+                                    <div class="sv-bbox-label"
+                                         style="@($"--bbox-color:{color}; left:{d.X * 100:0.##}%; top:{d.Y * 100:0.##}%;")">
+                                        @d.Label <span style="opacity:0.85;">@($"{d.Confidence * 100:F0}%")</span>
                                     </div>
                                 }
                             </div>
