@@ -171,6 +171,94 @@ public sealed class OpenAiCompatibleChatClient : IChatClient
         }
     }
 
+    public async Task<ServerStatus> GetServerStatusAsync(CancellationToken ct = default)
+    {
+        if (!string.Equals(_opts.Backend, "ollama", StringComparison.OrdinalIgnoreCase))
+            return ServerStatus.NotSupported("backend != ollama");
+
+        var baseAddr = _http.BaseAddress;
+        if (baseAddr is null) return ServerStatus.NotSupported("no BaseAddress");
+        var rootUri = new Uri(baseAddr.GetLeftPart(UriPartial.Authority));
+
+        try
+        {
+            // Wersja — przyjemne dla user-a, niekrytyczne (failsafe → null).
+            string? version = null;
+            try
+            {
+                using var vresp = await _http.GetAsync(new Uri(rootUri, "/api/version"), ct).ConfigureAwait(false);
+                if (vresp.IsSuccessStatusCode)
+                {
+                    var vdoc = await vresp.Content.ReadFromJsonAsync<VersionResponse>(cancellationToken: ct).ConfigureAwait(false);
+                    version = vdoc?.Version;
+                }
+            }
+            catch { /* ignore — version is best-effort */ }
+
+            // Loaded models — kluczowe info: size + size_vram + expires_at + context_length.
+            using var resp = await _http.GetAsync(new Uri(rootUri, "/api/ps"), ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode) return ServerStatus.NotSupported($"HTTP {(int)resp.StatusCode}");
+            var doc = await resp.Content.ReadFromJsonAsync<PsResponse>(cancellationToken: ct).ConfigureAwait(false);
+
+            var models = (doc?.Models ?? new List<PsModel>())
+                .Select(m => new LoadedModelInfo(
+                    Name: m.Name ?? string.Empty,
+                    SizeBytes: m.Size,
+                    VramBytes: m.SizeVram,
+                    ContextLength: m.ContextLength,
+                    ParameterSize: m.Details?.ParameterSize,
+                    Quantization: m.Details?.QuantizationLevel,
+                    ExpiresAtUtc: ParseExpires(m.ExpiresAt)))
+                .ToArray();
+
+            return new ServerStatus(Supported: true, Version: version, LoadedModels: models);
+        }
+        catch (Exception ex)
+        {
+            _log.LogDebug(ex, "GetServerStatusAsync failed");
+            return ServerStatus.NotSupported(ex.Message);
+        }
+    }
+
+    public async Task<bool> DeleteModelAsync(string modelName, CancellationToken ct = default)
+    {
+        if (!string.Equals(_opts.Backend, "ollama", StringComparison.OrdinalIgnoreCase)) return false;
+        if (string.IsNullOrWhiteSpace(modelName)) return false;
+        var baseAddr = _http.BaseAddress;
+        if (baseAddr is null) return false;
+        var deleteUri = new Uri(new Uri(baseAddr.GetLeftPart(UriPartial.Authority)), "/api/delete");
+
+        try
+        {
+            // Ollama używa DELETE /api/delete z body, co jest niestandardowe ale działa.
+            using var req = new HttpRequestMessage(HttpMethod.Delete, deleteUri)
+            {
+                Content = JsonContent.Create(new JsonObject { ["name"] = modelName })
+            };
+            using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
+            if (resp.IsSuccessStatusCode)
+            {
+                _log.LogInformation("Deleted model {Model}", modelName);
+                return true;
+            }
+            var err = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            _log.LogWarning("DeleteModelAsync HTTP {Code}: {Body}", (int)resp.StatusCode, Truncate(err, 200));
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "DeleteModelAsync failed for {Model}", modelName);
+            return false;
+        }
+    }
+
+    private static DateTime? ParseExpires(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        return DateTime.TryParse(raw, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.RoundtripKind, out var dt) ? dt.ToUniversalTime() : null;
+    }
+
     public async Task<IReadOnlyList<string>> ListModelsAsync(CancellationToken ct = default)
     {
         try
@@ -406,5 +494,27 @@ public sealed class OpenAiCompatibleChatClient : IChatClient
     private sealed class ModelEntry
     {
         [JsonPropertyName("id")] public string? Id { get; set; }
+    }
+    private sealed class VersionResponse
+    {
+        [JsonPropertyName("version")] public string? Version { get; set; }
+    }
+    private sealed class PsResponse
+    {
+        [JsonPropertyName("models")] public List<PsModel>? Models { get; set; }
+    }
+    private sealed class PsModel
+    {
+        [JsonPropertyName("name")] public string? Name { get; set; }
+        [JsonPropertyName("size")] public long Size { get; set; }
+        [JsonPropertyName("size_vram")] public long SizeVram { get; set; }
+        [JsonPropertyName("context_length")] public int ContextLength { get; set; }
+        [JsonPropertyName("expires_at")] public string? ExpiresAt { get; set; }
+        [JsonPropertyName("details")] public PsDetails? Details { get; set; }
+    }
+    private sealed class PsDetails
+    {
+        [JsonPropertyName("parameter_size")] public string? ParameterSize { get; set; }
+        [JsonPropertyName("quantization_level")] public string? QuantizationLevel { get; set; }
     }
 }

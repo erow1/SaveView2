@@ -91,6 +91,14 @@ public sealed class ChatClientFactory : IChatClientFactory, IDisposable
         return await client.PullModelAsync(modelName, progress, ct).ConfigureAwait(false);
     }
 
+    public async Task<ServerStatus> GetServerStatusForAsync(LlmProvider provider, CancellationToken ct = default)
+    {
+        using var http = BuildTransientHttpClient(provider, out var opts);
+        var logger = _loggerFactory.CreateLogger<OpenAiCompatibleChatClient>();
+        var client = new OpenAiCompatibleChatClient(http, Options.Create(opts), logger);
+        return await client.GetServerStatusAsync(ct).ConfigureAwait(false);
+    }
+
     /// <summary>
     /// Wspólny builder — używany przez transient ListModels / PullModel. Rozdzielenie pozwala
     /// pojedynczym callerom domknąć swoje own-y na timeout (pull potrzebuje godziny, list ~5s).

@@ -39,4 +39,9 @@ public interface IChatClientFactory
         string modelName,
         IProgress<PullProgress>? progress = null,
         CancellationToken ct = default);
+
+    /// <summary>Status serwera (loaded models + version) dla in-memory configa providera.</summary>
+    Task<ServerStatus> GetServerStatusForAsync(
+        SafeView.Domain.Llm.LlmProvider provider,
+        CancellationToken ct = default);
 }

@@ -80,6 +80,18 @@ public interface IChatClient
         string modelName,
         IProgress<PullProgress>? progress = null,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Status serwera LLM — wersja + lista modeli załadowanych do pamięci (z VRAM info).
+    /// Wspierane tylko dla Ollama (GET /api/version + GET /api/ps); inne backendy zwracają
+    /// <see cref="ServerStatus.Supported"/>=false.
+    /// </summary>
+    Task<ServerStatus> GetServerStatusAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Usuwa model z dysku (na Ollama: DELETE /api/delete). Inne backendy → false.
+    /// </summary>
+    Task<bool> DeleteModelAsync(string modelName, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -92,3 +104,44 @@ public sealed record PullProgress(
     string? Status,
     long? CompletedBytes,
     long? TotalBytes);
+
+/// <summary>
+/// Pojedynczy model załadowany do pamięci serwera LLM.
+/// </summary>
+/// <param name="Name">Nazwa modelu (np. "qwen2.5vl:7b").</param>
+/// <param name="SizeBytes">Łączny rozmiar modelu w pamięci (RAM+VRAM).</param>
+/// <param name="VramBytes">Bajty w VRAM. <c>SizeBytes - VramBytes</c> = bajty w RAM (CPU).</param>
+/// <param name="ContextLength">Aktywne okno kontekstu (tokeny).</param>
+/// <param name="ParameterSize">Rozmiar parametrów (np. "7.6B").</param>
+/// <param name="Quantization">Poziom kwantyzacji (np. "Q4_K_M").</param>
+/// <param name="ExpiresAtUtc">Kiedy keep_alive wygaśnie i model zostanie wyładowany. Null = brak limitu.</param>
+public sealed record LoadedModelInfo(
+    string Name,
+    long SizeBytes,
+    long VramBytes,
+    int ContextLength,
+    string? ParameterSize,
+    string? Quantization,
+    DateTime? ExpiresAtUtc);
+
+/// <summary>
+/// Status serwera LLM. <see cref="Supported"/>=false dla backendów które nie eksponują
+/// /api/ps + /api/version (czyli wszystko poza Ollama). Caller powinien wtedy ukryć panel.
+/// </summary>
+/// <param name="Supported">Czy backend wspiera tę informację.</param>
+/// <param name="Version">Wersja serwera (np. "0.21.2" dla Ollama).</param>
+/// <param name="LoadedModels">Modele aktualnie załadowane do pamięci.</param>
+public sealed record ServerStatus(
+    bool Supported,
+    string? Version,
+    IReadOnlyList<LoadedModelInfo> LoadedModels)
+{
+    public static ServerStatus NotSupported(string? reason = null)
+        => new(false, reason, Array.Empty<LoadedModelInfo>());
+
+    /// <summary>Suma <c>SizeBytes</c> wszystkich załadowanych modeli — łączne zużycie pamięci.</summary>
+    public long TotalSizeBytes => LoadedModels.Sum(m => m.SizeBytes);
+
+    /// <summary>Suma <c>VramBytes</c> — łączne zużycie VRAM przez aktywne modele.</summary>
+    public long TotalVramBytes => LoadedModels.Sum(m => m.VramBytes);
+}

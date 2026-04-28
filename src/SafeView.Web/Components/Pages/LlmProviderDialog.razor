@@ -1,8 +1,11 @@
 @namespace SafeView.Web.Components.Pages
 @using SafeView.Domain.Llm
+@using SafeView.Application.Abstractions.LLM
+@implements IAsyncDisposable
 @inject IStringLocalizer<SharedResource> L
 @inject SafeView.Application.Abstractions.LLM.IChatClientFactory Factory
 @inject ISnackbar Snackbar
+@inject IDialogService Dialog
 
 <MudDialog>
     <DialogContent>
@@ -78,6 +81,124 @@
                         </MudChip>
                     }
                 </MudStack>
+            }
+
+            @* ── Status / monitoring (Ollama only) ───────────────────────── *@
+            @if (Provider.Kind == LlmProviderKind.Ollama)
+            {
+                <MudExpansionPanels Elevation="0">
+                    <MudExpansionPanel Text="@L["LlmProviders.MonitoringTitle"]" Expanded="true">
+                        <MudStack Spacing="2">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                @if (_status?.Supported == true)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success"
+                                             Icon="@Icons.Material.Filled.CheckCircle">
+                                        Ollama @(_status.Version ?? "?")
+                                    </MudChip>
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                                        @string.Format(L["LlmProviders.LoadedCount"], _status.LoadedModels.Count)
+                                    </MudChip>
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="mono">
+                                        VRAM: @FormatBytes(_status.TotalVramBytes)
+                                    </MudChip>
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="mono">
+                                        @L["LlmProviders.TotalSize"]: @FormatBytes(_status.TotalSizeBytes)
+                                    </MudChip>
+                                }
+                                else if (_status is not null)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning"
+                                             Icon="@Icons.Material.Filled.Warning">
+                                        @(_status.Version ?? L["LlmProviders.MonitoringUnreachable"])
+                                    </MudChip>
+                                }
+                                else
+                                {
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                                }
+                                <MudSpacer />
+                                <MudTooltip Text="@L["LlmProviders.MonitoringRefresh"]">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Refresh"
+                                                   Size="Size.Small" Variant="Variant.Outlined"
+                                                   Disabled="@_loadingStatus"
+                                                   OnClick="RefreshStatusAsync" />
+                                </MudTooltip>
+                                <MudTooltip Text="@L["LlmProviders.MonitoringUnloadAll"]">
+                                    <MudIconButton Icon="@Icons.Material.Filled.LayersClear"
+                                                   Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning"
+                                                   Disabled="@(_status?.LoadedModels.Count == 0 || _busyAction)"
+                                                   OnClick="UnloadAllAsync" />
+                                </MudTooltip>
+                            </MudStack>
+
+                            @if (_status?.LoadedModels.Count > 0)
+                            {
+                                <MudTable Items="_status.LoadedModels" Dense="true" Hover="true" Elevation="0">
+                                    <HeaderContent>
+                                        <MudTh>@L["LlmProviders.ColModel"]</MudTh>
+                                        <MudTh>@L["LlmProviders.ColParams"]</MudTh>
+                                        <MudTh>@L["LlmProviders.ColPlacement"]</MudTh>
+                                        <MudTh>@L["LlmProviders.ColCtx"]</MudTh>
+                                        <MudTh>@L["LlmProviders.ColExpires"]</MudTh>
+                                        <MudTh></MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd Class="mono"><strong>@context.Name</strong></MudTd>
+                                        <MudTd Class="mono">
+                                            @(context.ParameterSize ?? "-")
+                                            @if (!string.IsNullOrEmpty(context.Quantization))
+                                            {
+                                                <span class="sv-text-muted"> · @context.Quantization</span>
+                                            }
+                                        </MudTd>
+                                        <MudTd>
+                                            @{
+                                                var pct = context.SizeBytes > 0
+                                                    ? (100.0 * context.VramBytes / context.SizeBytes) : 0;
+                                                var label = pct >= 99.5 ? "100% GPU"
+                                                          : pct <= 0.5 ? "100% CPU"
+                                                          : $"{pct:F0}% GPU / {100 - pct:F0}% CPU";
+                                            }
+                                            <MudStack Spacing="0" Style="min-width:160px;">
+                                                <MudText Typo="Typo.caption" Class="mono">@label</MudText>
+                                                <MudText Typo="Typo.caption" Class="sv-text-muted">
+                                                    @FormatBytes(context.VramBytes) / @FormatBytes(context.SizeBytes)
+                                                </MudText>
+                                            </MudStack>
+                                        </MudTd>
+                                        <MudTd Class="mono">@($"{context.ContextLength:N0}")</MudTd>
+                                        <MudTd Class="mono sv-text-muted">@FormatExpires(context.ExpiresAtUtc)</MudTd>
+                                        <MudTd>
+                                            <MudTooltip Text="@L["LlmProviders.MonitoringUnload"]">
+                                                <MudIconButton Icon="@Icons.Material.Filled.PowerSettingsNew"
+                                                               Size="Size.Small" Color="Color.Warning"
+                                                               Disabled="@_busyAction"
+                                                               OnClick="@(() => UnloadOneAsync(context.Name))" />
+                                            </MudTooltip>
+                                            <MudTooltip Text="@L["LlmProviders.MonitoringDelete"]">
+                                                <MudIconButton Icon="@Icons.Material.Filled.DeleteForever"
+                                                               Size="Size.Small" Color="Color.Error"
+                                                               Disabled="@_busyAction"
+                                                               OnClick="@(() => DeleteOneAsync(context.Name))" />
+                                            </MudTooltip>
+                                        </MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            }
+                            else if (_status?.Supported == true)
+                            {
+                                <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Bedtime">
+                                    @L["LlmProviders.MonitoringNoLoaded"]
+                                </MudAlert>
+                            }
+
+                            <MudText Typo="Typo.caption" Class="sv-text-muted">
+                                @L["LlmProviders.MonitoringPollHint"]
+                            </MudText>
+                        </MudStack>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
             }
 
             @* ── Install model (Ollama only) ──────────────────────────────── *@
@@ -363,4 +484,168 @@
         LlmProviderKind.DeepSeek => ("https://api.deepseek.com/v1", "deepseek-chat"),
         _ => ("", "")
     };
+
+    // ── Monitoring (Ollama) ──────────────────────────────────────────
+    private ServerStatus? _status;
+    private bool _loadingStatus;
+    private bool _busyAction;
+    private CancellationTokenSource? _pollCts;
+    private Task? _pollTask;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Provider.Kind == LlmProviderKind.Ollama && !string.IsNullOrWhiteSpace(Provider.BaseUrl))
+        {
+            await RefreshStatusAsync();
+            // Polling co 5 sekund — keep_alive countdown szybko się zmienia, więc widzimy live.
+            _pollCts = new CancellationTokenSource();
+            _pollTask = PollStatusLoopAsync(_pollCts.Token);
+        }
+    }
+
+    private async Task PollStatusLoopAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+            while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(true))
+            {
+                if (Provider.Kind != LlmProviderKind.Ollama) continue;
+                await RefreshStatusAsync();
+            }
+        }
+        catch (OperationCanceledException) { /* expected on dispose */ }
+    }
+
+    private async Task RefreshStatusAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Provider.BaseUrl)) return;
+        _loadingStatus = true;
+        try
+        {
+            _status = await Factory.GetServerStatusForAsync(Provider);
+        }
+        catch (Exception ex)
+        {
+            _status = ServerStatus.NotSupported(ex.Message);
+        }
+        finally
+        {
+            _loadingStatus = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task UnloadOneAsync(string modelName)
+    {
+        _busyAction = true;
+        try
+        {
+            // Provider w dialogu może być nowy (bez Id) — fallback na default klienta przez factory.
+            var providerId = string.IsNullOrEmpty(Provider.Id) ? null : Provider.Id;
+            var client = await Factory.GetForAsync(providerId);
+            var ok = await client.UnloadModelAsync(modelName);
+            if (ok) Snackbar.Add(string.Format(L["LlmProviders.MonitoringUnloadOk"], modelName), Severity.Success);
+            else Snackbar.Add(L["LlmProviders.MonitoringUnloadFail"], Severity.Warning);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Unload error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _busyAction = false;
+            await Task.Delay(300); // krótka pauza żeby Ollama zaktualizował /api/ps
+            await RefreshStatusAsync();
+        }
+    }
+
+    private async Task UnloadAllAsync()
+    {
+        if (_status?.LoadedModels is not { Count: > 0 } loaded) return;
+        var ok = await Dialog.ShowMessageBox(
+            L["LlmProviders.MonitoringUnloadAllConfirmTitle"],
+            string.Format(L["LlmProviders.MonitoringUnloadAllConfirm"], loaded.Count),
+            yesText: L["LlmProviders.MonitoringUnloadAll"], cancelText: L["Common.Cancel"]);
+        if (ok != true) return;
+
+        _busyAction = true;
+        try
+        {
+            var providerId = string.IsNullOrEmpty(Provider.Id) ? null : Provider.Id;
+            var client = await Factory.GetForAsync(providerId);
+            int success = 0;
+            foreach (var m in loaded)
+            {
+                if (await client.UnloadModelAsync(m.Name)) success++;
+            }
+            Snackbar.Add(string.Format(L["LlmProviders.MonitoringUnloadAllOk"], success, loaded.Count), Severity.Success);
+        }
+        finally
+        {
+            _busyAction = false;
+            await Task.Delay(300);
+            await RefreshStatusAsync();
+        }
+    }
+
+    private async Task DeleteOneAsync(string modelName)
+    {
+        var ok = await Dialog.ShowMessageBox(
+            L["LlmProviders.MonitoringDeleteConfirmTitle"],
+            string.Format(L["LlmProviders.MonitoringDeleteConfirm"], modelName),
+            yesText: L["Common.Delete"], cancelText: L["Common.Cancel"]);
+        if (ok != true) return;
+
+        _busyAction = true;
+        try
+        {
+            var providerId = string.IsNullOrEmpty(Provider.Id) ? null : Provider.Id;
+            var client = await Factory.GetForAsync(providerId);
+            var success = await client.DeleteModelAsync(modelName);
+            if (success)
+            {
+                Snackbar.Add(string.Format(L["LlmProviders.MonitoringDeleteOk"], modelName), Severity.Success);
+                await LoadModelsAsync(); // odśwież listę modeli (autocomplete + chipy)
+            }
+            else
+            {
+                Snackbar.Add(L["LlmProviders.MonitoringDeleteFail"], Severity.Error);
+            }
+        }
+        finally
+        {
+            _busyAction = false;
+            await RefreshStatusAsync();
+        }
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        if (bytes <= 0) return "0 B";
+        if (bytes >= 1L << 30) return $"{bytes / (double)(1L << 30):F1} GB";
+        if (bytes >= 1L << 20) return $"{bytes / (double)(1L << 20):F1} MB";
+        if (bytes >= 1L << 10) return $"{bytes / (double)(1L << 10):F1} KB";
+        return $"{bytes} B";
+    }
+
+    private string FormatExpires(DateTime? utc)
+    {
+        if (utc is null) return "-";
+        var remaining = utc.Value - DateTime.UtcNow;
+        if (remaining.TotalSeconds <= 0) return L["LlmProviders.MonitoringExpired"];
+        if (remaining.TotalHours >= 1) return $"in {remaining.Hours}h {remaining.Minutes}m";
+        if (remaining.TotalMinutes >= 1) return $"in {remaining.Minutes}m {remaining.Seconds}s";
+        return $"in {(int)remaining.TotalSeconds}s";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { _pollCts?.Cancel(); } catch { /* ignore */ }
+        if (_pollTask is not null)
+        {
+            try { await _pollTask; } catch { /* expected */ }
+        }
+        _pollCts?.Dispose();
+    }
 }
