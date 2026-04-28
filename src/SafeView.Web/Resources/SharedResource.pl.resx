@@ -522,7 +522,6 @@
   <data name="Zones.DeleteMessage"><value>Strefa „{0}" zostanie usunięta.</value></data>
   <data name="Nav.Models"><value>Modele</value></data>
   <data name="Nav.Reports"><value>Raporty</value></data>
-  <data name="Nav.Assistant"><value>Asystent</value></data>
   <data name="Nav.Users"><value>Użytkownicy i role</value></data>
   <data name="Nav.Settings"><value>Ustawienia</value></data>
   <data name="Nav.License"><value>Licencja</value></data>
@@ -865,8 +864,6 @@
   <data name="Setup.Submit"><value>Utwórz administratora</value></data>
 
   <!-- Pages: Assistant -->
-  <data name="Assistant.Title"><value>Asystent BHP</value></data>
-  <data name="Assistant.Placeholder"><value>Zapytaj o incydent, zasady bezpieczeństwa, raport…</value></data>
 
   <!-- Pages: Error / Forbidden / NotFound -->
   <data name="Error.Title"><value>Wystąpił błąd</value></data>

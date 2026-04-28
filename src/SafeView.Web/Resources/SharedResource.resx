@@ -520,7 +520,6 @@
   <data name="Zones.DeleteMessage"><value>Zone '{0}' deleted.</value></data>
   <data name="Nav.Models"><value>Models</value></data>
   <data name="Nav.Reports"><value>Reports</value></data>
-  <data name="Nav.Assistant"><value>Assistant</value></data>
   <data name="Nav.Users"><value>Users &amp; Roles</value></data>
   <data name="Nav.Settings"><value>Settings</value></data>
   <data name="Nav.License"><value>License</value></data>
@@ -863,8 +862,6 @@
   <data name="Setup.Submit"><value>Create administrator</value></data>
 
   <!-- Pages: Assistant -->
-  <data name="Assistant.Title"><value>OHS Assistant</value></data>
-  <data name="Assistant.Placeholder"><value>Ask about an incident, safety rules, report…</value></data>
 
   <!-- Pages: Error / Forbidden / NotFound -->
   <data name="Error.Title"><value>An error has occurred</value></data>
