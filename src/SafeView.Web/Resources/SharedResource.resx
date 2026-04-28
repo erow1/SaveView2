@@ -80,6 +80,7 @@
   <data name="LlmProviders.ModelsLoaded"><value>{0} models loaded — pick from the list or type a custom name</value></data>
   <data name="LlmProviders.NoModelsReturned"><value>Provider returned no models. Check Base URL / API key.</value></data>
   <data name="LlmProviders.ModelsLoadFailed"><value>Failed to load models: {0}</value></data>
+  <data name="LlmProviders.LoadedChipsLabel"><value>Available</value></data>
   <data name="LlmProviders.InstallModelTitle"><value>Install model (Ollama only)</value></data>
   <data name="LlmProviders.InstallModelHint"><value>Pull a model directly into the Ollama server. Pick a suggested vision-capable model below or type any name from the Ollama library.</value></data>
   <data name="LlmProviders.InstallSuggested"><value>Suggested vision-capable models:</value></data>

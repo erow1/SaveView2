@@ -60,6 +60,26 @@
                 }
             </MudStack>
 
+            @* Pełna lista wczytanych modeli jako klikalne chipy — niezależnie od filtra
+               w autocomplete. Rozwiązuje problem "po pull-u nowego modelu nie widzę go w
+               dropdownie bo pole ma wpisaną starą nazwę i tekst filtruje listę". *@
+            @if (_loadedModels.Count > 0)
+            {
+                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                    <MudText Typo="Typo.caption" Class="sv-text-muted">@L["LlmProviders.LoadedChipsLabel"]:</MudText>
+                    @foreach (var m in _loadedModels)
+                    {
+                        var picked = string.Equals(m, Provider.DefaultModel, StringComparison.Ordinal);
+                        <MudChip T="string" Size="Size.Small"
+                                 Color="@(picked ? Color.Primary : Color.Default)"
+                                 Variant="@(picked ? Variant.Filled : Variant.Outlined)"
+                                 OnClick="@(() => Provider.DefaultModel = m)">
+                            @m
+                        </MudChip>
+                    }
+                </MudStack>
+            }
+
             @* ── Install model (Ollama only) ──────────────────────────────── *@
             @if (Provider.Kind == LlmProviderKind.Ollama)
             {

@@ -80,6 +80,7 @@
   <data name="LlmProviders.ModelsLoaded"><value>{0} modeli wczytanych — wybierz z listy lub wpisz własną nazwę</value></data>
   <data name="LlmProviders.NoModelsReturned"><value>Dostawca nie zwrócił żadnych modeli. Sprawdź Base URL / klucz API.</value></data>
   <data name="LlmProviders.ModelsLoadFailed"><value>Nie udało się wczytać listy modeli: {0}</value></data>
+  <data name="LlmProviders.LoadedChipsLabel"><value>Dostępne</value></data>
   <data name="LlmProviders.InstallModelTitle"><value>Zainstaluj model (tylko Ollama)</value></data>
   <data name="LlmProviders.InstallModelHint"><value>Pobierz model bezpośrednio do serwera Ollama. Wybierz sugerowany vision-capable poniżej albo wpisz dowolną nazwę z biblioteki Ollama.</value></data>
   <data name="LlmProviders.InstallSuggested"><value>Sugerowane modele z obsługą obrazów:</value></data>
