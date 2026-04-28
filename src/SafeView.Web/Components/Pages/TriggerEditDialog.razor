@@ -1,0 +1,39 @@
+@namespace SafeView.Web.Components.Pages
+@using SafeView.Domain.Detection
+@inject IStringLocalizer<SharedResource> L
+
+@*
+    Cienki MudDialog wrapper dla TriggerWizardCore. Używany przez Triggers.razor (i każdy
+    inny konsument który chce otwierać kreatora przez IDialogService.ShowAsync).
+    OnSave w core-ze zamyka dialog z DialogResult.Ok(Trigger). OnCancel zamyka z Cancel.
+*@
+
+<MudDialog>
+    <DialogContent>
+        <TriggerWizardCore Trigger="@Trigger"
+                           IsNew="@IsNew"
+                           Models="@Models"
+                           Actions="@Actions"
+                           Templates="@Templates"
+                           DetectionClasses="@DetectionClasses"
+                           LlmProviders="@LlmProviders"
+                           CompatibleModelIds="@CompatibleModelIds"
+                           OnSave="@HandleSave"
+                           OnCancel="@HandleCancel" />
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter, EditorRequired] public Trigger Trigger { get; set; } = default!;
+    [Parameter] public bool IsNew { get; set; }
+    [Parameter] public List<SafeView.Domain.ML.MLModel> Models { get; set; } = new();
+    [Parameter] public List<DetectionAction> Actions { get; set; } = new();
+    [Parameter] public List<SafeView.Domain.Vllm.PromptTemplate> Templates { get; set; } = new();
+    [Parameter] public List<DetectionClass> DetectionClasses { get; set; } = new();
+    [Parameter] public List<SafeView.Domain.Llm.LlmProvider> LlmProviders { get; set; } = new();
+    [Parameter] public HashSet<string> CompatibleModelIds { get; set; } = new();
+
+    private void HandleSave(Trigger t) => MudDialog.Close(DialogResult.Ok(t));
+    private void HandleCancel() => MudDialog.Cancel();
+}

@@ -241,6 +241,19 @@
   <data name="Triggers.MotionSpeedHint"><value>Opcjonalne</value></data>
   <data name="Triggers.MotionMinSamples"><value>Min próbek w tracku</value></data>
   <data name="Triggers.MotionMinSamplesHint"><value>2 = pierwsza klatka po wykryciu pominięta</value></data>
+  <data name="Triggers.SubStep.Classes"><value>Klasy</value></data>
+  <data name="Triggers.SubStep.ClassesHint"><value>Wybierz co wykrywać. Wiele klas łączonych przez AND — każdy warunek musi pasować w tej samej klatce.</value></data>
+  <data name="Triggers.SubStep.Zone"><value>Reguła strefy</value></data>
+  <data name="Triggers.SubStep.ZoneHint"><value>Jak bbox detekcji ma odnosić się do polygonu strefy — środek wewnątrz, wszystkie narożniki, próg IoU itp.</value></data>
+  <data name="Triggers.SubStep.Time"><value>Czas</value></data>
+  <data name="Triggers.SubStep.TimeHint"><value>Kiedy trigger może wypalać (harmonogram), jak często (cooldown) i jak stabilna ma być detekcja (persistent frames).</value></data>
+  <data name="Triggers.SubStep.Extras"><value>Warunki dodatkowe</value></data>
+  <data name="Triggers.SubStep.ExtrasHint"><value>Opcjonalne: kierunek/prędkość ruchu, zawartość ("brak kasku w person"), odległość między obiektami.</value></data>
+  <data name="Triggers.SubStep.Vllm"><value>Walidacja AI</value></data>
+  <data name="Triggers.SubStep.Actions"><value>Akcje</value></data>
+  <data name="Triggers.SaveNow"><value>Zapisz teraz</value></data>
+  <data name="Triggers.ConditionN"><value>Warunek #{0}</value></data>
+  <data name="Triggers.ConditionEmpty"><value>(brak klasy)</value></data>
   <data name="Calibration.Title"><value>Kalibracja kamery</value></data>
   <data name="Calibration.Description"><value>Kliknij min. 4 punkty na podłodze i wpisz ich współrzędne w metrach. Punkty powinny być rozrzucone (nie w linii).</value></data>
   <data name="Calibration.Instructions"><value>Kliknij punkt na obrazie (np. narożnik siatki podłogi, znacznik), potem wpisz jego X i Y w metrach względem dowolnego punktu odniesienia. Powtórz dla min. 4 punktów.</value></data>
@@ -1026,6 +1039,12 @@
   <data name="Wizard.Step2.NewClass"><value>Nowa klasa</value></data>
   <data name="Wizard.Step2.NewClassTitle"><value>Nowa klasa detekcji (szybkie dodanie)</value></data>
   <data name="Wizard.Step2.ClassAdded"><value>Klasa zapisana i auto-zaznaczona.</value></data>
+  <data name="Wizard.Step2.RefineTriggers"><value>Doprecyzuj reguły triggerów</value></data>
+  <data name="Wizard.Step2.RefineTriggersHint"><value>Każda wybrana klasa staje się osobnym triggerem. Defaulty są sensowne — kliknij "Edytuj" tylko jeśli potrzebujesz ruchu / zawartości / harmonogramu / walidacji AI.</value></data>
+  <data name="Wizard.Step2.EditTriggerTitle"><value>Konfiguracja triggera</value></data>
+  <data name="Wizard.Step2.ChipContainment"><value>zawartość</value></data>
+  <data name="Wizard.Step2.ChipMotion"><value>ruch</value></data>
+  <data name="Wizard.Step2.ActionWillBeAttached"><value>Akcja zdefiniowana w kolejnym kroku zostanie automatycznie podpięta do każdego triggera.</value></data>
   <data name="Wizard.Step3.Title"><value>Zakres</value></data>
   <data name="Wizard.Step3.Subtitle"><value>Gdzie w kadrze szukać detekcji.</value></data>
   <data name="Wizard.Step3.MvpNote"><value>MVP: analiza obejmuje całą klatkę. Rysowanie konkretnych stref ("tylko przy bramie") — w następnej wersji lub w zaawansowanej stronie Strefy.</value></data>

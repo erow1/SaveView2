@@ -241,6 +241,19 @@
   <data name="Triggers.MotionSpeedHint"><value>Optional</value></data>
   <data name="Triggers.MotionMinSamples"><value>Min track samples</value></data>
   <data name="Triggers.MotionMinSamplesHint"><value>2 = first frame after detection skipped</value></data>
+  <data name="Triggers.SubStep.Classes"><value>Classes</value></data>
+  <data name="Triggers.SubStep.ClassesHint"><value>Pick what to detect. Multiple classes joined with AND — every condition must match in the same frame.</value></data>
+  <data name="Triggers.SubStep.Zone"><value>Zone rule</value></data>
+  <data name="Triggers.SubStep.ZoneHint"><value>How a detection bbox must relate to the zone polygon — center inside, all corners inside, IoU overlap, etc.</value></data>
+  <data name="Triggers.SubStep.Time"><value>Timing</value></data>
+  <data name="Triggers.SubStep.TimeHint"><value>When the trigger may fire (schedule), how often (cooldown) and how stable the detection has to be (persistent frames).</value></data>
+  <data name="Triggers.SubStep.Extras"><value>Extra conditions</value></data>
+  <data name="Triggers.SubStep.ExtrasHint"><value>Optional: motion direction/speed, containment ("no helmet inside person"), distance between objects.</value></data>
+  <data name="Triggers.SubStep.Vllm"><value>AI validation</value></data>
+  <data name="Triggers.SubStep.Actions"><value>Actions</value></data>
+  <data name="Triggers.SaveNow"><value>Save now</value></data>
+  <data name="Triggers.ConditionN"><value>Condition #{0}</value></data>
+  <data name="Triggers.ConditionEmpty"><value>(no class picked)</value></data>
   <data name="Calibration.Title"><value>Camera calibration</value></data>
   <data name="Calibration.Description"><value>Click at least 4 ground points and type their real-world X,Y in meters. Points should not be collinear.</value></data>
   <data name="Calibration.Instructions"><value>Click a point on the image (e.g. a floor grid corner, a marker), then enter its X and Y in meters relative to any chosen origin. Repeat for at least 4 points.</value></data>
@@ -1029,6 +1042,12 @@
   <data name="Wizard.Step2.NewClass"><value>New class</value></data>
   <data name="Wizard.Step2.NewClassTitle"><value>New detection class (quick add)</value></data>
   <data name="Wizard.Step2.ClassAdded"><value>Class saved and auto-selected.</value></data>
+  <data name="Wizard.Step2.RefineTriggers"><value>Refine trigger rules</value></data>
+  <data name="Wizard.Step2.RefineTriggersHint"><value>Each picked class becomes a separate trigger. Defaults are sensible — click "Edit" only if you need motion / containment / schedule / AI validation.</value></data>
+  <data name="Wizard.Step2.EditTriggerTitle"><value>Trigger configuration</value></data>
+  <data name="Wizard.Step2.ChipContainment"><value>containment</value></data>
+  <data name="Wizard.Step2.ChipMotion"><value>motion</value></data>
+  <data name="Wizard.Step2.ActionWillBeAttached"><value>Action set in the next step is attached automatically to every trigger.</value></data>
   <data name="Wizard.Step3.Title"><value>Scope</value></data>
   <data name="Wizard.Step3.Subtitle"><value>Where on the camera frame to look for detections.</value></data>
   <data name="Wizard.Step3.MvpNote"><value>MVP: analysis covers the entire frame. Precise zone drawing (e.g. 'only near the gate') — in the next version or in the advanced Zones page.</value></data>

@@ -139,7 +139,7 @@
             ["LlmProviders"] = _llmProviders,
             ["CompatibleModelIds"] = ComputeCompatibleModelIds(trigger.Id)
         };
-        var dlg = await Dialog.ShowAsync<TriggerDialog>(
+        var dlg = await Dialog.ShowAsync<TriggerEditDialog>(
             isNew ? L["Triggers.AddTitle"] : L["Triggers.EditTitle"],
             parameters,
             new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true });
