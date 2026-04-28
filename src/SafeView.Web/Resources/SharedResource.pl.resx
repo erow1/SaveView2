@@ -108,7 +108,7 @@
   <data name="LlmProviders.ColExpires"><value>Auto-unload</value></data>
   <data name="LlmProviders.InstallModelTitle"><value>Zainstaluj model (tylko Ollama)</value></data>
   <data name="LlmProviders.InstallModelHint"><value>Pobierz model bezpośrednio do serwera Ollama. Wybierz sugerowany vision-capable poniżej albo wpisz dowolną nazwę z biblioteki Ollama.</value></data>
-  <data name="LlmProviders.InstallSuggested"><value>Sugerowane modele z obsługą obrazów:</value></data>
+  <data name="LlmProviders.InstallSuggested"><value>Sugerowane modele z obsługą obrazów (★ = sweet spot dla RTX 4090 24GB; najedź dla noty):</value></data>
   <data name="LlmProviders.InstallNameLabel"><value>Nazwa modelu (name:tag)</value></data>
   <data name="LlmProviders.InstallNameHint"><value>np. qwen2.5vl:7b — zobacz ollama.com/library</value></data>
   <data name="LlmProviders.InstallStart"><value>Zainstaluj</value></data>

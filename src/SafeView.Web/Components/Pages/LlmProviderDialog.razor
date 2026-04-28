@@ -215,11 +215,20 @@
                             <div style="display:flex; flex-wrap:wrap; gap:6px;">
                                 @foreach (var s in _suggestedVisionModels)
                                 {
-                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                             Color="Color.Primary"
-                                             OnClick="@(() => _pullName = s.Name)">
-                                        @s.Name <span style="opacity:0.6;">·@s.Size</span>
-                                    </MudChip>
+                                    var color = s.Tier switch
+                                    {
+                                        SuggestionTier.Star => Color.Primary,
+                                        SuggestionTier.Recommended => Color.Info,
+                                        _ => Color.Default
+                                    };
+                                    var variant = s.Tier == SuggestionTier.Star ? Variant.Filled : Variant.Outlined;
+                                    var prefix = s.Tier == SuggestionTier.Star ? "★ " : string.Empty;
+                                    <MudTooltip Text="@s.Note">
+                                        <MudChip T="string" Size="Size.Small" Variant="@variant" Color="@color"
+                                                 OnClick="@(() => _pullName = s.Name)">
+                                            @prefix@s.Name <span style="opacity:0.7;"> ·@s.Size</span>
+                                        </MudChip>
+                                    </MudTooltip>
                                 }
                             </div>
 
@@ -310,16 +319,57 @@
     private bool _pulling;
     private CancellationTokenSource? _pullCts;
 
-    /// <summary>Sugerowane vision-capable Ollama modele — kafelki klikalne w UI.</summary>
-    private static readonly (string Name, string Size)[] _suggestedVisionModels =
+    /// <summary>
+    /// Sugerowane vision-capable Ollama modele — kafelki klikalne w UI. Tier oznacza
+    /// rekomendację dla typowego setup-u (RTX 4090 24GB VRAM): "Star" = sweet spot,
+    /// "Recommended" = dobry wybór z tej rodziny, "Standard" = sprawdzone alternatywy.
+    /// </summary>
+    private sealed record SuggestedModel(string Name, string Size, string Note, SuggestionTier Tier);
+    private enum SuggestionTier { Standard, Recommended, Star }
+
+    private static readonly SuggestedModel[] _suggestedVisionModels =
     [
-        ("qwen2.5vl:7b",      "4.4GB"),
-        ("qwen2.5vl:32b",     "20GB"),
-        ("llama3.2-vision:11b", "7.9GB"),
-        ("gemma3:4b",         "3.3GB"),
-        ("gemma3:12b",        "8.1GB"),
-        ("llava:7b",          "4.7GB"),
-        ("minicpm-v:8b",      "5.5GB")
+        // ── Qwen3-VL (najnowszy, Q4 2025) — wybór dla RTX 4090 24GB ────────────
+        new("qwen3-vl:2b-instruct-q4_K_M",      "1.9 GB",
+            "Najszybszy — szybkie testy, słabsza jakość ale OK na detekcję podstawowych obiektów",
+            SuggestionTier.Standard),
+        new("qwen3-vl:4b-instruct-q4_K_M",      "3.3 GB",
+            "Lekki + szybki kompromis (~80 tok/s na 4090)",
+            SuggestionTier.Recommended),
+        new("qwen3-vl:8b-instruct-q4_K_M",      "6.1 GB",
+            "★ Sweet spot dla RTX 4090 — duzo miejsca na context, ~40-60 tok/s, świetna jakość vision",
+            SuggestionTier.Star),
+        new("qwen3-vl:8b-instruct-q8_0",        "9.8 GB",
+            "8B Q8 — lepsza jakość niż Q4, ciągle fits luźno (~25-40 tok/s)",
+            SuggestionTier.Recommended),
+        new("qwen3-vl:8b-thinking-q4_K_M",      "6.1 GB",
+            "Chain-of-thought wariant — wolniejszy, lepsze rozumowanie wielokrokowe",
+            SuggestionTier.Standard),
+        new("qwen3-vl:30b-a3b-instruct-q4_K_M", "20 GB",
+            "MoE 30B/3B aktywnych — duzy model prawie tak szybki jak 8B, fits ciasno na 4090",
+            SuggestionTier.Recommended),
+        new("qwen3-vl:32b-instruct-q4_K_M",     "21 GB",
+            "Najlepsza jakość dense — tight na 24GB VRAM, ~10-20 tok/s, mniej miejsca na context",
+            SuggestionTier.Standard),
+        // ── Sprawdzone alternatywy z innych rodzin ─────────────────────────────
+        new("qwen2.5vl:7b",                     "4.4 GB",
+            "Poprzednia generacja Qwen-VL — stabilny, słabszy niż qwen3-vl",
+            SuggestionTier.Standard),
+        new("llama3.2-vision:11b",              "7.9 GB",
+            "Meta vision — dobry w EN, słabszy na polskim",
+            SuggestionTier.Standard),
+        new("gemma3:4b",                        "3.3 GB",
+            "Google Gemma 3 — light + fast, niewielka jakość vision",
+            SuggestionTier.Standard),
+        new("gemma3:12b",                       "8.1 GB",
+            "Gemma 3 medium — solidna alternatywa",
+            SuggestionTier.Standard),
+        new("llava:7b",                         "4.7 GB",
+            "Klasyk — gorszy niż Qwen-VL ale referencyjny",
+            SuggestionTier.Standard),
+        new("minicpm-v:8b",                     "5.5 GB",
+            "MiniCPM — bardzo dobry OCR i tekst na obrazach",
+            SuggestionTier.Standard)
     ];
 
     private Task<IEnumerable<string>> SearchModels(string value, CancellationToken token)
