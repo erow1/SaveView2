@@ -47,6 +47,28 @@ public sealed class OpenAiCompatibleChatClient : IChatClient
         catch { return false; }
     }
 
+    public async Task<IReadOnlyList<string>> ListModelsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var resp = await _http.GetAsync("models", ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode) return Array.Empty<string>();
+            var doc = await resp.Content
+                .ReadFromJsonAsync<ModelsListResponse>(cancellationToken: ct)
+                .ConfigureAwait(false);
+            if (doc?.Data is null) return Array.Empty<string>();
+            return doc.Data
+                .Where(m => !string.IsNullOrEmpty(m.Id))
+                .Select(m => m.Id!)
+                .ToArray();
+        }
+        catch (Exception ex)
+        {
+            _log.LogDebug(ex, "ListModelsAsync failed for backend {Backend}", _opts.Backend);
+            return Array.Empty<string>();
+        }
+    }
+
     public async Task<ChatResponse> ChatAsync(IReadOnlyList<ChatMessage> messages, ChatOptions? options = null, CancellationToken ct = default)
     {
         options ??= new ChatOptions();
@@ -243,5 +265,13 @@ public sealed class OpenAiCompatibleChatClient : IChatClient
         [JsonPropertyName("prompt_tokens")] public int PromptTokens { get; set; }
         [JsonPropertyName("completion_tokens")] public int CompletionTokens { get; set; }
         [JsonPropertyName("total_tokens")] public int TotalTokens { get; set; }
+    }
+    private sealed class ModelsListResponse
+    {
+        [JsonPropertyName("data")] public List<ModelEntry>? Data { get; set; }
+    }
+    private sealed class ModelEntry
+    {
+        [JsonPropertyName("id")] public string? Id { get; set; }
     }
 }

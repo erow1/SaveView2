@@ -58,6 +58,10 @@
   <data name="LlmProviders.PingOk"><value>{0}: połączenie OK</value></data>
   <data name="LlmProviders.PingFailed"><value>{0}: brak odpowiedzi (endpoint zwrócił błąd)</value></data>
   <data name="LlmProviders.PingError"><value>Błąd testu: {0}</value></data>
+  <data name="LlmProviders.LoadModels"><value>Wczytaj listę modeli z dostawcy</value></data>
+  <data name="LlmProviders.ModelsLoaded"><value>{0} modeli wczytanych — wybierz z listy lub wpisz własną nazwę</value></data>
+  <data name="LlmProviders.NoModelsReturned"><value>Dostawca nie zwrócił żadnych modeli. Sprawdź Base URL / klucz API.</value></data>
+  <data name="LlmProviders.ModelsLoadFailed"><value>Nie udało się wczytać listy modeli: {0}</value></data>
   <data name="Triggers.VllmProvider"><value>Dostawca LLM</value></data>
   <data name="Triggers.VllmProviderHint"><value>Wybór konkretnego providera (Ollama / vLLM / OpenAI). Puste = użyj domyślnego z /admin/llm-providers.</value></data>
   <data name="Triggers.VllmProviderDefault"><value>Domyślny provider</value></data>

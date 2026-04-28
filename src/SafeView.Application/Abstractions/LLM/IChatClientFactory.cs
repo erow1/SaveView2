@@ -21,4 +21,11 @@ public interface IChatClientFactory
 
     /// <summary>Unieważnia cache dla providera (gdy user zmienił URL/klucz). Wywołuj po UpdateAsync.</summary>
     void Invalidate(string providerId);
+
+    /// <summary>
+    /// Pobiera listę modeli z dostawcy zbudowanego z in-memory configa — bez zapisu do DB
+    /// i bez użycia cache. Używane przez UI <c>/admin/llm-providers</c> żeby user mógł
+    /// kliknąć "Wczytaj listę modeli" PRZED zapisem nowo dodawanego providera.
+    /// </summary>
+    Task<IReadOnlyList<string>> ListModelsForAsync(SafeView.Domain.Llm.LlmProvider provider, CancellationToken ct = default);
 }

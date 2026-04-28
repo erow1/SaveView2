@@ -73,6 +73,29 @@ public sealed class ChatClientFactory : IChatClientFactory, IDisposable
         if (_httpClients.TryRemove(key, out var http)) http.Dispose();
     }
 
+    public async Task<IReadOnlyList<string>> ListModelsForAsync(LlmProvider provider, CancellationToken ct = default)
+    {
+        // Transient — nie używamy cache, bo provider może być nowo-dodawany (jeszcze nie zapisany w DB).
+        // Własny HttpClient z `using` żeby zwolnić go po jednym fetchu.
+        var opts = new LlmOptions
+        {
+            Backend = KindToBackend(provider.Kind),
+            BaseUrl = provider.BaseUrl,
+            ApiKey = provider.ApiKey,
+            DefaultModel = provider.DefaultModel,
+            TimeoutSeconds = provider.TimeoutSeconds
+        };
+        using var http = new HttpClient();
+        if (!string.IsNullOrWhiteSpace(opts.BaseUrl))
+            http.BaseAddress = new Uri(opts.BaseUrl.EndsWith('/') ? opts.BaseUrl : opts.BaseUrl + "/");
+        http.Timeout = TimeSpan.FromSeconds(Math.Max(5, opts.TimeoutSeconds));
+        if (!string.IsNullOrWhiteSpace(opts.ApiKey))
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", opts.ApiKey);
+        var logger = _loggerFactory.CreateLogger<OpenAiCompatibleChatClient>();
+        var client = new OpenAiCompatibleChatClient(http, Options.Create(opts), logger);
+        return await client.ListModelsAsync(ct).ConfigureAwait(false);
+    }
+
     private OpenAiCompatibleChatClient BuildFromProvider(LlmProvider provider)
     {
         var opts = new LlmOptions

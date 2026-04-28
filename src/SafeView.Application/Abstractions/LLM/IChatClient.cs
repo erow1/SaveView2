@@ -45,4 +45,12 @@ public interface IChatClient
 
     /// <summary>Sprawdza dostępność (ping na /models lub /health).</summary>
     Task<bool> PingAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Pobiera listę modeli dostępnych u dostawcy (<c>GET /v1/models</c>, standard OpenAI).
+    /// Wszystkie mainstream-owe OpenAI-compat backendy obsługują (Ollama, vLLM, LM Studio,
+    /// OpenAI, Groq, Together, Mistral). Zwraca pustą listę gdy endpoint nie istnieje
+    /// albo provider jest niedostępny — caller decyduje jak to pokazać użytkownikowi.
+    /// </summary>
+    Task<IReadOnlyList<string>> ListModelsAsync(CancellationToken ct = default);
 }

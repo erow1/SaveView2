@@ -58,6 +58,10 @@
   <data name="LlmProviders.PingOk"><value>{0}: connection OK</value></data>
   <data name="LlmProviders.PingFailed"><value>{0}: no response (endpoint returned an error)</value></data>
   <data name="LlmProviders.PingError"><value>Test error: {0}</value></data>
+  <data name="LlmProviders.LoadModels"><value>Load model list from provider</value></data>
+  <data name="LlmProviders.ModelsLoaded"><value>{0} models loaded — pick from the list or type a custom name</value></data>
+  <data name="LlmProviders.NoModelsReturned"><value>Provider returned no models. Check Base URL / API key.</value></data>
+  <data name="LlmProviders.ModelsLoadFailed"><value>Failed to load models: {0}</value></data>
   <data name="Triggers.VllmProvider"><value>LLM provider</value></data>
   <data name="Triggers.VllmProviderHint"><value>Pick a specific provider. Empty = use default from /admin/llm-providers.</value></data>
   <data name="Triggers.VllmProviderDefault"><value>Default provider</value></data>

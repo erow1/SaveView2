@@ -1,6 +1,8 @@
 @namespace SafeView.Web.Components.Pages
 @using SafeView.Domain.Llm
 @inject IStringLocalizer<SharedResource> L
+@inject SafeView.Application.Abstractions.LLM.IChatClientFactory Factory
+@inject ISnackbar Snackbar
 
 <MudDialog>
     <DialogContent>
@@ -31,9 +33,32 @@
                           InputType="InputType.Password"
                           Variant="Variant.Outlined" />
 
-            <MudTextField @bind-Value="Provider.DefaultModel" Label="@L["LlmProviders.DefaultModel"]" Required="true"
-                          HelperText="@DefaultModelHint()"
-                          Variant="Variant.Outlined" Class="mono" />
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Start">
+                <MudAutocomplete T="string"
+                                 Value="@Provider.DefaultModel"
+                                 ValueChanged="@((string v) => Provider.DefaultModel = v ?? string.Empty)"
+                                 SearchFunc="SearchModels"
+                                 CoerceText="false"
+                                 CoerceValue="true"
+                                 Clearable="true"
+                                 Label="@L["LlmProviders.DefaultModel"]"
+                                 Required="true"
+                                 HelperText="@(_loadedModels.Count > 0
+                                    ? string.Format(L["LlmProviders.ModelsLoaded"], _loadedModels.Count)
+                                    : DefaultModelHint())"
+                                 Variant="Variant.Outlined" Class="mono"
+                                 Style="flex:1;" />
+                <MudTooltip Text="@L["LlmProviders.LoadModels"]">
+                    <MudIconButton Icon="@Icons.Material.Filled.CloudDownload"
+                                   Variant="Variant.Outlined"
+                                   Disabled="@(_loadingModels || string.IsNullOrWhiteSpace(Provider.BaseUrl))"
+                                   OnClick="LoadModelsAsync" />
+                </MudTooltip>
+                @if (_loadingModels)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Primary" />
+                }
+            </MudStack>
 
             <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
                 <MudNumericField T="int" @bind-Value="Provider.TimeoutSeconds" Label="@L["LlmProviders.Timeout"]"
@@ -53,6 +78,45 @@
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter] public LlmProvider Provider { get; set; } = new();
     [Parameter] public bool IsNew { get; set; }
+
+    private List<string> _loadedModels = new();
+    private bool _loadingModels;
+
+    private Task<IEnumerable<string>> SearchModels(string value, CancellationToken token)
+    {
+        if (string.IsNullOrEmpty(value))
+            return Task.FromResult<IEnumerable<string>>(_loadedModels);
+        return Task.FromResult<IEnumerable<string>>(
+            _loadedModels.Where(m => m.Contains(value, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    /// <summary>
+    /// Wczytuje listę modeli z dostawcy (GET /v1/models). Działa też dla nowo-tworzonego
+    /// providera nie zapisanego jeszcze w DB — factory robi transient HttpClient w-locie.
+    /// Wynik trafia do _loadedModels i zasila MudAutocomplete (user wybiera z dropdown
+    /// albo nadal może wpisać własną nazwę dzięki CoerceValue="true").
+    /// </summary>
+    private async Task LoadModelsAsync()
+    {
+        _loadingModels = true;
+        try
+        {
+            var models = await Factory.ListModelsForAsync(Provider);
+            _loadedModels = models.OrderBy(m => m, StringComparer.Ordinal).ToList();
+            if (_loadedModels.Count == 0)
+                Snackbar.Add(L["LlmProviders.NoModelsReturned"], Severity.Warning);
+            else
+                Snackbar.Add(string.Format(L["LlmProviders.ModelsLoaded"], _loadedModels.Count), Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(string.Format(L["LlmProviders.ModelsLoadFailed"], ex.Message), Severity.Error);
+        }
+        finally
+        {
+            _loadingModels = false;
+        }
+    }
 
     private bool Valid()
         => !string.IsNullOrWhiteSpace(Provider.Name)
