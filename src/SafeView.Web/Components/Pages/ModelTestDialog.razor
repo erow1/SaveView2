@@ -188,7 +188,10 @@
                         var color = BboxPalette.ColorAt(idx);
                         var leftPct = d.X / Math.Max(1, _result.SourceWidth) * 100;
                         var topPct = d.Y / Math.Max(1, _result.SourceHeight) * 100;
-                        <div class="sv-bbox-label"
+                        // Detekcje blisko górnej krawędzi → etykieta wewnątrz bbox-u
+                        // (zapobiega clip-owaniu przez parent z overflow:hidden).
+                        var inside = topPct < 3 ? " sv-bbox-label--inside" : string.Empty;
+                        <div class="sv-bbox-label@inside"
                              style="@($"--bbox-color:{color}; left:{Fmt(leftPct)}%; top:{Fmt(topPct)}%;")">
                             @d.Label <span style="opacity:0.85;">@($"{d.Confidence * 100:F0}%")</span>
                         </div>

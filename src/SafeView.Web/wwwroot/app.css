@@ -229,7 +229,11 @@ body:not(.theme-dark):not(.theme-light) {
    ────────────────────────────────────────────────────────────────────── */
 .sv-bbox-label {
     position: absolute;
+    /* Default: label sits ABOVE the bbox top-left corner (tab pointing down). */
     transform: translate(-1px, -100%);
+    /* Fallback for browsers without color-mix support. */
+    background: var(--bbox-color, #2EC27E);
+    /* Modern: translucent + frosted glass (Chrome 111+, Safari 16.2+, Firefox 113+). */
     background: color-mix(in srgb, var(--bbox-color, #2EC27E) 55%, transparent);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
@@ -246,12 +250,21 @@ body:not(.theme-dark):not(.theme-light) {
     white-space: nowrap;
     line-height: 1.5;
 }
+/* Modifier: place label INSIDE the bbox at top — for detections near the frame's
+   top edge where the default "above" position would clip on overflow:hidden parents. */
+.sv-bbox-label--inside {
+    transform: translate(-1px, 0);
+    border-radius: 3px 3px 0 0;
+}
 /* Smaller variant for tile-density displays (monitor.js multi-tile grid). */
 .sv-bbox-label-sm {
     font-size: 9px;
     padding: 0 4px;
     line-height: 1.4;
     border-radius: 2px 2px 2px 0;
+}
+.sv-bbox-label-sm.sv-bbox-label--inside {
+    border-radius: 2px 2px 0 0;
 }
 /* SVG rect class for detection bboxes — paired with .sv-bbox-label.
    Use inline `stroke` and `fill` attrs (or `style`) to set the per-detection color.

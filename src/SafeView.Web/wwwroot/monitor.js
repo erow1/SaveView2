@@ -35,7 +35,10 @@
     // wszystkie wyglądały identycznie.
     function makeLabel(nx, ny, _nw, color, text) {
         const el = document.createElement('div');
-        el.className = 'sv-bbox-label sv-bbox-label-sm';
+        // Etykiety blisko górnej krawędzi (ny < 4%) renderowane WEWNĄTRZ bbox-u
+        // żeby nie zostały przycięte przez overflow:hidden parent kafelka.
+        const inside = ny < 0.04;
+        el.className = `sv-bbox-label sv-bbox-label-sm${inside ? ' sv-bbox-label--inside' : ''}`;
         el.style.setProperty('--bbox-color', color);
         el.style.left = `${nx * 100}%`;
         el.style.top = `${ny * 100}%`;

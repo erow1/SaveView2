@@ -111,7 +111,10 @@
                                 {
                                     var d = _incident.Detections[i];
                                     var color = BboxPalette.ColorAt(i);
-                                    <div class="sv-bbox-label"
+                                    // Detekcje blisko górnej krawędzi (Y < 4%) → etykieta wewnątrz bbox-u
+                                    // żeby nie wylazła nad parent z overflow:hidden i nie zniknęła.
+                                    var inside = d.Y < 0.04f ? " sv-bbox-label--inside" : string.Empty;
+                                    <div class="sv-bbox-label@inside"
                                          style="@($"--bbox-color:{color}; left:{d.X * 100:0.##}%; top:{d.Y * 100:0.##}%;")">
                                         @d.Label <span style="opacity:0.85;">@($"{d.Confidence * 100:F0}%")</span>
                                     </div>
