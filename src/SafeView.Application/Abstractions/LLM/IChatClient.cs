@@ -70,4 +70,25 @@ public interface IChatClient
     /// lub błąd (sprawdź logi).
     /// </summary>
     Task<bool> UnloadModelAsync(string? modelName = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Pobiera model z registry dostawcy (instaluje go lokalnie). Streamuje progres
+    /// przez <paramref name="progress"/>. Wspierane tylko dla Ollama (POST /api/pull,
+    /// NDJSON stream); inne backendy zwracają false bez efektu.
+    /// </summary>
+    Task<bool> PullModelAsync(
+        string modelName,
+        IProgress<PullProgress>? progress = null,
+        CancellationToken ct = default);
 }
+
+/// <summary>
+/// Postęp pobierania modelu — strumieniowane przez <see cref="IChatClient.PullModelAsync"/>.
+/// Dla Ollama statusy obejmują: "pulling manifest", "downloading", "verifying sha256 digest",
+/// "writing manifest", "success". Pola <c>CompletedBytes</c>/<c>TotalBytes</c> są wypełnione
+/// tylko podczas downloadu pojedynczego layeru.
+/// </summary>
+public sealed record PullProgress(
+    string? Status,
+    long? CompletedBytes,
+    long? TotalBytes);

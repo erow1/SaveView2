@@ -75,9 +75,29 @@ public sealed class ChatClientFactory : IChatClientFactory, IDisposable
 
     public async Task<IReadOnlyList<string>> ListModelsForAsync(LlmProvider provider, CancellationToken ct = default)
     {
-        // Transient — nie używamy cache, bo provider może być nowo-dodawany (jeszcze nie zapisany w DB).
-        // Własny HttpClient z `using` żeby zwolnić go po jednym fetchu.
-        var opts = new LlmOptions
+        using var http = BuildTransientHttpClient(provider, out var opts);
+        var logger = _loggerFactory.CreateLogger<OpenAiCompatibleChatClient>();
+        var client = new OpenAiCompatibleChatClient(http, Options.Create(opts), logger);
+        return await client.ListModelsAsync(ct).ConfigureAwait(false);
+    }
+
+    public async Task<bool> PullModelForAsync(LlmProvider provider, string modelName, IProgress<PullProgress>? progress = null, CancellationToken ct = default)
+    {
+        using var http = BuildTransientHttpClient(provider, out var opts);
+        // Pull dużych modeli (4-8GB) trwa minutami — bumpujemy timeout do 1h ponad TimeoutSeconds providera.
+        http.Timeout = TimeSpan.FromHours(1);
+        var logger = _loggerFactory.CreateLogger<OpenAiCompatibleChatClient>();
+        var client = new OpenAiCompatibleChatClient(http, Options.Create(opts), logger);
+        return await client.PullModelAsync(modelName, progress, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Wspólny builder — używany przez transient ListModels / PullModel. Rozdzielenie pozwala
+    /// pojedynczym callerom domknąć swoje own-y na timeout (pull potrzebuje godziny, list ~5s).
+    /// </summary>
+    private static HttpClient BuildTransientHttpClient(LlmProvider provider, out LlmOptions opts)
+    {
+        opts = new LlmOptions
         {
             Backend = KindToBackend(provider.Kind),
             BaseUrl = provider.BaseUrl,
@@ -85,15 +105,13 @@ public sealed class ChatClientFactory : IChatClientFactory, IDisposable
             DefaultModel = provider.DefaultModel,
             TimeoutSeconds = provider.TimeoutSeconds
         };
-        using var http = new HttpClient();
+        var http = new HttpClient();
         if (!string.IsNullOrWhiteSpace(opts.BaseUrl))
             http.BaseAddress = new Uri(opts.BaseUrl.EndsWith('/') ? opts.BaseUrl : opts.BaseUrl + "/");
         http.Timeout = TimeSpan.FromSeconds(Math.Max(5, opts.TimeoutSeconds));
         if (!string.IsNullOrWhiteSpace(opts.ApiKey))
             http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", opts.ApiKey);
-        var logger = _loggerFactory.CreateLogger<OpenAiCompatibleChatClient>();
-        var client = new OpenAiCompatibleChatClient(http, Options.Create(opts), logger);
-        return await client.ListModelsAsync(ct).ConfigureAwait(false);
+        return http;
     }
 
     private OpenAiCompatibleChatClient BuildFromProvider(LlmProvider provider)

@@ -102,6 +102,75 @@ public sealed class OpenAiCompatibleChatClient : IChatClient
         }
     }
 
+    public async Task<bool> PullModelAsync(string modelName, IProgress<PullProgress>? progress = null, CancellationToken ct = default)
+    {
+        if (!string.Equals(_opts.Backend, "ollama", StringComparison.OrdinalIgnoreCase))
+        {
+            _log.LogDebug("PullModelAsync: backend {Backend} nie wspiera pull (no-op)", _opts.Backend);
+            return false;
+        }
+        if (string.IsNullOrWhiteSpace(modelName))
+        {
+            _log.LogWarning("PullModelAsync: brak nazwy modelu");
+            return false;
+        }
+
+        var baseAddr = _http.BaseAddress;
+        if (baseAddr is null) { _log.LogWarning("PullModelAsync: brak BaseAddress"); return false; }
+        var pullUri = new Uri(new Uri(baseAddr.GetLeftPart(UriPartial.Authority)), "/api/pull");
+
+        var body = new JsonObject { ["name"] = modelName, ["stream"] = true };
+
+        try
+        {
+            using var content = JsonContent.Create(body);
+            using var req = new HttpRequestMessage(HttpMethod.Post, pullUri) { Content = content };
+            // Pull 4-8 GB layerów może trwać długo — większy timeout niż domyślny 30s.
+            // ResponseHeadersRead żeby zacząć czytać stream natychmiast bez bufferowania całości.
+            using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var err = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                _log.LogWarning("PullModelAsync HTTP {Code}: {Body}", (int)resp.StatusCode, Truncate(err, 200));
+                return false;
+            }
+
+            // NDJSON stream — każda linia to JSON ze statusem progresu.
+            await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            using var reader = new StreamReader(stream);
+            string? line;
+            bool sawSuccess = false;
+            while ((line = await reader.ReadLineAsync(ct).ConfigureAwait(false)) is not null)
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                try
+                {
+                    var node = JsonNode.Parse(line);
+                    var status = node?["status"]?.GetValue<string>();
+                    long? completed = node?["completed"]?.GetValue<long>();
+                    long? total = node?["total"]?.GetValue<long>();
+                    progress?.Report(new PullProgress(status, completed, total));
+                    if (string.Equals(status, "success", StringComparison.OrdinalIgnoreCase))
+                        sawSuccess = true;
+                    if (node?["error"]?.GetValue<string>() is { } errMsg)
+                    {
+                        _log.LogWarning("PullModelAsync error from server: {Err}", errMsg);
+                        return false;
+                    }
+                }
+                catch (JsonException) { /* ignore malformed line */ }
+            }
+            _log.LogInformation("PullModelAsync: model {Model} pulled (success={Ok})", modelName, sawSuccess);
+            return sawSuccess;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "PullModelAsync failed for {Model}", modelName);
+            return false;
+        }
+    }
+
     public async Task<IReadOnlyList<string>> ListModelsAsync(CancellationToken ct = default)
     {
         try

@@ -60,6 +60,84 @@
                 }
             </MudStack>
 
+            @* ── Install model (Ollama only) ──────────────────────────────── *@
+            @if (Provider.Kind == LlmProviderKind.Ollama)
+            {
+                <MudExpansionPanels Elevation="0">
+                    <MudExpansionPanel Text="@L["LlmProviders.InstallModelTitle"]">
+                        <MudStack Spacing="2">
+                            <MudText Typo="Typo.caption" Class="sv-text-muted">
+                                @L["LlmProviders.InstallModelHint"]
+                            </MudText>
+
+                            <MudText Typo="Typo.caption">@L["LlmProviders.InstallSuggested"]</MudText>
+                            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                                @foreach (var s in _suggestedVisionModels)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                             Color="Color.Primary"
+                                             OnClick="@(() => _pullName = s.Name)">
+                                        @s.Name <span style="opacity:0.6;">·@s.Size</span>
+                                    </MudChip>
+                                }
+                            </div>
+
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                <MudTextField @bind-Value="_pullName"
+                                              Label="@L["LlmProviders.InstallNameLabel"]"
+                                              HelperText="@L["LlmProviders.InstallNameHint"]"
+                                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                                              Class="mono" Style="flex:1;"
+                                              Disabled="@_pulling" />
+                                @if (!_pulling)
+                                {
+                                    <MudButton StartIcon="@Icons.Material.Filled.Download"
+                                               Color="Color.Primary" Variant="Variant.Filled"
+                                               Disabled="@(string.IsNullOrWhiteSpace(_pullName) || string.IsNullOrWhiteSpace(Provider.BaseUrl))"
+                                               OnClick="StartPullAsync">
+                                        @L["LlmProviders.InstallStart"]
+                                    </MudButton>
+                                }
+                                else
+                                {
+                                    <MudButton StartIcon="@Icons.Material.Filled.Cancel"
+                                               Color="Color.Warning" Variant="Variant.Outlined"
+                                               OnClick="CancelPull">
+                                        @L["Common.Cancel"]
+                                    </MudButton>
+                                }
+                            </MudStack>
+
+                            @if (_pulling || !string.IsNullOrEmpty(_pullStatus))
+                            {
+                                <MudPaper Class="pa-2" Elevation="0" Style="background:rgba(0,0,0,0.2); border-radius:4px;">
+                                    <MudStack Spacing="1">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center">
+                                            <MudText Typo="Typo.caption" Class="mono">@_pullStatus</MudText>
+                                            <MudSpacer />
+                                            @if (_pullPercent > 0)
+                                            {
+                                                <MudText Typo="Typo.caption" Class="mono">@($"{_pullPercent:F0}%")</MudText>
+                                            }
+                                        </MudStack>
+                                        <MudProgressLinear
+                                            Indeterminate="@(_pulling && _pullPercent <= 0)"
+                                            Value="_pullPercent"
+                                            Color="Color.Primary" Rounded="true" />
+                                        @if (_pullCompleted > 0 && _pullTotal > 0)
+                                        {
+                                            <MudText Typo="Typo.caption" Class="sv-text-muted mono">
+                                                @($"{_pullCompleted / 1024.0 / 1024.0:F1} / {_pullTotal / 1024.0 / 1024.0:F1} MB")
+                                            </MudText>
+                                        }
+                                    </MudStack>
+                                </MudPaper>
+                            }
+                        </MudStack>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            }
+
             <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
                 <MudNumericField T="int" @bind-Value="Provider.TimeoutSeconds" Label="@L["LlmProviders.Timeout"]"
                                  Min="5" Max="600" Step="10" Variant="Variant.Outlined" Style="max-width:160px;" />
@@ -81,6 +159,27 @@
 
     private List<string> _loadedModels = new();
     private bool _loadingModels;
+
+    // ── Pull (Ollama) state ──────────────────────────────────────────
+    private string _pullName = string.Empty;
+    private string? _pullStatus;
+    private long _pullCompleted;
+    private long _pullTotal;
+    private double _pullPercent;
+    private bool _pulling;
+    private CancellationTokenSource? _pullCts;
+
+    /// <summary>Sugerowane vision-capable Ollama modele — kafelki klikalne w UI.</summary>
+    private static readonly (string Name, string Size)[] _suggestedVisionModels =
+    [
+        ("qwen2.5vl:7b",      "4.4GB"),
+        ("qwen2.5vl:32b",     "20GB"),
+        ("llama3.2-vision:11b", "7.9GB"),
+        ("gemma3:4b",         "3.3GB"),
+        ("gemma3:12b",        "8.1GB"),
+        ("llava:7b",          "4.7GB"),
+        ("minicpm-v:8b",      "5.5GB")
+    ];
 
     private Task<IEnumerable<string>> SearchModels(string value, CancellationToken token)
     {
@@ -116,6 +215,71 @@
         {
             _loadingModels = false;
         }
+    }
+
+    /// <summary>
+    /// Wymusza pull modelu (POST /api/pull, NDJSON stream). UI re-renderuje co pakiet
+    /// progresu — InvokeAsync(StateHasChanged) bo IProgress przychodzi z innego wątku.
+    /// Po sukcesie auto-reload listy modeli i pre-fill DefaultModel jeśli był pusty.
+    /// </summary>
+    private async Task StartPullAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_pullName)) return;
+        _pulling = true;
+        _pullStatus = L["LlmProviders.InstallStarting"];
+        _pullCompleted = 0;
+        _pullTotal = 0;
+        _pullPercent = 0;
+        _pullCts = new CancellationTokenSource();
+
+        var progress = new Progress<SafeView.Application.Abstractions.LLM.PullProgress>(p =>
+        {
+            _pullStatus = p.Status ?? "(progress)";
+            _pullCompleted = p.CompletedBytes ?? 0;
+            _pullTotal = p.TotalBytes ?? 0;
+            _pullPercent = (_pullTotal > 0) ? (100.0 * _pullCompleted / _pullTotal) : 0;
+            _ = InvokeAsync(StateHasChanged);
+        });
+
+        try
+        {
+            var ok = await Factory.PullModelForAsync(Provider, _pullName.Trim(), progress, _pullCts.Token);
+            if (ok)
+            {
+                Snackbar.Add(string.Format(L["LlmProviders.InstallOk"], _pullName), Severity.Success);
+                _pullStatus = L["LlmProviders.InstallDone"];
+                _pullPercent = 100;
+                // Pre-fill DefaultModel gdy user nie miał ustawionego, plus reload listy.
+                if (string.IsNullOrWhiteSpace(Provider.DefaultModel))
+                    Provider.DefaultModel = _pullName.Trim();
+                await LoadModelsAsync();
+            }
+            else
+            {
+                Snackbar.Add(L["LlmProviders.InstallFailed"], Severity.Error);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _pullStatus = L["LlmProviders.InstallCancelled"];
+            Snackbar.Add(L["LlmProviders.InstallCancelled"], Severity.Warning);
+        }
+        catch (Exception ex)
+        {
+            _pullStatus = ex.Message;
+            Snackbar.Add(string.Format(L["LlmProviders.InstallError"], ex.Message), Severity.Error);
+        }
+        finally
+        {
+            _pulling = false;
+            _pullCts?.Dispose();
+            _pullCts = null;
+        }
+    }
+
+    private void CancelPull()
+    {
+        try { _pullCts?.Cancel(); } catch { /* ignore */ }
     }
 
     private bool Valid()

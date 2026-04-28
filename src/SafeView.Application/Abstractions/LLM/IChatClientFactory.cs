@@ -28,4 +28,15 @@ public interface IChatClientFactory
     /// kliknąć "Wczytaj listę modeli" PRZED zapisem nowo dodawanego providera.
     /// </summary>
     Task<IReadOnlyList<string>> ListModelsForAsync(SafeView.Domain.Llm.LlmProvider provider, CancellationToken ct = default);
+
+    /// <summary>
+    /// Wymusza pull modelu (tylko Ollama) z transientem zbudowanym z in-memory configa.
+    /// Streamuje progres przez <paramref name="progress"/>. Zwraca true gdy pull zakończył
+    /// się sukcesem, false dla nie-Ollama / błędu.
+    /// </summary>
+    Task<bool> PullModelForAsync(
+        SafeView.Domain.Llm.LlmProvider provider,
+        string modelName,
+        IProgress<PullProgress>? progress = null,
+        CancellationToken ct = default);
 }

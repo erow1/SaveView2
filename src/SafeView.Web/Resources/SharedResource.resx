@@ -80,6 +80,18 @@
   <data name="LlmProviders.ModelsLoaded"><value>{0} models loaded — pick from the list or type a custom name</value></data>
   <data name="LlmProviders.NoModelsReturned"><value>Provider returned no models. Check Base URL / API key.</value></data>
   <data name="LlmProviders.ModelsLoadFailed"><value>Failed to load models: {0}</value></data>
+  <data name="LlmProviders.InstallModelTitle"><value>Install model (Ollama only)</value></data>
+  <data name="LlmProviders.InstallModelHint"><value>Pull a model directly into the Ollama server. Pick a suggested vision-capable model below or type any name from the Ollama library.</value></data>
+  <data name="LlmProviders.InstallSuggested"><value>Suggested vision-capable models:</value></data>
+  <data name="LlmProviders.InstallNameLabel"><value>Model name (name:tag)</value></data>
+  <data name="LlmProviders.InstallNameHint"><value>e.g. qwen2.5vl:7b — see ollama.com/library</value></data>
+  <data name="LlmProviders.InstallStart"><value>Install</value></data>
+  <data name="LlmProviders.InstallStarting"><value>Starting…</value></data>
+  <data name="LlmProviders.InstallDone"><value>Installed.</value></data>
+  <data name="LlmProviders.InstallOk"><value>Model {0} installed.</value></data>
+  <data name="LlmProviders.InstallFailed"><value>Install failed — see logs.</value></data>
+  <data name="LlmProviders.InstallError"><value>Install error: {0}</value></data>
+  <data name="LlmProviders.InstallCancelled"><value>Install cancelled.</value></data>
   <data name="Triggers.VllmProvider"><value>LLM provider</value></data>
   <data name="Triggers.VllmProviderHint"><value>Empty = default.</value></data>
   <data name="Triggers.VllmProviderDefault"><value>Default</value></data>

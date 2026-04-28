@@ -80,6 +80,18 @@
   <data name="LlmProviders.ModelsLoaded"><value>{0} modeli wczytanych — wybierz z listy lub wpisz własną nazwę</value></data>
   <data name="LlmProviders.NoModelsReturned"><value>Dostawca nie zwrócił żadnych modeli. Sprawdź Base URL / klucz API.</value></data>
   <data name="LlmProviders.ModelsLoadFailed"><value>Nie udało się wczytać listy modeli: {0}</value></data>
+  <data name="LlmProviders.InstallModelTitle"><value>Zainstaluj model (tylko Ollama)</value></data>
+  <data name="LlmProviders.InstallModelHint"><value>Pobierz model bezpośrednio do serwera Ollama. Wybierz sugerowany vision-capable poniżej albo wpisz dowolną nazwę z biblioteki Ollama.</value></data>
+  <data name="LlmProviders.InstallSuggested"><value>Sugerowane modele z obsługą obrazów:</value></data>
+  <data name="LlmProviders.InstallNameLabel"><value>Nazwa modelu (name:tag)</value></data>
+  <data name="LlmProviders.InstallNameHint"><value>np. qwen2.5vl:7b — zobacz ollama.com/library</value></data>
+  <data name="LlmProviders.InstallStart"><value>Zainstaluj</value></data>
+  <data name="LlmProviders.InstallStarting"><value>Rozpoczynam…</value></data>
+  <data name="LlmProviders.InstallDone"><value>Zainstalowany.</value></data>
+  <data name="LlmProviders.InstallOk"><value>Model {0} zainstalowany.</value></data>
+  <data name="LlmProviders.InstallFailed"><value>Instalacja nieudana — zobacz logi.</value></data>
+  <data name="LlmProviders.InstallError"><value>Błąd instalacji: {0}</value></data>
+  <data name="LlmProviders.InstallCancelled"><value>Instalacja anulowana.</value></data>
   <data name="Triggers.VllmProvider"><value>Dostawca LLM</value></data>
   <data name="Triggers.VllmProviderHint"><value>Wybór konkretnego providera (Ollama / vLLM / OpenAI). Puste = użyj domyślnego z /admin/llm-providers.</value></data>
   <data name="Triggers.VllmProviderDefault"><value>Domyślny provider</value></data>
