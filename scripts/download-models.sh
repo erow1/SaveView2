@@ -497,9 +497,9 @@ for target in "${TARGETS[@]}"; do
                                 "yolov8n-ppe" \
                                 "PPE detection (Hansung-Cho, MIT, hardhat/mask/vest/person/cone/machinery/vehicle)" ;;
         yolov8s-fire-smoke) export_hf_yolov8_pt \
-                                "https://huggingface.co/touati-kamel/yolov8s-forest-fire-detection/resolve/main/model.pt" \
+                                "https://huggingface.co/leeyunjai/yolo11-firedetect/resolve/main/firedetect-11s.pt" \
                                 "yolov8s-fire-smoke" \
-                                "Fire/Smoke detection (touati-kamel, 5 klas: fire/fire-smoke/factory-smoke/fog/sol)" ;;
+                                "Fire/Smoke detection (leeyunjai, YOLO11s, 2 klasy: fire/smoke)" ;;
         # ── Open-vocab (text prompts) ──
         owlv2-base)         export_owlv2_base ;;
         owlv2-large)        export_owlv2_large ;;

@@ -190,6 +190,26 @@ public sealed class ModelSeeder : IHostedService
                         "(z preprocessor_config.json).", m.Name, oldSize, px);
                 }
             }
+
+            // Migration: dla bundled classical ONNX modeli (runtime/models/X/), gdy labels.txt
+            // różni się od MLModel.Labels — zsynchronizuj. Wymagane przy swap-ie modelu in-place
+            // (np. fire-smoke z 5 klasami → 2 klasy). Bundled = OnnxAbsolutePath zawiera segment
+            // "runtime/models" — folder seed-only, user nie modyfikuje Labels w UI.
+            foreach (var m in all.Where(x => x.Backend == DetectorBackend.Onnx))
+            {
+                var path = m.OnnxAbsolutePath;
+                if (string.IsNullOrEmpty(path) || !File.Exists(path)) continue;
+                if (!path.Replace('\\', '/').Contains("/runtime/models/", StringComparison.Ordinal)) continue;
+                var labelsPath = Path.Combine(Path.GetDirectoryName(path)!, "labels.txt");
+                var fileLabels = ReadLabels(labelsPath);
+                if (fileLabels.Count == 0) continue;
+                if (m.Labels.SequenceEqual(fileLabels, StringComparer.Ordinal)) continue;
+                var oldLabels = string.Join(",", m.Labels);
+                m.Labels = fileLabels;
+                await _repo.UpdateAsync(m, ct).ConfigureAwait(false);
+                _log.LogInformation("ModelSeeder: zsynchronizowano Labels bundled modelu '{Name}' [{Old}] → [{New}].",
+                    m.Name, oldLabels, string.Join(",", fileLabels));
+            }
         }
         catch (Exception ex)
         {
