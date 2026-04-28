@@ -28,6 +28,30 @@
                 @L["Wizard.Subtitle"]
             </MudText>
         </div>
+        <MudSpacer />
+        @if (_step > 1)
+        {
+            <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="() => _step--" Variant="Variant.Outlined">
+                @L["Wizard.Back"]
+            </MudButton>
+        }
+        @if (_step < 6)
+        {
+            <MudButton EndIcon="@Icons.Material.Filled.ArrowForward"
+                       OnClick="NextStep" Color="Color.Primary" Variant="Variant.Filled"
+                       Disabled="@(!CanAdvance())">
+                @L["Wizard.Next"]
+            </MudButton>
+        }
+        else
+        {
+            <MudButton StartIcon="@Icons.Material.Filled.CheckCircle"
+                       OnClick="FinishAsync" Color="Color.Success" Variant="Variant.Filled"
+                       Disabled="@_creating">
+                @L["Wizard.CreateAndRun"]
+            </MudButton>
+        }
     </MudStack>
 
     <MudPaper Class="pa-3 sv-card" Elevation="0">
@@ -79,35 +103,11 @@
         </MudPaper>
     </div>
 
-    @* ── Footer buttons ────────────────────────────────────────────── *@
+    @* ── Footer (tylko Cancel; Back/Next/Finish na górze) ──────────── *@
     <MudStack Row="true" Spacing="2">
         <MudButton OnClick="GoHome" Variant="Variant.Text">
             @L["Common.Cancel"]
         </MudButton>
-        <MudSpacer />
-        @if (_step > 1)
-        {
-            <MudButton StartIcon="@Icons.Material.Filled.ArrowBack"
-                       OnClick="() => _step--" Variant="Variant.Outlined">
-                @L["Wizard.Back"]
-            </MudButton>
-        }
-        @if (_step < 6)
-        {
-            <MudButton EndIcon="@Icons.Material.Filled.ArrowForward"
-                       OnClick="NextStep" Color="Color.Primary" Variant="Variant.Filled"
-                       Disabled="@(!CanAdvance())">
-                @L["Wizard.Next"]
-            </MudButton>
-        }
-        else
-        {
-            <MudButton StartIcon="@Icons.Material.Filled.CheckCircle"
-                       OnClick="FinishAsync" Color="Color.Success" Variant="Variant.Filled"
-                       Disabled="@_creating">
-                @L["Wizard.CreateAndRun"]
-            </MudButton>
-        }
     </MudStack>
 </MudStack>
 
@@ -144,6 +144,67 @@
     private string _actionName = "Alert BHP";
     private string _emailTo = string.Empty;
     private string _webhookUrl = string.Empty;
+
+    /// <summary>
+    /// Otwiera <c>RoiDialog</c> w trybie edycji wskazanego ROI. Po zamknięciu wracamy do tego
+    /// samego kroku wizarda (komponent zostaje zamontowany — dialog jest tylko overlay-em).
+    /// Używane przez ołówek na kafelku, propagacja kliknięcia jest blokowana wyżej.
+    /// </summary>
+    private async Task OpenEditRoiAsync(Roi roi)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Roi"] = roi,
+            ["IsNew"] = false,
+            ["Cameras"] = _availableCameras,
+            ["Models"] = _availableModels
+        };
+        var dlg = await Dialog.ShowAsync<RoiDialog>(
+            L["Rois.EditTitle"], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: Roi saved })
+        {
+            try
+            {
+                await RoiRepo.UpdateAsync(saved);
+                // Podmień instancję w lokalnej liście — żeby kafelek pokazywał świeże dane
+                // bez ponownego query do Mongo.
+                var idx = _roisForCamera.FindIndex(r => r.Id == saved.Id);
+                if (idx >= 0) _roisForCamera[idx] = saved;
+                Snackbar.Add(L["Rois.Saved"], Severity.Success);
+            }
+            catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        }
+    }
+
+    /// <summary>Analog dla strefy. Wracamy do step 3 wizarda po zamknięciu dialogu.</summary>
+    private async Task OpenEditZoneAsync(Zone zone)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Zone"] = zone,
+            ["IsNew"] = false,
+            ["Cameras"] = _availableCameras,
+            ["Rois"] = _roisForCamera,
+            ["AvailableTriggers"] = new List<Trigger>()
+        };
+        var dlg = await Dialog.ShowAsync<ZoneEditorDialog>(
+            L["ZoneDialog.EditTitle"], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true });
+        var res = await dlg.Result;
+        if (res is { Canceled: false, Data: Zone saved })
+        {
+            try
+            {
+                await ZoneRepo.UpdateAsync(saved);
+                var idx = _zonesForCamera.FindIndex(z => z.Id == saved.Id);
+                if (idx >= 0) _zonesForCamera[idx] = saved;
+                Snackbar.Add(L["Zones.Saved"], Severity.Success);
+            }
+            catch (Exception ex) { Snackbar.Add($"Błąd: {ex.Message}", Severity.Error); }
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -361,11 +422,18 @@
                                 @string.Format(L["Wizard.StepRoi.ZonesInRoi"], zoneCount)
                             </MudText>
                         </div>
-                        @if (roiPicked)
-                        {
-                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small"
-                                     Style="color:var(--mud-palette-primary);" />
-                        }
+                        <div @onclick:stopPropagation="true" style="display:flex; gap:4px; align-items:center;">
+                            <MudTooltip Text="@L["Common.Edit"]">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                               Size="Size.Small"
+                                               OnClick="@(() => OpenEditRoiAsync(roi))" />
+                            </MudTooltip>
+                            @if (roiPicked)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small"
+                                         Style="color:var(--mud-palette-primary);" />
+                            }
+                        </div>
                     </MudStack>
                 </MudPaper>
             }
@@ -459,11 +527,18 @@
                                 </MudChip>
                             }
                         </div>
-                        @if (zonePicked)
-                        {
-                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small"
-                                     Style="color:var(--mud-palette-primary);" />
-                        }
+                        <div @onclick:stopPropagation="true" style="display:flex; gap:4px; align-items:center;">
+                            <MudTooltip Text="@L["Common.Edit"]">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                               Size="Size.Small"
+                                               OnClick="@(() => OpenEditZoneAsync(zone))" />
+                            </MudTooltip>
+                            @if (zonePicked)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small"
+                                         Style="color:var(--mud-palette-primary);" />
+                            }
+                        </div>
                     </MudStack>
                 </MudPaper>
             }
