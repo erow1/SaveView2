@@ -4,17 +4,28 @@ namespace SafeView.Infrastructure.Detection;
 
 /// <summary>
 /// Wbudowane klasy detekcji dla typowych scenariuszy BHP — ładowane przez
-/// <see cref="DetectionClassSeeder"/> przy starcie. Wszystkie są typu
-/// <see cref="DetectionClassKind.Text"/> — kompatybilne z dowolnym modelem obsługującym
-/// <c>ModelCapabilities.TextPrompts</c> (YOLO-World, YOLOE). User może je duplikować jako
-/// bazę własnych klas (built-in są read-only).
+/// <see cref="DetectionClassSeeder"/> przy starcie. Większość to typu
+/// <see cref="DetectionClassKind.Text"/> (open-vocab przez YOLO-World/YOLOE/OWLv2),
+/// kilka to <see cref="DetectionClassKind.ClosedSetBinding"/> bind-owanych do
+/// konkretnych klas COCO (yolov8s-coco) — używane w scenariuszach kompozycyjnych
+/// jak "osoba używa telefonu" przez containment.
 ///
+/// User może je duplikować jako bazę własnych klas (built-in są read-only).
 /// Prompty po angielsku dla stabilności modeli CLIP-based; <see cref="DetectionClass.TextPromptPl"/>
 /// niesie polski wariant do wyświetlenia w UI.
+///
+/// <see cref="DetectionClassKind.ClosedSetBinding"/> klasy są warunkowe — wymagają
+/// że odpowiedni model jest seedowany w DB (rozwiązywane w runtime przez resolver
+/// w <see cref="DetectionClassSeeder"/>). Gdy model nie istnieje, klasa jest skipowana.
 /// </summary>
 public static class BuiltInDetectionClasses
 {
-    public static IEnumerable<DetectionClass> All()
+    /// <summary>
+    /// Zwraca listę wbudowanych klas. <paramref name="resolveModelIdByName"/> mapuje
+    /// nazwę modelu (folder w runtime/models/) na ID w DB — używany przez ClosedSet klasy.
+    /// Null = pomijamy ClosedSet bindings (np. w testach jednostkowych bez DB).
+    /// </summary>
+    public static IEnumerable<DetectionClass> All(Func<string, string?>? resolveModelIdByName = null)
     {
         // ─── PPE ────────────────────────────────────────────────────────────
         yield return Text("ppe-hard-hat",
@@ -131,6 +142,32 @@ public static class BuiltInDetectionClasses
             textEn: "open electrical cabinet with exposed wiring",
             textPl: "otwarta szafa rozdzielcza",
             recommendedMinConfidence: 0.45);
+
+        // ─── Obiekty (COCO closed-set) ──────────────────────────────────────
+        // Bind-owane do bundled yolov8s-coco (fallback yolov8n-coco). Używane jako klasy
+        // bazowe w kompozycjach przez ContainmentRule — np. "osoba używa telefonu":
+        // warunek na coco-person + Containment(ContainsAny, coco-cell-phone, Center).
+        // Pomijane gdy żaden COCO model nie jest seed-owany (np. user usunął runtime/models/).
+        var cocoModelId = resolveModelIdByName?.Invoke("yolov8s-coco")
+                       ?? resolveModelIdByName?.Invoke("yolov8n-coco");
+        if (!string.IsNullOrEmpty(cocoModelId))
+        {
+            yield return ClosedSet("coco-person",
+                "Osoba (COCO)",
+                "Osoba wykryta przez ogólny model COCO. Klasyczna detekcja closed-set — używaj jako klasa A w containment-ach typu \"osoba bez kasku\", \"osoba z telefonem\".",
+                "Obiekty",
+                modelId: cocoModelId,
+                label: "person",
+                recommendedMinConfidence: 0.30);
+
+            yield return ClosedSet("coco-cell-phone",
+                "Telefon komórkowy (COCO)",
+                "Telefon komórkowy / smartphone. Użyj jako klasa B w containment do scenariusza \"osoba używa telefonu\" — Containment(ContainsAny, Center) na warunku z osobą.",
+                "Obiekty",
+                modelId: cocoModelId,
+                label: "cell phone",
+                recommendedMinConfidence: 0.30);
+        }
     }
 
     private static DetectionClass Text(
@@ -149,6 +186,27 @@ public static class BuiltInDetectionClasses
             Kind = DetectionClassKind.Text,
             TextPrompt = textEn,
             TextPromptPl = textPl,
+            RecommendedMinConfidence = recommendedMinConfidence,
+            IsBuiltIn = true,
+            BuiltInKey = builtInKey
+        };
+
+    private static DetectionClass ClosedSet(
+        string builtInKey,
+        string name,
+        string description,
+        string category,
+        string modelId,
+        string label,
+        double recommendedMinConfidence)
+        => new()
+        {
+            Name = name,
+            Description = description,
+            Category = category,
+            Kind = DetectionClassKind.ClosedSetBinding,
+            ClosedSetModelId = modelId,
+            ClosedSetLabel = label,
             RecommendedMinConfidence = recommendedMinConfidence,
             IsBuiltIn = true,
             BuiltInKey = builtInKey
