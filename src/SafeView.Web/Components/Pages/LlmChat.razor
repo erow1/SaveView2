@@ -1,0 +1,425 @@
+@page "/admin/llm-chat"
+@attribute [Authorize(Policy = "perm:llm:chat")]
+@using SafeView.Application.Abstractions.LLM
+@using SafeView.Domain.Llm
+@implements IDisposable
+@inject SafeView.Application.Abstractions.Persistence.ILlmProviderRepository ProviderRepo
+@inject IChatClientFactory Factory
+@inject IDialogService Dialog
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<SharedResource> L
+@rendermode InteractiveServer
+
+@*
+    Prosty chat z LLM-em — multimodal (drag/upload obrazów), z opcją wymuszenia
+    "restartu" modelu przez Ollama keep_alive=0. Używany do weryfikacji że provider
+    + model działają poprawnie z obrazami przed wpięciem w produkcyjne triggery.
+
+    Obrazy zapisywane do /tmp jako tymczasowe pliki, persistowane przez całą sesję
+    chatu (żeby kolejne tury widziały poprzednie obrazy w historii). Czyszczone na
+    Clear chat / dispose strony.
+*@
+
+<PageTitle>@L["LlmChat.Title"] — @L["AppName"]</PageTitle>
+
+<MudStack Spacing="3" Style="max-width:1200px; margin:0 auto;">
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <MudIcon Icon="@Icons.Material.Filled.Chat" Size="Size.Large" Style="color:var(--mud-palette-primary);" />
+        <div>
+            <MudText Typo="Typo.h4">@L["LlmChat.Title"]</MudText>
+            <MudText Typo="Typo.caption" Style="color:var(--mud-palette-text-secondary);">
+                @L["LlmChat.Description"]
+            </MudText>
+        </div>
+    </MudStack>
+
+    @* ── Provider + model picker + akcje ─────────────────────────── *@
+    <MudPaper Class="pa-3 sv-card" Elevation="0">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End">
+            <MudSelect T="string" Value="_selectedProviderId"
+                       ValueChanged="OnProviderChanged"
+                       Label="@L["LlmChat.Provider"]"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width:240px;">
+                <MudSelectItem Value="@string.Empty">@L["LlmChat.ProviderDefault"]</MudSelectItem>
+                @foreach (var p in _providers.Where(p => p.Enabled))
+                {
+                    <MudSelectItem Value="@p.Id">@p.Name</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudAutocomplete T="string"
+                             Value="@_selectedModel"
+                             ValueChanged="@((string v) => _selectedModel = v ?? string.Empty)"
+                             SearchFunc="SearchModels"
+                             CoerceText="false" CoerceValue="true" Clearable="true"
+                             Label="@L["LlmChat.Model"]"
+                             HelperText="@(_loadedModels.Count > 0
+                                ? string.Format(L["LlmChat.ModelsLoaded"], _loadedModels.Count)
+                                : L["LlmChat.ModelHint"])"
+                             Variant="Variant.Outlined" Margin="Margin.Dense"
+                             Class="mono" Style="flex:1; min-width:280px;" />
+
+            <MudTooltip Text="@L["LlmChat.LoadModels"]">
+                <MudIconButton Icon="@Icons.Material.Filled.CloudDownload"
+                               Variant="Variant.Outlined"
+                               Disabled="@(_loadingModels || _selectedProvider is null)"
+                               OnClick="LoadModelsAsync" />
+            </MudTooltip>
+
+            <MudTooltip Text="@(_canUnload ? L["LlmChat.UnloadModelHint"] : L["LlmChat.UnloadOllamaOnly"])">
+                <MudIconButton Icon="@Icons.Material.Filled.PowerSettingsNew"
+                               Variant="Variant.Outlined" Color="Color.Warning"
+                               Disabled="@(!_canUnload || _busy || string.IsNullOrWhiteSpace(_selectedModel))"
+                               OnClick="UnloadModelAsync" />
+            </MudTooltip>
+
+            <MudTooltip Text="@L["LlmChat.ClearChat"]">
+                <MudIconButton Icon="@Icons.Material.Filled.DeleteSweep"
+                               Variant="Variant.Outlined"
+                               Disabled="@(_history.Count == 0)"
+                               OnClick="ClearChat" />
+            </MudTooltip>
+        </MudStack>
+
+        <MudExpansionPanels Elevation="0" Class="mt-2">
+            <MudExpansionPanel Text="@L["LlmChat.SystemPromptLabel"]">
+                <MudTextField @bind-Value="_systemPrompt" Label="@L["LlmChat.SystemPromptLabel"]"
+                              Lines="4" Variant="Variant.Outlined" Class="mono" />
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+    </MudPaper>
+
+    @* ── Chat history ─────────────────────────────────────────────── *@
+    <MudPaper Class="pa-3 sv-card" Elevation="0" Style="min-height:400px;">
+        @if (_history.Count == 0)
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="min-height:300px;">
+                <MudIcon Icon="@Icons.Material.Filled.QuestionAnswer" Size="Size.Large"
+                         Style="color:var(--mud-palette-text-secondary);" />
+                <MudText Typo="Typo.body1" Class="sv-text-muted">@L["LlmChat.EmptyHint"]</MudText>
+            </MudStack>
+        }
+        else
+        {
+            <MudStack Spacing="3">
+                @foreach (var turn in _history)
+                {
+                    var isUser = turn.Role == ChatRole.User;
+                    var bgColor = isUser ? "rgba(120,200,170,0.10)" : "rgba(255,255,255,0.05)";
+                    <MudPaper Class="pa-2" Elevation="0"
+                              Style="@($"background:{bgColor}; border-radius:6px;")">
+                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Start">
+                            <MudIcon Icon="@(isUser ? Icons.Material.Filled.Person : Icons.Material.Filled.SmartToy)"
+                                     Size="Size.Small"
+                                     Style="@($"color:{(isUser ? "var(--mud-palette-primary)" : "var(--mud-palette-info)")};")" />
+                            <div style="flex:1;">
+                                <MudText Typo="Typo.caption" Class="sv-text-muted mono">
+                                    @(isUser ? "user" : "assistant")
+                                    @if (turn.LatencyMs.HasValue)
+                                    {
+                                        <span> · @turn.LatencyMs ms</span>
+                                    }
+                                    @if (turn.PromptTokens.HasValue || turn.CompletionTokens.HasValue)
+                                    {
+                                        <span> · in:@turn.PromptTokens out:@turn.CompletionTokens</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(turn.SentModel))
+                                    {
+                                        <span> · @turn.SentModel</span>
+                                    }
+                                </MudText>
+                                @if (!string.IsNullOrEmpty(turn.ImageDataUrl))
+                                {
+                                    <img src="@turn.ImageDataUrl" alt="@turn.ImageName"
+                                         style="max-width:240px; max-height:160px; border-radius:4px; margin:6px 0; display:block;" />
+                                }
+                                @if (!string.IsNullOrEmpty(turn.ErrorMessage))
+                                {
+                                    <MudAlert Severity="Severity.Error" Dense="true" Variant="Variant.Outlined">
+                                        @turn.ErrorMessage
+                                    </MudAlert>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.body2" Style="white-space:pre-wrap;">@turn.Text</MudText>
+                                }
+                            </div>
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+        }
+    </MudPaper>
+
+    @* ── Input + image attach ─────────────────────────────────────── *@
+    <MudPaper Class="pa-3 sv-card" Elevation="0">
+        <MudStack Spacing="2">
+            @if (!string.IsNullOrEmpty(_pendingImageDataUrl))
+            {
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <img src="@_pendingImageDataUrl" alt="pending"
+                         style="max-width:80px; max-height:60px; border-radius:4px;" />
+                    <div>
+                        <MudText Typo="Typo.caption" Class="mono">@_pendingImageName</MudText>
+                        <MudText Typo="Typo.caption" Class="sv-text-muted">@($"{_pendingImageBytes?.Length:N0} B")</MudText>
+                    </div>
+                    <MudSpacer />
+                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                   OnClick="ClearPendingImage" />
+                </MudStack>
+            }
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End">
+                <MudFileUpload T="IBrowserFile" FilesChanged="OnFileChanged"
+                               Accept="image/jpeg,image/png,image/webp" MaximumFileCount="1">
+                    <ActivatorContent>
+                        <MudIconButton Icon="@Icons.Material.Filled.AttachFile" Variant="Variant.Outlined" />
+                    </ActivatorContent>
+                </MudFileUpload>
+                <MudTextField @bind-Value="_userInput" Label="@L["LlmChat.MessagePlaceholder"]"
+                              Lines="2" Variant="Variant.Outlined" Style="flex:1;"
+                              Immediate="true" />
+                <MudButton StartIcon="@Icons.Material.Filled.Send"
+                           OnClick="SendAsync" Color="Color.Primary" Variant="Variant.Filled"
+                           Disabled="@(_busy || string.IsNullOrWhiteSpace(_userInput))">
+                    @L["LlmChat.Send"]
+                </MudButton>
+            </MudStack>
+            @if (_busy)
+            {
+                <MudProgressLinear Indeterminate="true" Color="Color.Primary" Size="Size.Small" />
+            }
+        </MudStack>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private List<LlmProvider> _providers = new();
+    private string _selectedProviderId = string.Empty;
+    private LlmProvider? _selectedProvider;
+    private string _selectedModel = string.Empty;
+    private List<string> _loadedModels = new();
+    private bool _loadingModels;
+    private bool _canUnload;
+
+    private string _systemPrompt = "Jesteś pomocnym asystentem analizującym obrazy z kamer BHP. Odpowiadasz po polsku, krótko i konkretnie.";
+    private string _userInput = string.Empty;
+    private byte[]? _pendingImageBytes;
+    private string? _pendingImageName;
+    private string? _pendingImageDataUrl;
+
+    private List<ChatTurn> _history = new();
+    private bool _busy;
+
+    /// <summary>
+    /// Pojedynczy obrót w historii chatu. Image obrazu jest persistowany na dysku jako
+    /// temp file (ImageFilePath) — żeby kolejne tury w historii mogły wciąż referować
+    /// poprzednie obrazy gdy budujemy listę messages do LLM-a.
+    /// </summary>
+    private sealed class ChatTurn
+    {
+        public ChatRole Role { get; init; }
+        public string Text { get; set; } = string.Empty;
+        public string? ImageFilePath { get; set; }
+        public string? ImageDataUrl { get; set; }
+        public string? ImageName { get; set; }
+        public long? LatencyMs { get; set; }
+        public int? PromptTokens { get; set; }
+        public int? CompletionTokens { get; set; }
+        public string? SentModel { get; set; }
+        public string? ErrorMessage { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _providers = (await ProviderRepo.ListAsync())
+            .OrderByDescending(p => p.IsDefault)
+            .ThenBy(p => p.Name, StringComparer.Ordinal)
+            .ToList();
+        // Auto-select default provider
+        var dflt = _providers.FirstOrDefault(p => p.IsDefault && p.Enabled);
+        if (dflt is not null)
+        {
+            _selectedProviderId = dflt.Id;
+            await OnProviderChanged(dflt.Id);
+        }
+    }
+
+    private async Task OnProviderChanged(string providerId)
+    {
+        _selectedProviderId = providerId;
+        _selectedProvider = _providers.FirstOrDefault(p => p.Id == providerId);
+        // Pre-fill model name z provider-a + ustaw flagę unload-supported tylko dla Ollama.
+        if (_selectedProvider is not null)
+        {
+            if (string.IsNullOrWhiteSpace(_selectedModel))
+                _selectedModel = _selectedProvider.DefaultModel;
+            _canUnload = _selectedProvider.Kind == LlmProviderKind.Ollama;
+        }
+        else
+        {
+            _canUnload = false;
+        }
+        // Auto-load model list — bardzo wygodne, user widzi co jest dostępne bez kliku.
+        if (_selectedProvider is not null)
+            await LoadModelsAsync();
+    }
+
+    private Task<IEnumerable<string>> SearchModels(string value, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(value))
+            return Task.FromResult<IEnumerable<string>>(_loadedModels);
+        return Task.FromResult<IEnumerable<string>>(
+            _loadedModels.Where(m => m.Contains(value, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private async Task LoadModelsAsync()
+    {
+        if (_selectedProvider is null) return;
+        _loadingModels = true;
+        try
+        {
+            var models = await Factory.ListModelsForAsync(_selectedProvider);
+            _loadedModels = models.OrderBy(m => m, StringComparer.Ordinal).ToList();
+            if (_loadedModels.Count == 0)
+                Snackbar.Add(L["LlmProviders.NoModelsReturned"], Severity.Warning);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(string.Format(L["LlmProviders.ModelsLoadFailed"], ex.Message), Severity.Error);
+        }
+        finally
+        {
+            _loadingModels = false;
+        }
+    }
+
+    private async Task UnloadModelAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedModel)) return;
+        try
+        {
+            var client = await Factory.GetForAsync(_selectedProviderId);
+            var ok = await client.UnloadModelAsync(_selectedModel);
+            if (ok)
+                Snackbar.Add(string.Format(L["LlmChat.UnloadOk"], _selectedModel), Severity.Success);
+            else
+                Snackbar.Add(L["LlmChat.UnloadFailed"], Severity.Warning);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Unload error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task OnFileChanged(IBrowserFile file)
+    {
+        if (file is null) return;
+        const long MaxSize = 20 * 1024 * 1024;
+        if (file.Size > MaxSize)
+        {
+            Snackbar.Add(L["VllmPlayground.FileTooLarge"], Severity.Warning);
+            return;
+        }
+        await using var stream = file.OpenReadStream(MaxSize);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        _pendingImageBytes = ms.ToArray();
+        _pendingImageName = file.Name;
+        var mime = file.ContentType is "image/png" or "image/webp" ? file.ContentType : "image/jpeg";
+        _pendingImageDataUrl = $"data:{mime};base64,{Convert.ToBase64String(_pendingImageBytes)}";
+    }
+
+    private void ClearPendingImage()
+    {
+        _pendingImageBytes = null;
+        _pendingImageName = null;
+        _pendingImageDataUrl = null;
+    }
+
+    private async Task SendAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_userInput)) return;
+        _busy = true;
+
+        var userTurn = new ChatTurn
+        {
+            Role = ChatRole.User,
+            Text = _userInput.Trim(),
+            ImageDataUrl = _pendingImageDataUrl,
+            ImageName = _pendingImageName
+        };
+        // Zapis obrazu do /tmp jeśli user dołączył — perzystuje przez sesję chatu
+        // (czyszczone w ClearChat / Dispose).
+        if (_pendingImageBytes is not null)
+        {
+            var ext = (_pendingImageName?.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ?? false) ? ".png"
+                    : (_pendingImageName?.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ?? false) ? ".webp"
+                    : ".jpg";
+            var path = Path.Combine(Path.GetTempPath(), $"sv-llm-chat-{Guid.NewGuid():N}{ext}");
+            await File.WriteAllBytesAsync(path, _pendingImageBytes);
+            userTurn.ImageFilePath = path;
+        }
+        _history.Add(userTurn);
+        _userInput = string.Empty;
+        ClearPendingImage();
+        StateHasChanged();
+
+        try
+        {
+            // Build messages: system + cała historia (z obrazami z poprzednich tur)
+            var messages = new List<ChatMessage>();
+            if (!string.IsNullOrWhiteSpace(_systemPrompt))
+                messages.Add(new ChatMessage(ChatRole.System, _systemPrompt));
+            foreach (var t in _history)
+            {
+                messages.Add(new ChatMessage(t.Role, t.Text, t.ImageFilePath));
+            }
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var client = await Factory.GetForAsync(_selectedProviderId);
+            var resp = await client.ChatAsync(messages, new ChatOptions(
+                Model: _selectedModel,
+                Temperature: 0.3,
+                MaxTokens: 1024));
+            sw.Stop();
+
+            var assistantTurn = new ChatTurn
+            {
+                Role = ChatRole.Assistant,
+                Text = resp.Content,
+                LatencyMs = sw.ElapsedMilliseconds,
+                PromptTokens = resp.PromptTokens,
+                CompletionTokens = resp.CompletionTokens,
+                SentModel = resp.Model,
+                ErrorMessage = resp.Success ? null : resp.ErrorMessage
+            };
+            _history.Add(assistantTurn);
+        }
+        catch (Exception ex)
+        {
+            _history.Add(new ChatTurn
+            {
+                Role = ChatRole.Assistant,
+                Text = string.Empty,
+                ErrorMessage = ex.Message
+            });
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ClearChat()
+    {
+        // Cleanup tymczasowych plików obrazów
+        foreach (var t in _history.Where(x => !string.IsNullOrEmpty(x.ImageFilePath)))
+        {
+            try { File.Delete(t.ImageFilePath!); } catch { /* ignore */ }
+        }
+        _history.Clear();
+    }
+
+    public void Dispose() => ClearChat();
+}

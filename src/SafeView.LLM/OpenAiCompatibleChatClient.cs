@@ -47,6 +47,61 @@ public sealed class OpenAiCompatibleChatClient : IChatClient
         catch { return false; }
     }
 
+    public async Task<bool> UnloadModelAsync(string? modelName = null, CancellationToken ct = default)
+    {
+        // Wspierane tylko dla Ollama — inne backendy są stateless per-request.
+        if (!string.Equals(_opts.Backend, "ollama", StringComparison.OrdinalIgnoreCase))
+        {
+            _log.LogDebug("UnloadModelAsync: backend {Backend} nie wspiera unload (no-op)", _opts.Backend);
+            return false;
+        }
+
+        var model = string.IsNullOrWhiteSpace(modelName) ? _opts.DefaultModel : modelName!;
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            _log.LogWarning("UnloadModelAsync: brak nazwy modelu");
+            return false;
+        }
+
+        // Ollama natywne API leży pod /api/generate (NIE /v1/...). Konfigurowany BaseAddress
+        // typowo ma "/v1/" suffix — strip-ujemy do hosta i dorzucamy /api/generate.
+        var baseAddr = _http.BaseAddress;
+        if (baseAddr is null)
+        {
+            _log.LogWarning("UnloadModelAsync: brak BaseAddress");
+            return false;
+        }
+        var unloadUri = new Uri(new Uri(baseAddr.GetLeftPart(UriPartial.Authority)), "/api/generate");
+
+        var body = new JsonObject
+        {
+            ["model"] = model,
+            ["keep_alive"] = 0  // 0 = unload immediately, brak nowego load-u dla tego call-a
+        };
+
+        try
+        {
+            using var content = JsonContent.Create(body);
+            using var req = new HttpRequestMessage(HttpMethod.Post, unloadUri) { Content = content };
+            // Auth header z _http.DefaultRequestHeaders nie kopiuje się do nowego requestu —
+            // ale Ollama lokalny zwykle nie wymaga klucza, więc OK.
+            using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
+            if (resp.IsSuccessStatusCode)
+            {
+                _log.LogInformation("Unloaded model {Model} from Ollama", model);
+                return true;
+            }
+            var err = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            _log.LogWarning("UnloadModelAsync HTTP {Code}: {Body}", (int)resp.StatusCode, Truncate(err, 200));
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "UnloadModelAsync failed for model {Model}", model);
+            return false;
+        }
+    }
+
     public async Task<IReadOnlyList<string>> ListModelsAsync(CancellationToken ct = default)
     {
         try

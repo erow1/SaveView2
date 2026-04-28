@@ -53,4 +53,21 @@ public interface IChatClient
     /// albo provider jest niedostępny — caller decyduje jak to pokazać użytkownikowi.
     /// </summary>
     Task<IReadOnlyList<string>> ListModelsAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Unload modelu z pamięci (force fresh load on next request). Używane gdy model
+    /// "się zafiksował" (deterministyczne nonsense responses powtarzające się mimo zmiany
+    /// promptu — typowy objaw zalegających KV-cache albo zepsutej sesji w niektórych
+    /// backendach).
+    ///
+    /// Implementacje:
+    ///  • backend "ollama" — POST /api/generate z <c>keep_alive: 0</c> → Ollama natychmiast
+    ///    zwalnia model z RAM/VRAM. Następne wywołanie ChatAsync triggeruje cold load.
+    ///  • inne backendy — no-op zwracające false. vLLM/OpenAI/Groq są bezstanowe per-request,
+    ///    "restart" nie ma sensu po stronie klienta.
+    ///
+    /// Zwraca true gdy backend wspiera unload i operacja się udała. False = nieobsługiwane
+    /// lub błąd (sprawdź logi).
+    /// </summary>
+    Task<bool> UnloadModelAsync(string? modelName = null, CancellationToken ct = default);
 }
