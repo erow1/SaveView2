@@ -114,8 +114,12 @@
                                     // Detekcje blisko górnej krawędzi (Y < 4%) → etykieta wewnątrz bbox-u
                                     // żeby nie wylazła nad parent z overflow:hidden i nie zniknęła.
                                     var inside = d.Y < 0.04f ? " sv-bbox-label--inside" : string.Empty;
+                                    // KRYTYCZNE: Num() formatuje z InvariantCulture (kropki). Bez tego
+                                    // w polskiej lokalizacji liczba zmienna byłaby "0,5%" — niepoprawny
+                                    // CSS — top/left ignorowany — etykieta na (0,0) i transformem schodzi
+                                    // za viewport. Bug objawiał się jako "etykiety nieobecne".
                                     <div class="sv-bbox-label@inside"
-                                         style="@($"--bbox-color:{color}; left:{d.X * 100:0.##}%; top:{d.Y * 100:0.##}%;")">
+                                         style="@($"--bbox-color:{color}; left:{Num(d.X * 100)}%; top:{Num(d.Y * 100)}%;")">
                                         @d.Label <span style="opacity:0.85;">@($"{d.Confidence * 100:F0}%")</span>
                                     </div>
                                 }
