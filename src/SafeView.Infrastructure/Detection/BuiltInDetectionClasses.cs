@@ -101,6 +101,14 @@ public static class BuiltInDetectionClasses
             textPl: "rozlanie cieczy na podłodze",
             recommendedMinConfidence: 0.40);
 
+        yield return Text("hazard-smoking",
+            "Palenie papierosa",
+            "Osoba paląca papierosa — naruszenie zakazu palenia / źródło zapłonu.",
+            "Pożar",
+            textEn: "person smoking a cigarette",
+            textPl: "osoba paląca papierosa",
+            recommendedMinConfidence: 0.30);
+
         // ─── Ruch / pojazdy ─────────────────────────────────────────────────
         yield return Text("traffic-person",
             "Osoba",
