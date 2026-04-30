@@ -38,8 +38,8 @@ runtime/models/.venv/
 # NuGet
 *.nupkg
 *.snupkg
-packages/
-.nuget/
+/packages/
+/.nuget/
 
 # macOS
 .DS_Store
@@ -57,7 +57,7 @@ Desktop.ini
 *.trx
 *.coverage
 *.coveragexml
-coverage/
+/coverage/
 
 # User-specific files
 *.rsuser
@@ -75,13 +75,16 @@ appsettings.Development.json
 secrets.json
 
 # Local storage (SafeView runtime)
-storage/
-mediamtx-data/
-logs/
+# UWAGA: leading slash KONIECZNY — bez niego reguła matchuje "storage" na dowolnej
+# głębokości, a przy core.ignoreCase=true (macOS default) łapie też "Storage/"
+# w drzewie src/, ukrywając np. SafeView.Application/Abstractions/Storage/IFileStore.cs.
+/storage/
+/mediamtx-data/
+/logs/
 
-# Publish
-publish/
-out/
+# Publish (dotnet publish output) — anchor żeby nie kolidował z ewent. folderami "Out/" "Publish/" w src
+/publish/
+/out/
 *.pubxml.user
 
 # Webpage marketing media (large videos/photos kept outside repo)
