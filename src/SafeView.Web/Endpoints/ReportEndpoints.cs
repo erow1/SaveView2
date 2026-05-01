@@ -16,12 +16,17 @@ public static class ReportEndpoints
             DateTime? to,
             string? cameraId,
             IncidentSeverity? minSeverity,
+            bool? thumbnails,
+            ReportStyle? style,
             IReportService reports,
             CancellationToken ct) =>
         {
-            var f = from ?? DateTime.UtcNow.Date.AddDays(-7);
-            var t = to ?? DateTime.UtcNow.Date.AddDays(1);
-            var filter = new ReportFilter(f, t, minSeverity, cameraId);
+            // ASP.NET parser z URL query oddaje DateTime z Kind=Unspecified gdy nie ma "Z" sufix.
+            // Wymuszamy UTC żeby filtry MongoDB nie traktowały wartości jak Local i nie szyfowały.
+            var f = NormalizeUtc(from ?? DateTime.UtcNow.AddDays(-7));
+            var t = NormalizeUtc(to ?? DateTime.UtcNow);
+            var filter = new ReportFilter(f, t, minSeverity, cameraId, thumbnails == true,
+                style ?? ReportStyle.Graphic);
 
             var report = format.ToLowerInvariant() switch
             {
@@ -35,4 +40,12 @@ public static class ReportEndpoints
 
         return endpoints;
     }
+
+    private static DateTime NormalizeUtc(DateTime dt) => dt.Kind switch
+    {
+        DateTimeKind.Utc         => dt,
+        DateTimeKind.Local       => dt.ToUniversalTime(),
+        DateTimeKind.Unspecified => DateTime.SpecifyKind(dt, DateTimeKind.Utc),
+        _ => dt
+    };
 }

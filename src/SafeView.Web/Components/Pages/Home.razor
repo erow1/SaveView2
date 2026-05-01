@@ -1,133 +1,686 @@
 @page "/"
 @attribute [Authorize]
+@using SafeView.Domain.Incidents
+@using SafeView.Domain.Cameras
+@using SafeView.Domain.Common
+@using SafeView.Application.Abstractions.Reports
 @inject IStringLocalizer<SharedResource> L
 @inject SafeView.Application.Abstractions.Persistence.ICameraRepository CameraRepo
 @inject SafeView.Application.Abstractions.Persistence.IIncidentRepository IncidentRepo
 @inject SafeView.Application.Abstractions.Persistence.IMLModelRepository ModelRepo
-@inject SafeView.Licensing.ILicenseService License
+@inject SafeView.Application.Abstractions.Persistence.ITriggerRepository TriggerRepo
+@inject NavigationManager Nav
+@inject IDialogService Dialogs
+@inject IJSRuntime JS
 @rendermode InteractiveServer
 
 <PageTitle>@L["Nav.Dashboard"] — @L["AppName"]</PageTitle>
 
 <MudStack Spacing="4">
+    @* ── HERO ──────────────────────────────────────────────────────────── *@
     <MudPaper Class="pa-6 sv-card" Elevation="0">
-        <MudText Typo="Typo.overline" Class="sv-text-accent">@L["AppName"]</MudText>
-        <MudText Typo="Typo.h3" Class="mt-2">@L["AppTagline"]</MudText>
-        <MudText Typo="Typo.body2" Class="mt-3 sv-text-secondary" Style="max-width: 700px;">
-            @L["Home.Description"]
-        </MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Wrap="Wrap.Wrap">
+            <div>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <span class="sv-live-dot" title="@L["Home.LivePipeline"]"></span>
+                    <MudText Typo="Typo.overline" Class="sv-text-accent">@L["Home.HeroEyebrow"]</MudText>
+                </MudStack>
+                <MudText Typo="Typo.h3" Class="mt-1">@L["Home.HeroTitle"]</MudText>
+                <MudText Typo="Typo.body2" Class="mt-2 sv-text-secondary mono" Style="opacity:0.75;">
+                    @DateTime.Now.ToString("dddd, dd MMMM yyyy · HH:mm")
+                </MudText>
+            </div>
+            <MudSpacer />
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                <AuthorizeView Policy="perm:incidents:view" Context="ctxInc">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                               StartIcon="@Icons.Material.Filled.OpenInNew"
+                               OnClick="GoIncidents">
+                        @L["Home.AllIncidents"]
+                    </MudButton>
+                </AuthorizeView>
+                <AuthorizeView Policy="perm:reports:generate" Context="ctxRep">
+                    <MudMenu Label="@L["Home.GenerateReport"]" Color="Color.Primary" Variant="Variant.Filled"
+                             StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                             EndIcon="@Icons.Material.Filled.ArrowDropDown">
+                        <MudMenuItem Icon="@Icons.Material.Filled.Today"
+                                     OnClick="@(() => DownloadReport(TimeRangePresets.PresetKey.Today))">
+                            @L["TimeRange.Today"]
+                        </MudMenuItem>
+                        <MudMenuItem Icon="@Icons.Material.Filled.History"
+                                     OnClick="@(() => DownloadReport(TimeRangePresets.PresetKey.Last24h))">
+                            @L["TimeRange.Last24h"]
+                        </MudMenuItem>
+                        <MudMenuItem Icon="@Icons.Material.Filled.DateRange"
+                                     OnClick="@(() => DownloadReport(TimeRangePresets.PresetKey.Last7Days))">
+                            @L["TimeRange.Last7Days"]
+                        </MudMenuItem>
+                        <MudMenuItem Icon="@Icons.Material.Filled.CalendarMonth"
+                                     OnClick="@(() => DownloadReport(TimeRangePresets.PresetKey.ThisMonth))">
+                            @L["TimeRange.ThisMonth"]
+                        </MudMenuItem>
+                        <MudMenuItem Icon="@Icons.Material.Filled.CalendarMonth"
+                                     OnClick="@(() => DownloadReport(TimeRangePresets.PresetKey.PreviousMonth))">
+                            @L["TimeRange.PreviousMonth"]
+                        </MudMenuItem>
+                        <MudDivider />
+                        <MudMenuItem Icon="@Icons.Material.Filled.Tune"
+                                     OnClick="GoReports">
+                            @L["Home.ReportCustom"]
+                        </MudMenuItem>
+                    </MudMenu>
+                </AuthorizeView>
+            </MudStack>
+        </MudStack>
     </MudPaper>
 
-    <MudGrid>
+    @* ── KPI (4 BHP-focused) ──────────────────────────────────────────── *@
+    <MudGrid Spacing="3">
         <MudItem xs="12" sm="6" md="3">
-            <Stat Label="@L["Home.CamerasActive"]" Value="@($"{_camerasActive} / {_camerasTotal}")" Color="#FFD600" />
+            <MudPaper Class="sv-kpi sv-kpi-clickable sv-card" Elevation="0"
+                      @onclick="GoIncidents">
+                <div class="sv-kpi-accent-bar" style="background:#FF5964;"></div>
+                <div class="sv-kpi-label">@L["Home.Kpi.Incidents24h"]</div>
+                <div class="sv-kpi-value" style="color:#FF5964;">@_incidents24h</div>
+                <div class="sv-kpi-sub">
+                    @if (_deltaPct.HasValue)
+                    {
+                        <span class="@DeltaClass(_deltaPct.Value)">@DeltaArrow(_deltaPct.Value) @($"{Math.Abs(_deltaPct.Value):F0}%")</span>
+                        <span class="sv-text-muted">@L["Home.Kpi.VsYesterday"]</span>
+                    }
+                    else
+                    {
+                        <span class="sv-text-muted">@L["Home.Kpi.NoBaseline"]</span>
+                    }
+                </div>
+                @if (_sparkline7d.Length > 0)
+                {
+                    var sparkMax = Math.Max(1, _sparkline7d.Max());
+                    <div class="sv-mini-trend" title="@L["Home.Kpi.Spark7d"]">
+                        @foreach (var v in _sparkline7d)
+                        {
+                            var h = (int)Math.Round(100.0 * v / sparkMax);
+                            <span style="height:@(h)%;"></span>
+                        }
+                    </div>
+                }
+            </MudPaper>
         </MudItem>
+
         <MudItem xs="12" sm="6" md="3">
-            <Stat Label="@L["Home.Incidents24h"]" Value="@_incidents24h.ToString()" Color="#FF5964" />
+            <MudPaper Class="sv-kpi sv-kpi-clickable sv-card" Elevation="0"
+                      @onclick="GoIncidents">
+                <div class="sv-kpi-accent-bar" style="background:#F5A524;"></div>
+                <div class="sv-kpi-label">@L["Home.Kpi.OpenIncidents"]</div>
+                <div class="sv-kpi-value" style="color:#F5A524;">@_openTotal</div>
+                <div class="sv-kpi-sub">
+                    @if (_openCritical > 0)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Filled" Style="font-size:10px;">
+                            @_openCritical @L["Home.Kpi.Critical"]
+                        </MudChip>
+                    }
+                    else
+                    {
+                        <span class="sv-text-muted">@L["Home.Kpi.NoCritical"]</span>
+                    }
+                </div>
+            </MudPaper>
         </MudItem>
+
         <MudItem xs="12" sm="6" md="3">
-            <Stat Label="@L["Home.ActiveModels"]" Value="@_modelsActive.ToString()" Color="#7EB6FF" />
+            <MudPaper Class="sv-kpi sv-card" Elevation="0">
+                <div class="sv-kpi-accent-bar" style="background:#7EB6FF;"></div>
+                <div class="sv-kpi-label">@L["Home.Kpi.AvgResponse"]</div>
+                <div class="sv-kpi-value" style="color:#7EB6FF;">@_avgResponseLabel</div>
+                <div class="sv-kpi-sub sv-text-muted">@L["Home.Kpi.LastWeek"]</div>
+            </MudPaper>
         </MudItem>
+
         <MudItem xs="12" sm="6" md="3">
-            <Stat Label="@L["Home.LicenseStatus"]" Value="@_licenseStatus" Color="@_licenseColor" />
+            <MudPaper Class="sv-kpi sv-card" Elevation="0">
+                <div class="sv-kpi-accent-bar" style="background:@FpBarColor;"></div>
+                <div class="sv-kpi-label">@L["Home.Kpi.FpRate"]</div>
+                <div class="sv-kpi-value" style="color:@FpBarColor;">@($"{_fpRate * 100:F0}%")</div>
+                <div class="sv-kpi-sub sv-text-muted">
+                    @($"{_fpCount} / {_weekTotal}") · @L["Home.Kpi.LastWeek"]
+                </div>
+            </MudPaper>
         </MudItem>
     </MudGrid>
 
+    @* ── Trend 30d + Top categories ───────────────────────────────────── *@
+    <MudGrid Spacing="3">
+        <MudItem xs="12" md="7">
+            <MudPaper Class="pa-4 sv-card" Elevation="0">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.ShowChart" />
+                    <MudText Typo="Typo.h6">@L["Home.Trend30d.Title"]</MudText>
+                    <MudSpacer />
+                    <MudText Typo="Typo.caption" Class="sv-text-muted mono">@($"{_trend30Total}")
+                        &nbsp;@L["Home.Trend30d.Total"]</MudText>
+                </MudStack>
+                @if (_trend30Total == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="sv-text-muted mt-2">@L["Common.NoData"]</MudText>
+                }
+                else
+                {
+                    <div class="mt-2">
+                        <MudChart ChartType="ChartType.Line"
+                                  ChartSeries="_trendSeries"
+                                  XAxisLabels="_trendLabels"
+                                  Width="100%" Height="240px"
+                                  ChartOptions="_trendOptions" />
+                    </div>
+                    <MudStack Row="true" Spacing="2" Class="mt-2" Wrap="Wrap.Wrap">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Filled">
+                            Critical: @_critical30
+                        </MudChip>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined">
+                            High: @_high30
+                        </MudChip>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">
+                            Medium: @_medium30
+                        </MudChip>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">
+                            Low: @_low30
+                        </MudChip>
+                    </MudStack>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="5">
+            <MudPaper Class="pa-4 sv-card" Elevation="0" Style="height:100%;">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Category" />
+                    <MudText Typo="Typo.h6">@L["Home.TopCategories.Title"]</MudText>
+                    <MudSpacer />
+                    <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Home.TopCategories.Sub"]</MudText>
+                </MudStack>
+                @if (_topCategories.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="sv-text-muted mt-2">@L["Common.NoData"]</MudText>
+                }
+                else
+                {
+                    <div class="mt-2">
+                        @{
+                            var maxCat = _topCategories.Max(c => c.Count);
+                        }
+                        @foreach (var cat in _topCategories)
+                        {
+                            var widthPct = (int)Math.Round(100.0 * cat.Count / Math.Max(1, maxCat));
+                            <div class="sv-cat-row" @onclick="@(() => OpenCategory(cat.Category))">
+                                <div class="sv-cat-meta">
+                                    <span class="mono" style="font-size:12px;">@cat.Category</span>
+                                    <span class="mono" style="font-size:12px;">@cat.Count</span>
+                                </div>
+                                <div class="sv-cat-bar">
+                                    <div class="sv-cat-bar-fill"
+                                         style="width:@(widthPct)%; background:@CategoryColor(cat.Category);"></div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    @* ── Heatmapa interaktywna ───────────────────────────────────────── *@
     <MudPaper Class="pa-4 sv-card" Elevation="0">
-        <MudText Typo="Typo.h6">@L["Home.Heatmap"]</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.GridOn" />
+            <MudText Typo="Typo.h6">@L["Home.Heatmap.Title"]</MudText>
+            <MudSpacer />
+            <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Home.Heatmap.Hint"]</MudText>
+        </MudStack>
         <div class="mt-3">
-            <SafeView.Web.Components.Shared.IncidentsHeatmap OccurredAt="_heatmapData" />
+            <IncidentsHeatmap OccurredAt="_heatmapTimes"
+                              CellSize="26"
+                              EmptyText="@L["Home.Heatmap.Empty"]"
+                              OnCellClick="OnHeatmapClick" />
         </div>
     </MudPaper>
 
-    <MudGrid>
-        <MudItem xs="12" md="6">
+    @* ── Hotspoty + Quick status ─────────────────────────────────────── *@
+    <MudGrid Spacing="3">
+        <MudItem xs="12" md="7">
             <MudPaper Class="pa-4 sv-card" Elevation="0">
-                <MudText Typo="Typo.h6">@L["Home.TopCategories"]</MudText>
-                @if (_topCategories.Count == 0)
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.LocationOn" />
+                    <MudText Typo="Typo.h6">@L["Home.Hotspots.Title"]</MudText>
+                    <MudSpacer />
+                    <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Home.Hotspots.Sub"]</MudText>
+                </MudStack>
+                @if (_hotspots.Count == 0)
                 {
-                    <MudText Typo="Typo.body2" Class="sv-text-muted">@L["Common.NoData"]</MudText>
+                    <MudText Typo="Typo.body2" Class="sv-text-muted mt-2">@L["Common.NoData"]</MudText>
                 }
                 else
                 {
-                    <MudTable Items="_topCategories" Dense="true" Hover="false" Elevation="0" Class="mt-2">
-                        <HeaderContent>
-                            <MudTh>@L["Table.Category"]</MudTh>
-                            <MudTh Style="text-align:right;">@L["Table.Count"]</MudTh>
-                        </HeaderContent>
-                        <RowTemplate>
-                            <MudTd><span class="mono">@context.Key</span></MudTd>
-                            <MudTd Style="text-align:right;" class="mono">@context.Value</MudTd>
-                        </RowTemplate>
-                    </MudTable>
+                    <div class="mt-2">
+                        @{
+                            var maxHot = _hotspots.Max(h => h.Count);
+                        }
+                        @foreach (var hs in _hotspots)
+                        {
+                            var widthPct = (int)Math.Round(100.0 * hs.Count / Math.Max(1, maxHot));
+                            <div class="sv-hotspot-row" @onclick="@(() => OpenCamera(hs.CameraId))">
+                                <div class="sv-hotspot-bar" style="width:@(widthPct)%;"></div>
+                                <div class="sv-hotspot-content">
+                                    <MudIcon Icon="@Icons.Material.Filled.Videocam" Size="Size.Small" Class="sv-text-muted" />
+                                    <span style="flex:1; font-weight:500;">@hs.CameraName</span>
+                                    @if (!string.IsNullOrEmpty(hs.Location))
+                                    {
+                                        <span class="sv-text-muted" style="font-size:11px;">@hs.Location</span>
+                                    }
+                                    <span class="mono" style="font-size:13px; font-weight:600; color:#FF5964;">@hs.Count</span>
+                                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Class="sv-text-muted" />
+                                </div>
+                            </div>
+                        }
+                    </div>
                 }
             </MudPaper>
         </MudItem>
-        <MudItem xs="12" md="6">
-            <MudPaper Class="pa-4 sv-card" Elevation="0">
-                <MudText Typo="Typo.h6">@L["Home.LatestIncidents"]</MudText>
-                @if (_recent.Count == 0)
-                {
-                    <MudText Typo="Typo.body2" Class="sv-text-muted">Brak.</MudText>
-                }
-                else
-                {
-                    <MudTable Items="_recent" Dense="true" Hover="false" Elevation="0" Class="mt-2">
-                        <HeaderContent>
-                            <MudTh>@L["Table.When"]</MudTh>
-                            <MudTh>@L["Table.Camera"]</MudTh>
-                            <MudTh>@L["Table.Category"]</MudTh>
-                            <MudTh>@L["Table.Severity"]</MudTh>
-                        </HeaderContent>
-                        <RowTemplate>
-                            <MudTd class="mono" style="font-size:11px;">@context.OccurredAt.ToString("MM-dd HH:mm")</MudTd>
-                            <MudTd>@context.CameraName</MudTd>
-                            <MudTd class="mono" style="font-size:11px;">@context.Category</MudTd>
-                            <MudTd>@context.Severity</MudTd>
-                        </RowTemplate>
-                    </MudTable>
-                }
+
+        <MudItem xs="12" md="5">
+            <MudPaper Class="pa-4 sv-card" Elevation="0" Style="height:100%;">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.MonitorHeart" />
+                    <MudText Typo="Typo.h6">@L["Home.System.Title"]</MudText>
+                </MudStack>
+                <MudList T="string" Dense="true" Class="mt-1">
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Videocam">
+                        <div style="display:flex; justify-content:space-between; width:100%;">
+                            <span>@L["Home.System.Cameras"]</span>
+                            <span class="mono">
+                                <span style="color:#2EC27E;">@_camerasActive</span>
+                                <span class="sv-text-muted"> / @_camerasTotal</span>
+                            </span>
+                        </div>
+                    </MudListItem>
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Bolt">
+                        <div style="display:flex; justify-content:space-between; width:100%;">
+                            <span>@L["Home.System.Triggers"]</span>
+                            <span class="mono">@_triggersEnabled</span>
+                        </div>
+                    </MudListItem>
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Memory">
+                        <div style="display:flex; justify-content:space-between; width:100%;">
+                            <span>@L["Home.System.Models"]</span>
+                            <span class="mono">@_modelsActive</span>
+                        </div>
+                    </MudListItem>
+                    <MudListItem T="string" Icon="@Icons.Material.Filled.Schedule">
+                        <div style="display:flex; justify-content:space-between; width:100%;">
+                            <span>@L["Home.System.LastIncident"]</span>
+                            <span class="mono sv-text-muted" style="font-size:12px;">@_lastIncidentAgo</span>
+                        </div>
+                    </MudListItem>
+                </MudList>
             </MudPaper>
         </MudItem>
     </MudGrid>
+
+    @* ── Ostatnie incydenty (tile grid z thumbnail) ─────────────────── *@
+    <MudPaper Class="pa-4 sv-card" Elevation="0">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.History" />
+            <MudText Typo="Typo.h6">@L["Home.Recent.Title"]</MudText>
+            <MudSpacer />
+            <AuthorizeView Policy="perm:incidents:view" Context="ctxR2">
+                <MudButton Size="Size.Small" Variant="Variant.Text"
+                           EndIcon="@Icons.Material.Filled.ArrowForward"
+                           OnClick="GoIncidents">
+                    @L["Home.Recent.SeeAll"]
+                </MudButton>
+            </AuthorizeView>
+        </MudStack>
+        @if (_recent.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Class="sv-text-muted mt-2">@L["Common.NoData"]</MudText>
+        }
+        else
+        {
+            <MudGrid Spacing="2" Class="mt-2">
+                @foreach (var inc in _recent)
+                {
+                    <MudItem xs="12" sm="6" md="4" lg="3">
+                        @{ var navId = inc.Id; }
+                        <MudPaper Class="sv-incident-tile sv-card" Elevation="0"
+                                  @onclick="() => GoIncident(navId)">
+                            @if (!string.IsNullOrEmpty(inc.FrameRelativePath))
+                            {
+                                <img class="sv-incident-thumb" src="/incidents/@(inc.Id)/frame.jpg" alt="" loading="lazy" />
+                            }
+                            else
+                            {
+                                <div class="sv-incident-thumb-placeholder">
+                                    <MudIcon Icon="@Icons.Material.Filled.Image" Size="Size.Large" />
+                                </div>
+                            }
+                            <div class="sv-incident-meta">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudChip T="string" Size="Size.Small"
+                                             Variant="@(inc.Severity == IncidentSeverity.Critical ? Variant.Filled : Variant.Outlined)"
+                                             Color="@SeverityColor(inc.Severity)" Style="font-size:10px;">
+                                        @inc.Severity
+                                    </MudChip>
+                                    <MudSpacer />
+                                    <span class="mono sv-text-muted" style="font-size:10px;">@TimeAgo(inc.OccurredAt)</span>
+                                </MudStack>
+                                <span class="mono sv-text-muted" style="font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                    @inc.Category
+                                </span>
+                                <span style="font-size:13px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                    @(string.IsNullOrEmpty(inc.Summary) ? inc.CameraName : inc.Summary)
+                                </span>
+                                <span class="sv-text-muted" style="font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                    <MudIcon Icon="@Icons.Material.Filled.Videocam" Size="Size.Small" Style="vertical-align:middle; font-size:13px;" />
+                                    @inc.CameraName
+                                </span>
+                            </div>
+                        </MudPaper>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+    </MudPaper>
 </MudStack>
 
 @code {
+    // System summary
     private int _camerasTotal;
     private int _camerasActive;
-    private long _incidents24h;
     private int _modelsActive;
-    private string _licenseStatus = "—";
-    private string _licenseColor = "#888";
-    private List<KeyValuePair<string, int>> _topCategories = new();
-    private List<SafeView.Domain.Incidents.Incident> _recent = new();
-    private List<DateTime> _heatmapData = new();
+    private int _triggersEnabled;
+    private string _lastIncidentAgo = "—";
+
+    // KPI 24h
+    private long _incidents24h;
+    private double? _deltaPct;
+    private int[] _sparkline7d = Array.Empty<int>();
+
+    // KPI Open
+    private int _openTotal;
+    private int _openCritical;
+
+    // KPI Avg response
+    private string _avgResponseLabel = "—";
+
+    // KPI FP rate (7d)
+    private double _fpRate;
+    private int _fpCount;
+    private int _weekTotal;
+    private string FpBarColor
+    {
+        get
+        {
+            if (_fpRate < 0.10) return "#2EC27E";
+            if (_fpRate < 0.25) return "#F5A524";
+            return "#FF5964";
+        }
+    }
+
+    // Trend 30d
+    private List<ChartSeries> _trendSeries = new();
+    private string[] _trendLabels = Array.Empty<string>();
+    private ChartOptions _trendOptions = new()
+    {
+        InterpolationOption = InterpolationOption.NaturalSpline,
+        ChartPalette = new[] { "#FF5964", "#FFD600", "#7EB6FF" },
+        YAxisLines = false,
+        XAxisLines = false,
+        LineStrokeWidth = 2.0
+    };
+    private int _trend30Total;
+    private int _critical30, _high30, _medium30, _low30;
+
+    // Top categories
+    private List<CategoryRow> _topCategories = new();
+
+    // Hotspots
+    private List<HotspotRow> _hotspots = new();
+
+    // Heatmap (7d window)
+    private List<DateTime> _heatmapTimes = new();
+    private List<Incident> _heatmapWeek = new();
+
+    // Recent incidents
+    private List<Incident> _recent = new();
 
     protected override async Task OnInitializedAsync()
     {
+        var now = DateTime.UtcNow;
+        var weekAgo = now.AddDays(-7);
+        var twoWeeksAgo = now.AddDays(-14);
+        var monthAgo = now.AddDays(-30);
+
+        // Cameras + system summary
         var cams = await CameraRepo.ListAsync();
         _camerasTotal = cams.Count;
         _camerasActive = cams.Count(c => c.Enabled);
-
-        _incidents24h = await IncidentRepo.CountAsync(from: DateTime.UtcNow.AddHours(-24));
+        var camLookup = cams.ToDictionary(c => c.Id, c => c);
 
         var models = await ModelRepo.ListEnabledAsync();
         _modelsActive = models.Count;
 
-        var weekAgo = DateTime.UtcNow.AddDays(-7);
-        var recentWeek = await IncidentRepo.ListByDateRangeAsync(weekAgo, DateTime.UtcNow.AddSeconds(1));
-        _topCategories = recentWeek
+        var triggers = await TriggerRepo.ListEnabledAsync();
+        _triggersEnabled = triggers.Count;
+
+        // KPI: 24h + delta vs previous 24h
+        _incidents24h = await IncidentRepo.CountAsync(from: now.AddHours(-24));
+        var prev24 = await IncidentRepo.CountAsync(from: now.AddHours(-48), until: now.AddHours(-24));
+        if (prev24 > 0)
+            _deltaPct = (_incidents24h - prev24) * 100.0 / prev24;
+        else if (_incidents24h > 0)
+            _deltaPct = 100.0;
+
+        // 30d window — używamy do trendu, FP rate (7d subset), top categories (7d), hotspots (7d), sparkline (7d)
+        var month = (await IncidentRepo.ListByDateRangeAsync(monthAgo, now.AddSeconds(1))).ToList();
+        var week = month.Where(i => i.OccurredAt >= weekAgo).ToList();
+        _heatmapWeek = week;
+        _heatmapTimes = week.Select(i => i.OccurredAt).ToList();
+
+        // Trend 30d
+        BuildTrend30d(month, monthAgo);
+
+        // Sparkline 7d
+        BuildSparkline7d(week, weekAgo);
+
+        // Open incidents (Open + Acknowledged considered "wymagające uwagi")
+        var openIncidents = await IncidentRepo.ListByStatusAsync(IncidentStatus.Open, 200);
+        _openTotal = openIncidents.Count;
+        _openCritical = openIncidents.Count(i => i.Severity == IncidentSeverity.Critical);
+
+        // Avg response time (7d, Acknowledged or Resolved)
+        var ackTimes = week
+            .Where(i => i.AcknowledgedAt.HasValue)
+            .Select(i => (i.AcknowledgedAt!.Value - i.OccurredAt).TotalMinutes)
+            .Where(m => m >= 0)
+            .ToList();
+        if (ackTimes.Count > 0)
+        {
+            var avgMin = ackTimes.Average();
+            if (avgMin < 1) _avgResponseLabel = "<1 min";
+            else if (avgMin < 60) _avgResponseLabel = $"{avgMin:F0} min";
+            else if (avgMin < 1440) _avgResponseLabel = $"{avgMin / 60:F1} h";
+            else _avgResponseLabel = $"{avgMin / 1440:F1} d";
+        }
+
+        // FP rate (7d)
+        _weekTotal = week.Count;
+        _fpCount = week.Count(i => i.WasFalsePositive || i.Status == IncidentStatus.FalsePositive);
+        _fpRate = _weekTotal > 0 ? _fpCount / (double)_weekTotal : 0;
+
+        // Top categories (7d)
+        _topCategories = week
+            .Where(i => !string.IsNullOrEmpty(i.Category))
             .GroupBy(i => i.Category)
-            .Select(g => new KeyValuePair<string, int>(g.Key, g.Count()))
-            .OrderByDescending(kv => kv.Value)
-            .Take(5).ToList();
-        _heatmapData = recentWeek.Select(i => i.OccurredAt).ToList();
+            .Select(g => new CategoryRow(g.Key, g.Count()))
+            .OrderByDescending(c => c.Count)
+            .Take(6)
+            .ToList();
 
-        _recent = (await IncidentRepo.ListRecentAsync(5)).ToList();
+        // Hotspots (7d, top kamer)
+        _hotspots = week
+            .GroupBy(i => i.CameraId)
+            .Select(g =>
+            {
+                var first = g.First();
+                camLookup.TryGetValue(g.Key, out var cam);
+                return new HotspotRow(g.Key, cam?.Name ?? first.CameraName, cam?.Location, g.Count());
+            })
+            .Where(h => !string.IsNullOrEmpty(h.CameraId))
+            .OrderByDescending(h => h.Count)
+            .Take(5)
+            .ToList();
 
-        var st = License.Status;
-        if (st is null) { _licenseStatus = "—"; _licenseColor = "#888"; }
-        else if (st.IsValid) { _licenseStatus = "OK"; _licenseColor = "#2EC27E"; }
-        else { _licenseStatus = "INVALID"; _licenseColor = "#FF5964"; }
+        // Recent incidents (8 najnowszych)
+        _recent = (await IncidentRepo.ListRecentAsync(8)).ToList();
+        if (_recent.Count > 0)
+            _lastIncidentAgo = TimeAgo(_recent[0].OccurredAt);
     }
+
+    private void BuildTrend30d(List<Incident> month, DateTime fromUtc)
+    {
+        var localFrom = DateTime.UtcNow.Date.AddDays(-29);
+        var byDay = new int[30];
+        var critByDay = new int[30];
+        var highByDay = new int[30];
+        var medByDay = new int[30];
+        foreach (var i in month)
+        {
+            var local = i.OccurredAt.ToLocalTime().Date;
+            var idx = (int)(local - localFrom).TotalDays;
+            if (idx < 0 || idx > 29) continue;
+            byDay[idx]++;
+            switch (i.Severity)
+            {
+                case IncidentSeverity.Critical: critByDay[idx]++; _critical30++; break;
+                case IncidentSeverity.High: highByDay[idx]++; _high30++; break;
+                case IncidentSeverity.Medium: medByDay[idx]++; _medium30++; break;
+                case IncidentSeverity.Low: _low30++; break;
+            }
+        }
+        _trend30Total = byDay.Sum();
+        _trendLabels = Enumerable.Range(0, 30)
+            .Select(i => i % 5 == 0 ? localFrom.AddDays(i).ToString("dd.MM") : "")
+            .ToArray();
+        _trendSeries = new List<ChartSeries>
+        {
+            new() { Name = "Critical+High", Data = critByDay.Zip(highByDay, (c, h) => (double)(c + h)).ToArray() },
+            new() { Name = "Medium",        Data = medByDay.Select(v => (double)v).ToArray() },
+            new() { Name = "Total",         Data = byDay.Select(v => (double)v).ToArray() }
+        };
+    }
+
+    private void BuildSparkline7d(List<Incident> week, DateTime fromUtc)
+    {
+        var localFrom = DateTime.UtcNow.Date.AddDays(-6);
+        var spark = new int[7];
+        foreach (var i in week)
+        {
+            var idx = (int)(i.OccurredAt.ToLocalTime().Date - localFrom).TotalDays;
+            if (idx >= 0 && idx <= 6) spark[idx]++;
+        }
+        _sparkline7d = spark;
+    }
+
+    private async Task OnHeatmapClick(IncidentsHeatmap.HeatmapCellClick c)
+    {
+        if (c.Count == 0) return;
+        // Filtrujemy w pamięci po (DayOfWeek, Hour) z 7-dniowego okna
+        var matched = _heatmapWeek
+            .Where(i =>
+            {
+                int day = ((int)i.OccurredAt.DayOfWeek + 6) % 7;
+                return day == c.DayIndex && i.OccurredAt.Hour == c.Hour;
+            })
+            .OrderByDescending(i => i.OccurredAt)
+            .ToList();
+
+        var dayLabels = new[] { "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota", "Niedziela" };
+        var parameters = new DialogParameters
+        {
+            ["DayLabel"] = dayLabels[c.DayIndex],
+            ["Hour"] = c.Hour,
+            ["Incidents"] = (IReadOnlyList<Incident>)matched
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        await Dialogs.ShowAsync<HeatmapDrillDownDialog>(string.Empty, parameters, options);
+    }
+
+    private void OpenCategory(string category)
+    {
+        Nav.NavigateTo($"/incidents?category={Uri.EscapeDataString(category)}");
+    }
+
+    private void OpenCamera(string cameraId)
+    {
+        if (!string.IsNullOrEmpty(cameraId))
+            Nav.NavigateTo($"/cameras/{cameraId}");
+    }
+
+    private void GoIncidents() => Nav.NavigateTo("/incidents");
+    // Strona /reports została zmergowana z /incidents — wszystko (lista + generator) tam.
+    private void GoReports() => Nav.NavigateTo("/incidents");
+    private void GoIncident(string id) => Nav.NavigateTo($"/incidents/{id}");
+
+    private async Task DownloadReport(TimeRangePresets.PresetKey preset, ReportStyle style = ReportStyle.Graphic)
+    {
+        var range = TimeRangePresets.Resolve(preset, DateTime.UtcNow);
+        var qs = $"from={range.FromUtc:yyyy-MM-ddTHH:mm:ss}Z&to={range.ToUtc:yyyy-MM-ddTHH:mm:ss}Z&style={style}";
+        var url = $"/reports/incidents.pdf?{qs}";
+        var dlg = await Dialogs.ShowAsync<ReportGenerationDialog>(string.Empty,
+            new DialogOptions
+            {
+                CloseButton = false,
+                CloseOnEscapeKey = false,
+                BackdropClick = false,
+                NoHeader = true,
+                MaxWidth = MaxWidth.ExtraSmall,
+            });
+        try { await JS.InvokeAsync<object>("safeview.downloadFile", url, "safeview_report.pdf"); }
+        finally { dlg.Close(); }
+    }
+
+    private static string DeltaArrow(double d) => d > 0 ? "▲" : (d < 0 ? "▼" : "■");
+    private static string DeltaClass(double d) => d > 0 ? "sv-delta-up" : (d < 0 ? "sv-delta-down" : "sv-delta-flat");
+
+    private static Color SeverityColor(IncidentSeverity s) => s switch
+    {
+        IncidentSeverity.Low      => Color.Info,
+        IncidentSeverity.Medium   => Color.Warning,
+        IncidentSeverity.High     => Color.Error,
+        IncidentSeverity.Critical => Color.Error,
+        _ => Color.Default
+    };
+
+    private static string CategoryColor(string category)
+    {
+        if (string.IsNullOrEmpty(category)) return "#7EB6FF";
+        if (category.StartsWith("ppe.", StringComparison.OrdinalIgnoreCase))    return "#FFD600";
+        if (category.StartsWith("hazard.", StringComparison.OrdinalIgnoreCase)) return "#FF5964";
+        if (category.StartsWith("zone.", StringComparison.OrdinalIgnoreCase))   return "#7EB6FF";
+        if (category.StartsWith("traffic.", StringComparison.OrdinalIgnoreCase))return "#A78BFA";
+        return "#9CA3AF";
+    }
+
+    private static string TimeAgo(DateTime utc)
+    {
+        var span = DateTime.UtcNow - utc;
+        if (span.TotalSeconds < 60) return "teraz";
+        if (span.TotalMinutes < 60) return $"{(int)span.TotalMinutes} min";
+        if (span.TotalHours < 24)   return $"{(int)span.TotalHours} h";
+        if (span.TotalDays < 7)     return $"{(int)span.TotalDays} d";
+        return utc.ToLocalTime().ToString("dd.MM");
+    }
+
+    private sealed record CategoryRow(string Category, int Count);
+    private sealed record HotspotRow(string CameraId, string CameraName, string? Location, int Count);
 }

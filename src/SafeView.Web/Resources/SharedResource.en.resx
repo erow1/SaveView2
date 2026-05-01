@@ -654,6 +654,44 @@
   <data name="Home.Heatmap"><value>Incidents heatmap (7 days, UTC hours)</value></data>
   <data name="Home.TopCategories"><value>Top categories (7 days)</value></data>
   <data name="Home.LatestIncidents"><value>Latest incidents</value></data>
+  <!-- Dashboard 2026-04 redesign -->
+  <data name="Home.HeroEyebrow"><value>Safety Operations Center</value></data>
+  <data name="Home.HeroTitle"><value>Industrial Safety Dashboard</value></data>
+  <data name="Home.LivePipeline"><value>Pipeline running</value></data>
+  <data name="Home.AllIncidents"><value>All incidents</value></data>
+  <data name="Home.GenerateReport"><value>Generate report</value></data>
+  <data name="Home.ReportToday"><value>Today</value></data>
+  <data name="Home.Report7d"><value>Last 7 days</value></data>
+  <data name="Home.Report30d"><value>Last 30 days</value></data>
+  <data name="Home.ReportCustom"><value>Custom range...</value></data>
+  <data name="Home.Kpi.Incidents24h"><value>Incidents (24h)</value></data>
+  <data name="Home.Kpi.VsYesterday"><value>vs. previous 24h</value></data>
+  <data name="Home.Kpi.NoBaseline"><value>no prior baseline</value></data>
+  <data name="Home.Kpi.Spark7d"><value>Last 7 days</value></data>
+  <data name="Home.Kpi.OpenIncidents"><value>Open incidents</value></data>
+  <data name="Home.Kpi.Critical"><value>critical</value></data>
+  <data name="Home.Kpi.NoCritical"><value>no critical events</value></data>
+  <data name="Home.Kpi.AvgResponse"><value>Avg. response time</value></data>
+  <data name="Home.Kpi.LastWeek"><value>last 7 days</value></data>
+  <data name="Home.Kpi.FpRate"><value>False-positive rate</value></data>
+  <data name="Home.Trend30d.Title"><value>30-day trend</value></data>
+  <data name="Home.Trend30d.Total"><value>incidents in period</value></data>
+  <data name="Home.TopCategories.Title"><value>Top hazard categories</value></data>
+  <data name="Home.TopCategories.Sub"><value>last 7 days · click to drill down</value></data>
+  <data name="Home.Heatmap.Title"><value>Peak hours map</value></data>
+  <data name="Home.Heatmap.Hint"><value>click a cell to see incidents from that hour</value></data>
+  <data name="Home.Heatmap.Empty"><value>No incidents in the last 7 days.</value></data>
+  <data name="Home.Hotspots.Title"><value>Hotspots</value></data>
+  <data name="Home.Hotspots.Sub"><value>cameras with most incidents · 7d</value></data>
+  <data name="Home.System.Title"><value>System status</value></data>
+  <data name="Home.System.Cameras"><value>Cameras (active / total)</value></data>
+  <data name="Home.System.Triggers"><value>Active triggers</value></data>
+  <data name="Home.System.Models"><value>Active models</value></data>
+  <data name="Home.System.LastIncident"><value>Last incident</value></data>
+  <data name="Home.Recent.Title"><value>Latest incidents</value></data>
+  <data name="Home.Recent.SeeAll"><value>See all</value></data>
+  <data name="HeatmapDrill.Hint"><value>Click a row to open the incident.</value></data>
+  <data name="HeatmapDrill.NoData"><value>No incidents.</value></data>
 
   <!-- Pages: Incidents -->
   <data name="Incidents.Title"><value>Incidents</value></data>
@@ -785,6 +823,54 @@
   <data name="Reports.CameraOptional"><value>Camera (optional)</value></data>
   <data name="Reports.AllCameras"><value>All</value></data>
   <data name="Reports.Preview"><value>Preview</value></data>
+  <data name="Reports.PreviewLive"><value>updates automatically</value></data>
+  <data name="Reports.PreviewUpdating"><value>updating...</value></data>
+  <data name="Reports.PreviewLoading"><value>Counting incidents matching the filters...</value></data>
+  <data name="Incidents.Summary"><value>Summary</value></data>
+  <data name="Incidents.ReportOptions"><value>Report options</value></data>
+  <data name="Reports.IncludeThumbnails"><value>Include evidence thumbnails (PDF)</value></data>
+  <data name="Reports.IncludeThumbnailsHint"><value>Each incident is rendered with a small evidence frame. The PDF will be larger but much more readable.</value></data>
+  <data name="Reports.ThumbnailsDisabledForCompact"><value>Thumbnails are not available in compact form (text tables only).</value></data>
+  <data name="Reports.AnySeverity"><value>— any —</value></data>
+  <data name="Reports.Total"><value>Total</value></data>
+  <data name="Reports.Style"><value>Report style</value></data>
+  <data name="Reports.Style.Graphic"><value>Graphic — charts, colors, thumbnails (for executives)</value></data>
+  <data name="Reports.Style.Compact"><value>Compact — text tables only (for print/audit)</value></data>
+
+  <!-- TimeRange selector — predefined ranges + manual pickers -->
+  <data name="TimeRange.QuickPicker"><value>Quick range</value></data>
+  <data name="TimeRange.Custom"><value>Custom</value></data>
+  <data name="TimeRange.FromDate"><value>From (date)</value></data>
+  <data name="TimeRange.FromTime"><value>From (time)</value></data>
+  <data name="TimeRange.ToDate"><value>To (date)</value></data>
+  <data name="TimeRange.ToTime"><value>To (time)</value></data>
+  <data name="TimeRange.LastHour"><value>Last hour</value></data>
+  <data name="TimeRange.TodayFrom6"><value>Today from 06:00</value></data>
+  <data name="TimeRange.Last24h"><value>Last 24h</value></data>
+  <data name="TimeRange.Today"><value>Today</value></data>
+  <data name="TimeRange.Yesterday"><value>Yesterday</value></data>
+  <data name="TimeRange.ThisWeek"><value>This week</value></data>
+  <data name="TimeRange.Last7Days"><value>Last 7 days</value></data>
+  <data name="TimeRange.PreviousWeek"><value>Previous week</value></data>
+  <data name="TimeRange.ThisMonth"><value>This month</value></data>
+  <data name="TimeRange.Last30Days"><value>Last 30 days</value></data>
+  <data name="TimeRange.PreviousMonth"><value>Previous month</value></data>
+  <data name="TimeRange.ThisQuarter"><value>This quarter</value></data>
+  <data name="TimeRange.PreviousQuarter"><value>Previous quarter</value></data>
+  <data name="TimeRange.ThisYear"><value>This year</value></data>
+  <data name="TimeRange.PreviousYear"><value>Previous year</value></data>
+
+  <!-- Report generation loader -->
+  <data name="ReportLoader.Title"><value>Building your report</value></data>
+  <data name="ReportLoader.Hint"><value>This may take a moment for large datasets. Your file will download automatically.</value></data>
+  <data name="ReportLoader.Step.Reading"><value>Reading the incident vault...</value></data>
+  <data name="ReportLoader.Step.Counting"><value>Counting events on our fingers...</value></data>
+  <data name="ReportLoader.Step.Bars"><value>Painting bar charts...</value></data>
+  <data name="ReportLoader.Step.Colors"><value>Picking the perfect colors...</value></data>
+  <data name="ReportLoader.Step.Thumbs"><value>Framing evidence thumbnails...</value></data>
+  <data name="ReportLoader.Step.Doublecheck"><value>Double-checking the math...</value></data>
+  <data name="ReportLoader.Step.Polish"><value>Polishing headlines, straightening lines...</value></data>
+  <data name="ReportLoader.Step.Envelope"><value>Sealing the PDF envelope...</value></data>
 
 
   <!-- Pages: MediaMTX Admin -->

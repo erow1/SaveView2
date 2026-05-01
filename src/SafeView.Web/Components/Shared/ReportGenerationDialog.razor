@@ -1,0 +1,65 @@
+@namespace SafeView.Web.Components.Shared
+@implements IDisposable
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog Class="sv-report-loader-dialog">
+    <DialogContent>
+        <div class="sv-report-loader-wrap">
+            <div class="sv-report-loader" aria-hidden="true">
+                @* 6 kolorowych słupków rosnących w sekwencji — symuluje budujący się wykres *@
+                <span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+
+            <div class="sv-report-loader-title">@L["ReportLoader.Title"]</div>
+            <div class="sv-report-loader-step mono" key="@_stepIndex">
+                @_currentStep
+            </div>
+
+            <div class="sv-report-loader-progress">
+                <span></span>
+            </div>
+
+            <div class="sv-report-loader-tip">
+                @L["ReportLoader.Hint"]
+            </div>
+        </div>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string[] _steps = Array.Empty<string>();
+    private string _currentStep = string.Empty;
+    private int _stepIndex;
+    private System.Threading.Timer? _timer;
+
+    protected override void OnInitialized()
+    {
+        _steps =
+        [
+            L["ReportLoader.Step.Reading"],
+            L["ReportLoader.Step.Counting"],
+            L["ReportLoader.Step.Bars"],
+            L["ReportLoader.Step.Colors"],
+            L["ReportLoader.Step.Thumbs"],
+            L["ReportLoader.Step.Doublecheck"],
+            L["ReportLoader.Step.Polish"],
+            L["ReportLoader.Step.Envelope"]
+        ];
+        _currentStep = _steps[0];
+
+        // Co 1.6s zmieniamy komunikat — cyklicznie po liście
+        _timer = new System.Threading.Timer(_ => InvokeAsync(NextStep), null,
+            TimeSpan.FromMilliseconds(1600), TimeSpan.FromMilliseconds(1600));
+    }
+
+    private void NextStep()
+    {
+        _stepIndex = (_stepIndex + 1) % _steps.Length;
+        _currentStep = _steps[_stepIndex];
+        StateHasChanged();
+    }
+
+    public void Dispose() => _timer?.Dispose();
+}

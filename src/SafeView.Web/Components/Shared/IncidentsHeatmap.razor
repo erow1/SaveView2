@@ -1,34 +1,46 @@
 @* Heatmap incydentów: wiersze = dni tygodnia (Pon..Nd), kolumny = godziny 0..23.
-   Tła komórek liniowo skalowane do max wartości w gridzie. *@
+   Skala perceptual (sqrt) zamiast liniowej, plus opcjonalny callback na klik komórki. *@
 
-@if (_max == 0)
+@if (_total == 0)
 {
-    <MudText Typo="Typo.body2" Class="sv-text-muted">Brak incydentów w wybranym okresie.</MudText>
+    <MudText Typo="Typo.body2" Class="sv-text-muted">@(EmptyText ?? "Brak incydentów w wybranym okresie.")</MudText>
 }
 else
 {
-    <div style="overflow:auto;">
-        <table class="sv-heatmap" style="border-collapse:collapse; font-size:11px;">
+    <div class="sv-heatmap-wrap" style="overflow:auto;">
+        <table class="sv-heatmap" style="border-collapse:separate; border-spacing:2px; font-size:11px;">
             <thead>
                 <tr>
                     <th class="sv-text-muted" style="padding:2px 6px;"></th>
                     @for (int h = 0; h < 24; h++)
                     {
-                        <th class="mono sv-text-muted" style="padding:2px 4px; text-align:center;">@h</th>
+                        <th class="mono sv-text-muted" style="padding:2px 4px; text-align:center; min-width:@(_cellSize)px;">@h</th>
                     }
                 </tr>
             </thead>
             <tbody>
                 @for (int d = 0; d < 7; d++)
                 {
+                    var dayIndex = d;
                     <tr>
-                        <td class="mono sv-text-muted" style="padding:2px 6px;">@_dayLabels[d]</td>
+                        <td class="mono sv-text-muted" style="padding:2px 8px;">@_dayLabels[dayIndex]</td>
                         @for (int h = 0; h < 24; h++)
                         {
-                            var v = _grid[d, h];
-                            var alpha = v == 0 ? 0.05 : Math.Min(0.95, 0.15 + 0.85 * v / (double)_max);
-                            <td title="@_dayLabels[d] @h:00 — @v"
-                                style="@($"width:18px; height:18px; background:rgba(255,89,100,{alpha.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}); border:1px solid #FFFFFF0A;")">
+                            var hourIndex = h;
+                            var v = _grid[dayIndex, hourIndex];
+                            var ratio = _max == 0 ? 0d : Math.Sqrt(v / (double)_max);
+                            var alpha = v == 0 ? 0.04 : 0.18 + 0.78 * ratio;
+                            var clickable = OnCellClick.HasDelegate;
+                            var bg = $"rgba(255,89,100,{alpha.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)})";
+                            var style = $"width:{_cellSize}px; height:{_cellSize}px; background:{bg}; border-radius:3px; transition:transform 80ms ease; {(clickable ? "cursor:pointer;" : "")}";
+                            <td title="@_dayLabels[dayIndex] @hourIndex.ToString("D2"):00 — @v"
+                                class="@(clickable ? "sv-heatmap-cell" : null)"
+                                style="@style"
+                                @onclick="@(() => HandleClick(dayIndex, hourIndex, v))">
+                                @if (v > 0 && _cellSize >= 26)
+                                {
+                                    <div class="mono" style="text-align:center; line-height:@(_cellSize)px; color:rgba(255,255,255,0.92); font-size:10px; font-weight:600; pointer-events:none;">@v</div>
+                                }
                             </td>
                         }
                     </tr>
@@ -40,22 +52,37 @@ else
 
 @code {
     [Parameter] public IReadOnlyList<DateTime> OccurredAt { get; set; } = Array.Empty<DateTime>();
+    [Parameter] public int CellSize { get; set; } = 22;
+    [Parameter] public string? EmptyText { get; set; }
+    [Parameter] public EventCallback<HeatmapCellClick> OnCellClick { get; set; }
 
     private static readonly string[] _dayLabels = ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nd"];
     private int[,] _grid = new int[7, 24];
     private int _max;
+    private int _total;
+    private int _cellSize = 22;
 
     protected override void OnParametersSet()
     {
         _grid = new int[7, 24];
         _max = 0;
+        _total = 0;
+        _cellSize = Math.Clamp(CellSize, 14, 40);
         foreach (var t in OccurredAt)
         {
-            // ISO: Mon=0..Sun=6
             int day = ((int)t.DayOfWeek + 6) % 7;
             int hour = t.Hour;
             _grid[day, hour]++;
+            _total++;
             if (_grid[day, hour] > _max) _max = _grid[day, hour];
         }
     }
+
+    private Task HandleClick(int dayIndex, int hour, int count)
+    {
+        if (!OnCellClick.HasDelegate) return Task.CompletedTask;
+        return OnCellClick.InvokeAsync(new HeatmapCellClick(dayIndex, hour, count));
+    }
+
+    public sealed record HeatmapCellClick(int DayIndex, int Hour, int Count);
 }

@@ -1,0 +1,162 @@
+@namespace SafeView.Web.Components.Shared
+@using SafeView.Domain.Common
+@inject IStringLocalizer<SharedResource> L
+
+@*
+   Reużywalny selektor zakresu czasu — dropdown z predefiniowanymi okresami
+   (ostatnia godzina, bieżący tydzień, poprzedni miesiąc, ...) + 4 pickery
+   (data + czas dla "od" i "do"). Wartości From/To są DateTime? w czasie lokalnym
+   (tak jak user je widzi w UI). Konwersja do UTC przy wysyłaniu do API.
+*@
+
+<MudGrid Spacing="2" Class="@Class">
+    <MudItem xs="12" md="3">
+        <MudSelect T="string" Value="@_presetKey" ValueChanged="OnPresetChanged"
+                   Label="@L["TimeRange.QuickPicker"]" Variant="Variant.Outlined" Margin="Margin.Dense">
+            @foreach (var p in TimeRangePresets.All)
+            {
+                <MudSelectItem Value="@p.ToString()">@L[$"TimeRange.{p}"]</MudSelectItem>
+            }
+            <MudSelectItem Value="@CustomKey">@L["TimeRange.Custom"]</MudSelectItem>
+        </MudSelect>
+    </MudItem>
+    <MudItem xs="6" md="2">
+        <MudDatePicker Date="@_fromDate" DateChanged="d => OnFromDateChanged(d)"
+                       Label="@L["TimeRange.FromDate"]" Variant="Variant.Outlined" Margin="Margin.Dense"
+                       Editable="true" />
+    </MudItem>
+    <MudItem xs="6" md="2">
+        <MudTimePicker Time="@_fromTime" TimeChanged="t => OnFromTimeChanged(t)"
+                       Label="@L["TimeRange.FromTime"]" Variant="Variant.Outlined" Margin="Margin.Dense"
+                       Editable="true" />
+    </MudItem>
+    <MudItem xs="6" md="2">
+        <MudDatePicker Date="@_toDate" DateChanged="d => OnToDateChanged(d)"
+                       Label="@L["TimeRange.ToDate"]" Variant="Variant.Outlined" Margin="Margin.Dense"
+                       Editable="true" />
+    </MudItem>
+    <MudItem xs="6" md="2">
+        <MudTimePicker Time="@_toTime" TimeChanged="t => OnToTimeChanged(t)"
+                       Label="@L["TimeRange.ToTime"]" Variant="Variant.Outlined" Margin="Margin.Dense"
+                       Editable="true" />
+    </MudItem>
+</MudGrid>
+
+@code {
+    private const string CustomKey = "Custom";
+
+    [Parameter] public DateTime? From { get; set; }
+    [Parameter] public EventCallback<DateTime?> FromChanged { get; set; }
+    [Parameter] public DateTime? To { get; set; }
+    [Parameter] public EventCallback<DateTime?> ToChanged { get; set; }
+    [Parameter] public TimeRangePresets.PresetKey DefaultPreset { get; set; } = TimeRangePresets.PresetKey.Last7Days;
+    [Parameter] public string? Class { get; set; }
+
+    private string _presetKey = TimeRangePresets.PresetKey.Last7Days.ToString();
+    private DateTime? _fromDate;
+    private TimeSpan? _fromTime;
+    private DateTime? _toDate;
+    private TimeSpan? _toTime;
+    private bool _initialized;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (From is null || To is null)
+        {
+            // Pierwsza inicjalizacja — ustawiamy domyślny preset
+            _presetKey = DefaultPreset.ToString();
+            await ApplyPresetAsync(DefaultPreset);
+        }
+        else
+        {
+            SyncFromExternal(From.Value, To.Value);
+        }
+        _initialized = true;
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!_initialized) return;
+        // Zewnętrzny rebind From/To (np. parent ustawia nową wartość) — odświeżamy pickery
+        if (From is { } fOuter && To is { } tOuter)
+        {
+            // Jeśli wartości zewnętrzne różnią się od tego co już mamy w pickerach — sync
+            var current = ComposeFrom();
+            var currentTo = ComposeTo();
+            if (current != fOuter || currentTo != tOuter)
+                SyncFromExternal(fOuter, tOuter);
+        }
+    }
+
+    private void SyncFromExternal(DateTime fromVal, DateTime toVal)
+    {
+        _fromDate = fromVal.Date;
+        _fromTime = fromVal.TimeOfDay;
+        _toDate   = toVal.Date;
+        _toTime   = toVal.TimeOfDay;
+        _presetKey = TimeRangePresets.Match(fromVal, toVal, DateTime.UtcNow)?.ToString() ?? CustomKey;
+    }
+
+    private async Task OnPresetChanged(string key)
+    {
+        _presetKey = key;
+        if (key == CustomKey) return; // user chce ręcznie — nie ruszamy dat
+        if (Enum.TryParse<TimeRangePresets.PresetKey>(key, out var p))
+            await ApplyPresetAsync(p);
+    }
+
+    private async Task ApplyPresetAsync(TimeRangePresets.PresetKey p)
+    {
+        var range = TimeRangePresets.Resolve(p, DateTime.UtcNow);
+        var fLocal = range.FromUtc.ToLocalTime();
+        var tLocal = range.ToUtc.ToLocalTime();
+        _fromDate = fLocal.Date;
+        _fromTime = fLocal.TimeOfDay;
+        _toDate   = tLocal.Date;
+        _toTime   = tLocal.TimeOfDay;
+        await PushChangesAsync();
+    }
+
+    private async Task OnFromDateChanged(DateTime? d) { _fromDate = d; await UserEditedAsync(); }
+    private async Task OnFromTimeChanged(TimeSpan? t) { _fromTime = t; await UserEditedAsync(); }
+    private async Task OnToDateChanged(DateTime? d)   { _toDate = d;   await UserEditedAsync(); }
+    private async Task OnToTimeChanged(TimeSpan? t)   { _toTime = t;   await UserEditedAsync(); }
+
+    private async Task UserEditedAsync()
+    {
+        // Po manualnej zmianie sprawdzamy czy nadal pasuje do któregoś presetu — jeśli nie, "Custom".
+        var f = ComposeFrom();
+        var t = ComposeTo();
+        if (f.HasValue && t.HasValue)
+        {
+            _presetKey = TimeRangePresets.Match(f.Value, t.Value, DateTime.UtcNow)?.ToString() ?? CustomKey;
+        }
+        else
+        {
+            _presetKey = CustomKey;
+        }
+        await PushChangesAsync();
+    }
+
+    private DateTime? ComposeFrom()
+    {
+        if (_fromDate is not { } d) return null;
+        var t = _fromTime ?? TimeSpan.Zero;
+        return d.Date.Add(t);
+    }
+
+    private DateTime? ComposeTo()
+    {
+        if (_toDate is not { } d) return null;
+        var t = _toTime ?? TimeSpan.Zero;
+        return d.Date.Add(t);
+    }
+
+    private async Task PushChangesAsync()
+    {
+        var f = ComposeFrom();
+        var t = ComposeTo();
+        if (f != From) await FromChanged.InvokeAsync(f);
+        if (t != To)   await ToChanged.InvokeAsync(t);
+    }
+}

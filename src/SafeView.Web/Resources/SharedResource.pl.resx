@@ -651,6 +651,44 @@
   <data name="Home.Heatmap"><value>Heatmapa incydentów (7 dni, godz. UTC)</value></data>
   <data name="Home.TopCategories"><value>Top kategorie (7 dni)</value></data>
   <data name="Home.LatestIncidents"><value>Najnowsze incydenty</value></data>
+  <!-- Dashboard 2026-04 redesign -->
+  <data name="Home.HeroEyebrow"><value>Centrum operacji bezpieczeństwa</value></data>
+  <data name="Home.HeroTitle"><value>Pulpit bezpieczeństwa przemysłowego</value></data>
+  <data name="Home.LivePipeline"><value>Pipeline aktywny</value></data>
+  <data name="Home.AllIncidents"><value>Wszystkie incydenty</value></data>
+  <data name="Home.GenerateReport"><value>Generuj raport</value></data>
+  <data name="Home.ReportToday"><value>Dzisiaj</value></data>
+  <data name="Home.Report7d"><value>Ostatnie 7 dni</value></data>
+  <data name="Home.Report30d"><value>Ostatnie 30 dni</value></data>
+  <data name="Home.ReportCustom"><value>Zakres niestandardowy...</value></data>
+  <data name="Home.Kpi.Incidents24h"><value>Incydenty (24h)</value></data>
+  <data name="Home.Kpi.VsYesterday"><value>vs. poprzednie 24h</value></data>
+  <data name="Home.Kpi.NoBaseline"><value>brak danych referencyjnych</value></data>
+  <data name="Home.Kpi.Spark7d"><value>Ostatnie 7 dni</value></data>
+  <data name="Home.Kpi.OpenIncidents"><value>Otwarte incydenty</value></data>
+  <data name="Home.Kpi.Critical"><value>krytyczne</value></data>
+  <data name="Home.Kpi.NoCritical"><value>brak zdarzeń krytycznych</value></data>
+  <data name="Home.Kpi.AvgResponse"><value>Średni czas reakcji</value></data>
+  <data name="Home.Kpi.LastWeek"><value>ostatnie 7 dni</value></data>
+  <data name="Home.Kpi.FpRate"><value>Wskaźnik fałszywych alarmów</value></data>
+  <data name="Home.Trend30d.Title"><value>Trend 30 dni</value></data>
+  <data name="Home.Trend30d.Total"><value>incydentów w okresie</value></data>
+  <data name="Home.TopCategories.Title"><value>Top kategorie zagrożeń</value></data>
+  <data name="Home.TopCategories.Sub"><value>ostatnie 7 dni · kliknij aby przejść</value></data>
+  <data name="Home.Heatmap.Title"><value>Mapa godzin szczytu</value></data>
+  <data name="Home.Heatmap.Hint"><value>kliknij komórkę aby zobaczyć incydenty z tej godziny</value></data>
+  <data name="Home.Heatmap.Empty"><value>Brak incydentów w ostatnich 7 dniach.</value></data>
+  <data name="Home.Hotspots.Title"><value>Punkty zapalne</value></data>
+  <data name="Home.Hotspots.Sub"><value>kamery z największą liczbą zdarzeń · 7 dni</value></data>
+  <data name="Home.System.Title"><value>Status systemu</value></data>
+  <data name="Home.System.Cameras"><value>Kamery (aktywne / wszystkie)</value></data>
+  <data name="Home.System.Triggers"><value>Aktywne triggery</value></data>
+  <data name="Home.System.Models"><value>Aktywne modele</value></data>
+  <data name="Home.System.LastIncident"><value>Ostatni incydent</value></data>
+  <data name="Home.Recent.Title"><value>Najnowsze incydenty</value></data>
+  <data name="Home.Recent.SeeAll"><value>Zobacz wszystkie</value></data>
+  <data name="HeatmapDrill.Hint"><value>Kliknij wiersz aby otworzyć incydent.</value></data>
+  <data name="HeatmapDrill.NoData"><value>Brak incydentów.</value></data>
 
   <!-- Pages: Incidents -->
   <data name="Incidents.Title"><value>Incydenty</value></data>
@@ -782,6 +820,54 @@
   <data name="Reports.CameraOptional"><value>Kamera (opcjonalnie)</value></data>
   <data name="Reports.AllCameras"><value>Wszystkie</value></data>
   <data name="Reports.Preview"><value>Podgląd</value></data>
+  <data name="Reports.PreviewLive"><value>aktualizuje się automatycznie</value></data>
+  <data name="Reports.PreviewUpdating"><value>aktualizowanie...</value></data>
+  <data name="Reports.PreviewLoading"><value>Liczę incydenty pasujące do filtrów...</value></data>
+  <data name="Incidents.Summary"><value>Podsumowanie</value></data>
+  <data name="Incidents.ReportOptions"><value>Opcje raportu</value></data>
+  <data name="Reports.IncludeThumbnails"><value>Dołącz miniatury klatek (PDF)</value></data>
+  <data name="Reports.IncludeThumbnailsHint"><value>Dla każdego incydentu dołączamy małą klatkę dowodową. Plik PDF będzie większy, ale dużo bardziej czytelny.</value></data>
+  <data name="Reports.ThumbnailsDisabledForCompact"><value>Miniaturki nie są dostępne w formie kompaktowej (tylko tabele tekstowe).</value></data>
+  <data name="Reports.AnySeverity"><value>— dowolna —</value></data>
+  <data name="Reports.Total"><value>Łącznie</value></data>
+  <data name="Reports.Style"><value>Forma raportu</value></data>
+  <data name="Reports.Style.Graphic"><value>Graficzny — wykresy, kolory, miniaturki (dla zarządu)</value></data>
+  <data name="Reports.Style.Compact"><value>Prosty — kompaktowe tabele tekstowe (do druku/audytu)</value></data>
+
+  <!-- TimeRange selector — predefiniowane okresy + manualne pickery -->
+  <data name="TimeRange.QuickPicker"><value>Szybki wybór</value></data>
+  <data name="TimeRange.Custom"><value>Niestandardowy</value></data>
+  <data name="TimeRange.FromDate"><value>Od (data)</value></data>
+  <data name="TimeRange.FromTime"><value>Od (godz.)</value></data>
+  <data name="TimeRange.ToDate"><value>Do (data)</value></data>
+  <data name="TimeRange.ToTime"><value>Do (godz.)</value></data>
+  <data name="TimeRange.LastHour"><value>Ostatnia godzina</value></data>
+  <data name="TimeRange.TodayFrom6"><value>Dziś od 6:00</value></data>
+  <data name="TimeRange.Last24h"><value>Ostatnie 24h</value></data>
+  <data name="TimeRange.Today"><value>Bieżąca doba</value></data>
+  <data name="TimeRange.Yesterday"><value>Poprzednia doba</value></data>
+  <data name="TimeRange.ThisWeek"><value>Bieżący tydzień</value></data>
+  <data name="TimeRange.Last7Days"><value>Ostatnie 7 dni</value></data>
+  <data name="TimeRange.PreviousWeek"><value>Poprzedni tydzień</value></data>
+  <data name="TimeRange.ThisMonth"><value>Bieżący miesiąc</value></data>
+  <data name="TimeRange.Last30Days"><value>Ostatnie 30 dni</value></data>
+  <data name="TimeRange.PreviousMonth"><value>Poprzedni miesiąc</value></data>
+  <data name="TimeRange.ThisQuarter"><value>Bieżący kwartał</value></data>
+  <data name="TimeRange.PreviousQuarter"><value>Poprzedni kwartał</value></data>
+  <data name="TimeRange.ThisYear"><value>Bieżący rok</value></data>
+  <data name="TimeRange.PreviousYear"><value>Poprzedni rok</value></data>
+
+  <!-- Report generation loader — modalne okienko z animacją podczas budowania PDF -->
+  <data name="ReportLoader.Title"><value>Trwa budowanie raportu</value></data>
+  <data name="ReportLoader.Hint"><value>To może chwilę potrwać przy dużej liczbie incydentów. Plik pobierze się automatycznie.</value></data>
+  <data name="ReportLoader.Step.Reading"><value>Czytam bazę incydentów...</value></data>
+  <data name="ReportLoader.Step.Counting"><value>Liczę zdarzenia na palcach...</value></data>
+  <data name="ReportLoader.Step.Bars"><value>Maluję wykresy słupkowe...</value></data>
+  <data name="ReportLoader.Step.Colors"><value>Dobieram pasujące kolory...</value></data>
+  <data name="ReportLoader.Step.Thumbs"><value>Wkładam miniaturki w ramki...</value></data>
+  <data name="ReportLoader.Step.Doublecheck"><value>Sprawdzam jeszcze raz, dla pewności...</value></data>
+  <data name="ReportLoader.Step.Polish"><value>Poleruję nagłówki i równam linie...</value></data>
+  <data name="ReportLoader.Step.Envelope"><value>Pakuję PDF do koperty...</value></data>
 
 
   <!-- Pages: MediaMTX Admin -->

@@ -1,29 +1,116 @@
 @page "/incidents"
 @attribute [Authorize(Policy = "perm:incidents:view")]
+@implements IDisposable
+@using SafeView.Domain.Common
+@using SafeView.Application.Abstractions.Reports
+@using SafeView.Domain.Incidents
 @inject SafeView.Application.Abstractions.Persistence.IIncidentRepository IncidentRepo
+@inject SafeView.Application.Abstractions.Persistence.ICameraRepository CameraRepo
 @inject NavigationManager Nav
+@inject IDialogService Dialogs
+@inject IJSRuntime JS
 @inject IStringLocalizer<SharedResource> L
 @rendermode InteractiveServer
 
 <PageTitle>@L["Incidents.Title"] — @L["AppName"]</PageTitle>
 
 <MudStack Spacing="3">
-    <MudStack Row="true" AlignItems="AlignItems.Center">
+    @* ── Header z akcjami raportu po prawej ─────────────────────────────────── *@
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap">
         <MudText Typo="Typo.h4">@L["Incidents.Title"]</MudText>
         <MudSpacer />
-        <MudSelect T="string" @bind-Value="_statusFilter" Label="@L["Incidents.FilterStatus"]" Variant="Variant.Outlined"
-                   Margin="Margin.Dense" Style="min-width:180px;">
-            <MudSelectItem Value="@("all")">@L["Incidents.All"]</MudSelectItem>
-            <MudSelectItem Value="@("open")">@L["Incidents.Open"]</MudSelectItem>
-            <MudSelectItem Value="@("ack")">@L["Incidents.Confirmed"]</MudSelectItem>
-            <MudSelectItem Value="@("resolved")">@L["Incidents.Resolved"]</MudSelectItem>
-            <MudSelectItem Value="@("fp")">@L["Incidents.FalsePositive"]</MudSelectItem>
-        </MudSelect>
-        <MudButton StartIcon="@Icons.Material.Filled.Refresh" OnClick="Reload" Variant="Variant.Outlined">@L["Common.Refresh"]</MudButton>
+        <AuthorizeView Policy="perm:reports:generate" Context="_authRep">
+            <MudButton StartIcon="@Icons.Material.Filled.PictureAsPdf" Color="Color.Primary" Variant="Variant.Filled"
+                       Disabled="_downloading" OnClick="@(() => Download("pdf"))">PDF</MudButton>
+            <MudButton StartIcon="@Icons.Material.Filled.TableChart" Color="Color.Primary" Variant="Variant.Outlined"
+                       Disabled="_downloading" OnClick="@(() => Download("csv"))">CSV</MudButton>
+        </AuthorizeView>
     </MudStack>
 
-    <MudTable Items="_filtered" Dense="true" Hover="true" Loading="_loading" Elevation="0"
-              Class="sv-card" OnRowClick="OnRowClick" T="SafeView.Domain.Incidents.Incident">
+    @* ── Filtry ─────────────────────────────────────────────────────────────── *@
+    <MudPaper Class="pa-4 sv-card" Elevation="0">
+        <TimeRangeSelector From="_from" FromChanged="OnFromChanged"
+                           To="_to" ToChanged="OnToChanged"
+                           DefaultPreset="TimeRangePresets.PresetKey.Last7Days" />
+
+        <MudGrid Class="mt-2">
+            <MudItem xs="12" md="4">
+                <MudSelect T="string" @bind-Value="_statusFilter" Label="@L["Incidents.FilterStatus"]"
+                           Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem Value="@("all")">@L["Incidents.All"]</MudSelectItem>
+                    <MudSelectItem Value="@("open")">@L["Incidents.Open"]</MudSelectItem>
+                    <MudSelectItem Value="@("ack")">@L["Incidents.Confirmed"]</MudSelectItem>
+                    <MudSelectItem Value="@("resolved")">@L["Incidents.Resolved"]</MudSelectItem>
+                    <MudSelectItem Value="@("fp")">@L["Incidents.FalsePositive"]</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudSelect T="string" Value="_cameraId" ValueChanged="OnCameraChanged"
+                           Label="@L["Reports.CameraOptional"]"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    <MudSelectItem Value="@((string?)null)">@L["Reports.AllCameras"]</MudSelectItem>
+                    @foreach (var c in _cameras)
+                    {
+                        <MudSelectItem Value="@c.Id">@c.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudSelect T="IncidentSeverity?" Value="_minSeverity" ValueChanged="OnMinSeverityChanged"
+                           Label="@L["Reports.MinSeverity"]" Variant="Variant.Outlined"
+                           Margin="Margin.Dense" Clearable="true">
+                    <MudSelectItem Value="@((IncidentSeverity?)null)">@L["Reports.AnySeverity"]</MudSelectItem>
+                    @foreach (var s in Enum.GetValues<IncidentSeverity>())
+                    {
+                        <MudSelectItem Value="@((IncidentSeverity?)s)">@s</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        @* ── Opcje formy raportu (collapsable, dyskretny) ─────────────────── *@
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mt-3" Wrap="Wrap.Wrap">
+            <MudIcon Icon="@Icons.Material.Outlined.Tune" Class="sv-text-muted" Size="Size.Small" />
+            <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Incidents.ReportOptions"]:</MudText>
+            <MudSelect T="ReportStyle" @bind-Value="_style" Label="@L["Reports.Style"]"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width:240px;">
+                <MudSelectItem Value="ReportStyle.Graphic">@L["Reports.Style.Graphic"]</MudSelectItem>
+                <MudSelectItem Value="ReportStyle.Compact">@L["Reports.Style.Compact"]</MudSelectItem>
+            </MudSelect>
+            <MudSwitch T="bool" @bind-Value="_includeThumbnails" Color="Color.Primary"
+                       Disabled="@(_style == ReportStyle.Compact)"
+                       Label="@L["Reports.IncludeThumbnails"]" />
+            <MudTooltip Text="@(_style == ReportStyle.Compact ? L["Reports.ThumbnailsDisabledForCompact"] : L["Reports.IncludeThumbnailsHint"])">
+                <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" Class="sv-text-muted" />
+            </MudTooltip>
+        </MudStack>
+    </MudPaper>
+
+    @* ── Live KPI: liczbowy podgląd dla aktualnych filtrów ─────────────────── *@
+    <MudPaper Class="pa-4 sv-card" Elevation="0">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudText Typo="Typo.h6">@L["Incidents.Summary"]</MudText>
+            @if (_loadingPreview)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Primary" Style="width:16px; height:16px;" />
+                <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Reports.PreviewUpdating"]</MudText>
+            }
+            else
+            {
+                <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Reports.PreviewLive"]</MudText>
+            }
+        </MudStack>
+        <MudGrid Class="mt-2">
+            <MudItem xs="6" md="3"><Stat Label="@L["Reports.Total"]" Value="@_filtered.Count.ToString()" /></MudItem>
+            <MudItem xs="6" md="3"><Stat Label="Critical" Value="@_critCount.ToString()" Color="#FF2D2D" /></MudItem>
+            <MudItem xs="6" md="3"><Stat Label="High" Value="@_highCount.ToString()" Color="#FF5964" /></MudItem>
+            <MudItem xs="6" md="3"><Stat Label="Medium" Value="@_medCount.ToString()" Color="#F5A524" /></MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @* ── Tabela incydentów ─────────────────────────────────────────────────── *@
+    <MudTable Items="_filtered" Dense="true" Hover="true" Loading="_loadingPreview" Elevation="0"
+              Class="sv-card" OnRowClick="OnRowClick" T="Incident">
         <HeaderContent>
             <MudTh>@L["Table.When"]</MudTh>
             <MudTh>@L["Table.Camera"]</MudTh>
@@ -77,64 +164,173 @@
 </MudStack>
 
 @code {
-    private List<SafeView.Domain.Incidents.Incident> _all = new();
-    private List<SafeView.Domain.Incidents.Incident> _filtered = new();
-    private bool _loading = true;
+    // ── Filtry zakresu/kamery/severity (live, debounce'owane) ─────────────────
+    private DateTime? _from;
+    private DateTime? _to;
+    private string? _cameraId;
+    private IncidentSeverity? _minSeverity;
     private string _statusFilter = "all";
 
-    protected override async Task OnInitializedAsync() => await Reload();
+    // ── Opcje generowania raportu (nie wpływają na preview/listę) ─────────────
+    private ReportStyle _style = ReportStyle.Graphic;
+    private bool _includeThumbnails;
+    private bool _downloading;
 
-    protected override void OnParametersSet() => ApplyFilter();
+    // ── Dane ─────────────────────────────────────────────────────────────────
+    private List<Incident> _all = new();        // surowe z bazy (bez status filter)
+    private List<Incident> _filtered = new();   // po wszystkich filtrach (status + reszta)
+    private List<SafeView.Domain.Cameras.Camera> _cameras = new();
+    private int _critCount, _highCount, _medCount;
+    private bool _loadingPreview;
 
-    private async Task Reload()
+    // ── Debounce + cancellation ──────────────────────────────────────────────
+    private System.Threading.Timer? _debounce;
+    private CancellationTokenSource? _previewCts;
+
+    protected override async Task OnInitializedAsync()
     {
-        _loading = true;
-        _all = (await IncidentRepo.ListRecentAsync(500)).ToList();
-        ApplyFilter();
-        _loading = false;
+        _cameras = (await CameraRepo.ListAsync()).OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
     }
 
-    private void ApplyFilter()
+    // ── Reaktywne handlery ───────────────────────────────────────────────────
+    private void OnFromChanged(DateTime? v)              { _from = v;        ScheduleReload(); }
+    private void OnToChanged(DateTime? v)                { _to = v;          ScheduleReload(); }
+    private void OnCameraChanged(string? v)              { _cameraId = v;    ScheduleReload(); }
+    private void OnMinSeverityChanged(IncidentSeverity? v) { _minSeverity = v; ScheduleReload(); }
+
+    // Status nie wymaga ponownego query — filtrujemy in-memory na _all.
+    // MudSelect @bind-Value zmieni _statusFilter, ale OnParametersSet wywoła ApplyStatusFilter.
+    protected override void OnParametersSet() => ApplyStatusFilter();
+
+    private void ScheduleReload()
+    {
+        _debounce?.Dispose();
+        _debounce = new System.Threading.Timer(_ => _ = InvokeAsync(LoadAsync),
+            null, TimeSpan.FromMilliseconds(350), Timeout.InfiniteTimeSpan);
+    }
+
+    private async Task LoadAsync()
+    {
+        // Anulujemy stare zapytanie (kliki-kliki presetu) — pokazujemy wynik dla OSTATNIEJ
+        // kombinacji parametrów, nie pierwszej która wróci z bazy.
+        _previewCts?.Cancel();
+        _previewCts = new CancellationTokenSource();
+        var ct = _previewCts.Token;
+
+        _loadingPreview = true;
+        StateHasChanged();
+        try
+        {
+            var (fromUtc, toUtc) = ResolveUtcRange();
+            var raw = await IncidentRepo.ListByDateRangeAsync(fromUtc, toUtc, ct).ConfigureAwait(false);
+            if (ct.IsCancellationRequested) return;
+            IEnumerable<Incident> q = raw;
+            if (!string.IsNullOrEmpty(_cameraId)) q = q.Where(i => i.CameraId == _cameraId);
+            if (_minSeverity is not null) q = q.Where(i => i.Severity >= _minSeverity);
+            _all = q.OrderByDescending(i => i.OccurredAt).ToList();
+            ApplyStatusFilter();
+        }
+        catch (OperationCanceledException) { /* nowy request wystrzelił — ignorujemy */ }
+        finally
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                _loadingPreview = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void ApplyStatusFilter()
     {
         _filtered = _statusFilter switch
         {
-            "open"     => _all.Where(i => i.Status == SafeView.Domain.Incidents.IncidentStatus.Open).ToList(),
-            "ack"      => _all.Where(i => i.Status == SafeView.Domain.Incidents.IncidentStatus.Acknowledged).ToList(),
-            "resolved" => _all.Where(i => i.Status == SafeView.Domain.Incidents.IncidentStatus.Resolved).ToList(),
-            "fp"       => _all.Where(i => i.Status == SafeView.Domain.Incidents.IncidentStatus.FalsePositive || i.WasFalsePositive).ToList(),
+            "open"     => _all.Where(i => i.Status == IncidentStatus.Open).ToList(),
+            "ack"      => _all.Where(i => i.Status == IncidentStatus.Acknowledged).ToList(),
+            "resolved" => _all.Where(i => i.Status == IncidentStatus.Resolved).ToList(),
+            "fp"       => _all.Where(i => i.Status == IncidentStatus.FalsePositive || i.WasFalsePositive).ToList(),
             _          => _all
         };
+        _critCount = _filtered.Count(i => i.Severity == IncidentSeverity.Critical);
+        _highCount = _filtered.Count(i => i.Severity == IncidentSeverity.High);
+        _medCount  = _filtered.Count(i => i.Severity == IncidentSeverity.Medium);
     }
 
-    private void OnRowClick(TableRowClickEventArgs<SafeView.Domain.Incidents.Incident> args)
+    // ── Generowanie raportu (PDF/CSV) ────────────────────────────────────────
+    private async Task Download(string format)
+    {
+        var (fromUtc, toUtc) = ResolveUtcRange();
+        var qs = new List<string>
+        {
+            $"from={fromUtc:yyyy-MM-ddTHH:mm:ss}Z",
+            $"to={toUtc:yyyy-MM-ddTHH:mm:ss}Z"
+        };
+        if (!string.IsNullOrEmpty(_cameraId)) qs.Add($"cameraId={Uri.EscapeDataString(_cameraId)}");
+        if (_minSeverity is not null) qs.Add($"minSeverity={_minSeverity}");
+        if (_includeThumbnails && format == "pdf" && _style == ReportStyle.Graphic) qs.Add("thumbnails=true");
+        if (format == "pdf") qs.Add($"style={_style}");
+        var url = $"/reports/incidents.{format}?{string.Join("&", qs)}";
+        await DownloadWithLoaderAsync(url, $"safeview_report.{format}");
+    }
+
+    private async Task DownloadWithLoaderAsync(string url, string fallbackName)
+    {
+        _downloading = true;
+        var dlg = await Dialogs.ShowAsync<ReportGenerationDialog>(string.Empty,
+            new DialogOptions
+            {
+                CloseButton = false,
+                CloseOnEscapeKey = false,
+                BackdropClick = false,
+                NoHeader = true,
+                MaxWidth = MaxWidth.ExtraSmall,
+            });
+        try { await JS.InvokeAsync<object>("safeview.downloadFile", url, fallbackName); }
+        finally { dlg.Close(); _downloading = false; }
+    }
+
+    private (DateTime FromUtc, DateTime ToUtc) ResolveUtcRange()
+    {
+        var fallback = TimeRangePresets.Resolve(TimeRangePresets.PresetKey.Last7Days, DateTime.UtcNow);
+        var fLocal = _from ?? fallback.FromUtc.ToLocalTime();
+        var tLocal = _to   ?? fallback.ToUtc.ToLocalTime();
+        var fUtc = DateTime.SpecifyKind(fLocal, DateTimeKind.Local).ToUniversalTime();
+        var tUtc = DateTime.SpecifyKind(tLocal, DateTimeKind.Local).ToUniversalTime();
+        return (fUtc, tUtc);
+    }
+
+    private void OnRowClick(TableRowClickEventArgs<Incident> args)
     {
         if (args.Item is null) return;
         Nav.NavigateTo($"/incidents/{args.Item.Id}");
     }
 
-    // Handlery Acknowledge/Resolve/Analyze przeniesione do IncidentDetail.razor
-    // (user najpierw widzi kontekst — obraz, detekcje, reason — a potem decyduje).
-
-    // Używamy natywnych palet MudBlazor (Color) żeby chipy wyglądały dobrze w obu motywach.
-    // Hardcoded style background/color (np. #3A1515) nie respektuje theme — zamieniamy.
-    private static Color SeverityColor(SafeView.Domain.Incidents.IncidentSeverity s) => s switch
+    public void Dispose()
     {
-        SafeView.Domain.Incidents.IncidentSeverity.Low      => Color.Info,
-        SafeView.Domain.Incidents.IncidentSeverity.Medium   => Color.Warning,
-        SafeView.Domain.Incidents.IncidentSeverity.High     => Color.Error,
-        SafeView.Domain.Incidents.IncidentSeverity.Critical => Color.Error,
+        _debounce?.Dispose();
+        _previewCts?.Cancel();
+        _previewCts?.Dispose();
+    }
+
+    // ── Style chipów ─────────────────────────────────────────────────────────
+    private static Color SeverityColor(IncidentSeverity s) => s switch
+    {
+        IncidentSeverity.Low      => Color.Info,
+        IncidentSeverity.Medium   => Color.Warning,
+        IncidentSeverity.High     => Color.Error,
+        IncidentSeverity.Critical => Color.Error,
         _ => Color.Default
     };
 
-    private static Variant SeverityVariant(SafeView.Domain.Incidents.IncidentSeverity s)
-        => s == SafeView.Domain.Incidents.IncidentSeverity.Critical ? Variant.Filled : Variant.Outlined;
+    private static Variant SeverityVariant(IncidentSeverity s)
+        => s == IncidentSeverity.Critical ? Variant.Filled : Variant.Outlined;
 
-    private static Color StatusColor(SafeView.Domain.Incidents.IncidentStatus s) => s switch
+    private static Color StatusColor(IncidentStatus s) => s switch
     {
-        SafeView.Domain.Incidents.IncidentStatus.Open          => Color.Error,
-        SafeView.Domain.Incidents.IncidentStatus.Acknowledged  => Color.Warning,
-        SafeView.Domain.Incidents.IncidentStatus.Resolved      => Color.Success,
-        SafeView.Domain.Incidents.IncidentStatus.FalsePositive => Color.Default,
+        IncidentStatus.Open          => Color.Error,
+        IncidentStatus.Acknowledged  => Color.Warning,
+        IncidentStatus.Resolved      => Color.Success,
+        IncidentStatus.FalsePositive => Color.Default,
         _ => Color.Default
     };
 }

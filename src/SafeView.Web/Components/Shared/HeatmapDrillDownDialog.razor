@@ -1,0 +1,79 @@
+@namespace SafeView.Web.Components.Shared
+@using SafeView.Domain.Incidents
+@inject NavigationManager Nav
+@inject IStringLocalizer<SharedResource> L
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2" Style="min-width:520px; max-width:720px;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Schedule" />
+                <MudText Typo="Typo.h6">@DayLabel · @($"{Hour:D2}:00–{Hour:D2}:59")</MudText>
+                <MudSpacer />
+                <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Filled">
+                    @Incidents.Count
+                </MudChip>
+            </MudStack>
+            <MudText Typo="Typo.caption" Class="sv-text-muted">
+                @L["HeatmapDrill.Hint"]
+            </MudText>
+
+            @if (Incidents.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined">
+                    @L["HeatmapDrill.NoData"]
+                </MudAlert>
+            }
+            else
+            {
+                <MudTable Items="Incidents" Dense="true" Hover="true" Elevation="0"
+                          T="Incident" OnRowClick="OnRowClick" Class="sv-card">
+                    <HeaderContent>
+                        <MudTh>@L["Table.When"]</MudTh>
+                        <MudTh>@L["Table.Camera"]</MudTh>
+                        <MudTh>@L["Table.Category"]</MudTh>
+                        <MudTh>@L["Table.Severity"]</MudTh>
+                        <MudTh>@L["Table.Summary"]</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd class="mono" style="font-size:11px;">@context.OccurredAt.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                        <MudTd>@context.CameraName</MudTd>
+                        <MudTd><span class="mono" style="font-size:11px;">@context.Category</span></MudTd>
+                        <MudTd>
+                            <MudChip T="string" Size="Size.Small"
+                                     Variant="@(context.Severity == IncidentSeverity.Critical ? Variant.Filled : Variant.Outlined)"
+                                     Color="@SeverityColor(context.Severity)">@context.Severity</MudChip>
+                        </MudTd>
+                        <MudTd Style="max-width:280px; overflow:hidden; text-overflow:ellipsis;">@context.Summary</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => MudDialog.Close()" Color="Color.Default">@L["Common.Close"]</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string DayLabel { get; set; } = string.Empty;
+    [Parameter] public int Hour { get; set; }
+    [Parameter] public IReadOnlyList<Incident> Incidents { get; set; } = Array.Empty<Incident>();
+
+    private void OnRowClick(TableRowClickEventArgs<Incident> args)
+    {
+        if (args.Item is null) return;
+        MudDialog.Close();
+        Nav.NavigateTo($"/incidents/{args.Item.Id}");
+    }
+
+    private static Color SeverityColor(IncidentSeverity s) => s switch
+    {
+        IncidentSeverity.Low      => Color.Info,
+        IncidentSeverity.Medium   => Color.Warning,
+        IncidentSeverity.High     => Color.Error,
+        IncidentSeverity.Critical => Color.Error,
+        _ => Color.Default
+    };
+}
