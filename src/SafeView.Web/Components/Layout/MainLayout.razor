@@ -27,6 +27,14 @@
             @L["AppTagline"]
         </MudText>
         <MudSpacer />
+        @* Build version badge — yyMMdd.HHmm, regenerowane przy każdym buildzie przez StampBuildInfo MSBuild target.
+           Tooltip pokazuje pełen build date UTC + 8-char git SHA — łatwa identyfikacja "co testuję". *@
+        <MudTooltip Text="@($"Build {SafeView.Web.BuildInfo.BuildDateUtc} UTC · git {SafeView.Web.BuildInfo.GitSha}")">
+            <MudText Typo="Typo.caption" Class="me-3 d-none d-sm-flex"
+                     Style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--mud-palette-text-secondary); opacity:0.55; letter-spacing:0.2px;">
+                v@SafeView.Web.BuildInfo.Version
+            </MudText>
+        </MudTooltip>
         <MudTooltip Text="@(Theme.IsDark ? L["Theme.SwitchToLight"] : L["Theme.SwitchToDark"])">
             <MudIconButton Icon="@(Theme.IsDark ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
                            Color="Color.Inherit" OnClick="ToggleThemeAsync" />

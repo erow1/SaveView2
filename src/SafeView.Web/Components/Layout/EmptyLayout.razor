@@ -6,3 +6,10 @@
 <MudSnackbarProvider />
 
 @Body
+
+@* Build version badge w prawym dolnym rogu — żeby na /login / /setup / /forbidden / /error
+   też było widać który build się testuje (przed zalogowaniem). Title atrybut = native browser tooltip. *@
+<div title="@($"Build {SafeView.Web.BuildInfo.BuildDateUtc} UTC · git {SafeView.Web.BuildInfo.GitSha}")"
+     style="position:fixed; right:10px; bottom:8px; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--mud-palette-text-secondary); opacity:0.45; letter-spacing:0.2px; pointer-events:auto; user-select:text; z-index:1;">
+    v@SafeView.Web.BuildInfo.Version
+</div>
