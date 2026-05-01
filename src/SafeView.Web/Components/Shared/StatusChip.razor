@@ -1,0 +1,54 @@
+@namespace SafeView.Web.Components.Shared
+
+@*
+    Ujednolicony chip statusowy dla całej aplikacji.
+
+    Zastępuje rozsianego po stronach inline hex-style typu
+        Style="background:#0E2A1E; color:#2EC27E;"  (ON)
+        Style="background:#3A1515; color:#FF5964;"  (LOCKED)
+        Class="sv-chip-muted"                        (OFF)
+
+    Korzyści:
+    - jeden punkt źródłowy stylu (zmiana w jednym miejscu)
+    - MudBlazor Color enum → auto-dopasowanie do dark/light theme
+    - Outlined variant z border + tekst w tym samym semantic color = czytelność
+      na obu motywach (vs hardcoded ciemny background który psuł light mode)
+    - opcjonalne Emphasize (Filled) dla critical states (np. severity Critical)
+
+    Użycie:
+        <StatusChip Text="ON"     Color="Color.Success" />
+        <StatusChip Text="OFF"    Color="Color.Default" />
+        <StatusChip Text="LOCKED" Color="Color.Error" />
+        <StatusChip Text="@s"     Color="@SeverityColor(s)" Emphasize="@(s == Critical)" />
+
+    Nie używaj dla chipów INTERAKTYWNYCH (z OnClose, OnClick) — tam idź wprost MudChip.
+*@
+
+<MudChip T="string" Size="Size.Small"
+         Variant="@(Emphasize ? Variant.Filled : Variant.Outlined)"
+         Color="@Color"
+         Icon="@Icon"
+         Class="@Class">
+    @Text
+</MudChip>
+
+@code {
+    /// <summary>Treść chipa — krótki label (ON/OFF/LOCKED/Critical/Custom itp.).</summary>
+    [Parameter, EditorRequired]
+    public string Text { get; set; } = "";
+
+    /// <summary>Semantic color z MudBlazor — Success/Error/Warning/Info/Default.
+    /// Używamy MudBlazor Color enum bo automatycznie dopasowuje się do dark/light motywu
+    /// przez CSS variables --mud-palette-*. Hardcoded hex w Style atrybucie psuł light mode.</summary>
+    [Parameter] public Color Color { get; set; } = Color.Default;
+
+    /// <summary>Filled variant (mocniejszy wizualnie) — używaj tylko dla CRITICAL stanów,
+    /// inaczej spada hierarchia wizualna i wszystko krzyczy. Default Outlined.</summary>
+    [Parameter] public bool Emphasize { get; set; }
+
+    /// <summary>Opcjonalna ikona Material Design przed tekstem — np. dla "FALSE POSITIVE" z ThumbDown.</summary>
+    [Parameter] public string? Icon { get; set; }
+
+    /// <summary>Dodatkowa CSS klasa (rzadko potrzebne; używaj parametrów wyżej).</summary>
+    [Parameter] public string? Class { get; set; }
+}

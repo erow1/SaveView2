@@ -66,11 +66,11 @@
             <MudTd>
                 @if (context.IsBuiltIn)
                 {
-                    <MudChip T="string" Size="Size.Small" Class="sv-chip-muted">@L["VllmTemplates.BuiltIn"]</MudChip>
+                    <StatusChip Text="@(L["VllmTemplates.BuiltIn"])" Color="Color.Default" />
                 }
                 else
                 {
-                    <MudChip T="string" Size="Size.Small" Style="background:#1B2A3A; color:#7EB6FF;">@L["VllmTemplates.Custom"]</MudChip>
+                    <StatusChip Text="@(L["VllmTemplates.Custom"])" Color="Color.Info" />
                 }
             </MudTd>
             <MudTd>

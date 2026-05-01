@@ -739,9 +739,7 @@
                 </MudSelect>
                 @if (!string.IsNullOrEmpty(vllmCfg.TemplateId))
                 {
-                    <MudChip T="string" Size="Size.Small" Class="sv-chip-muted" Icon="@Icons.Material.Filled.Link">
-                        @L["Triggers.VllmBoundToTemplate"]
-                    </MudChip>
+                    <StatusChip Text="@(L["Triggers.VllmBoundToTemplate"])" Color="Color.Default" Icon="@Icons.Material.Filled.Link" />
                 }
             </MudStack>
 

@@ -49,13 +49,13 @@
             </MudTd>
             <MudTd class="mono">@context.DefaultModel</MudTd>
             <MudTd>
-                @if (context.Enabled) {<MudChip T="string" Size="Size.Small" Style="background:#0E2A1E; color:#2EC27E;">ON</MudChip>}
-                else {<MudChip T="string" Size="Size.Small" Class="sv-chip-muted">OFF</MudChip>}
+                @if (context.Enabled) {<StatusChip Text="ON" Color="Color.Success" />}
+                else {<StatusChip Text="OFF" Color="Color.Default" />}
             </MudTd>
             <MudTd>
                 @if (context.IsDefault)
                 {
-                    <MudChip T="string" Size="Size.Small" Style="background:#3A2F14; color:#F5A524;">@L["LlmProviders.DefaultBadge"]</MudChip>
+                    <StatusChip Text="@L["LlmProviders.DefaultBadge"]" Color="Color.Warning" />
                 }
             </MudTd>
             <MudTd>

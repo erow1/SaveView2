@@ -107,9 +107,7 @@
                                 <MudSpacer />
                                 @if (_stats.TryGetValue(camId, out var st) && st.Detections > 0)
                                 {
-                                    <MudChip T="string" Size="Size.Small" Style="background:#0E2A1E; color:#2EC27E;">
-                                        @st.Detections
-                                    </MudChip>
+                                    <StatusChip Text="@st.Detections.ToString()" Color="Color.Success" />
                                 }
                             </MudStack>
                             <MudText Typo="Typo.caption" Class="sv-text-muted" Style="font-size:11px;">

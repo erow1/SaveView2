@@ -57,8 +57,8 @@
             <MudTd class="mono">@context.ActionIds.Count</MudTd>
             <MudTd class="mono">@(context.Schedule is null ? "24/7" : "custom")</MudTd>
             <MudTd>
-                @if (context.Enabled) {<MudChip T="string" Size="Size.Small" Style="background:#0E2A1E; color:#2EC27E;">ON</MudChip>}
-                else {<MudChip T="string" Size="Size.Small" Class="sv-chip-muted">OFF</MudChip>}
+                @if (context.Enabled) {<StatusChip Text="ON" Color="Color.Success" />}
+                else {<StatusChip Text="OFF" Color="Color.Default" />}
             </MudTd>
             <MudTd>
                 <MudTooltip Text="@L["Test.Fire"]">

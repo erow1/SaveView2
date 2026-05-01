@@ -49,15 +49,15 @@
             <MudTd>
                 @if (!context.Enabled)
                 {
-                    <MudChip T="string" Size="Size.Small" Class="sv-chip-muted">OFF</MudChip>
+                    <StatusChip Text="OFF" Color="Color.Default" />
                 }
                 else if (context.ExpiresAt is { } ex && ex <= DateTime.UtcNow)
                 {
-                    <MudChip T="string" Size="Size.Small" Style="background:#3A1515; color:#FF5964;">EXPIRED</MudChip>
+                    <StatusChip Text="EXPIRED" Color="Color.Error" />
                 }
                 else
                 {
-                    <MudChip T="string" Size="Size.Small" Style="background:#0E2A1E; color:#2EC27E;">ACTIVE</MudChip>
+                    <StatusChip Text="ACTIVE" Color="Color.Success" />
                 }
             </MudTd>
             <MudTd class="mono" style="font-size:11px;">@context.CreatedAt.ToString("yyyy-MM-dd HH:mm")</MudTd>

@@ -39,15 +39,15 @@
             <MudTd>
                 @if (context.IsLocked)
                 {
-                    <MudChip T="string" Size="Size.Small" Style="background:#3A1515; color:#FF5964;">LOCKED</MudChip>
+                    <StatusChip Text="LOCKED" Color="Color.Error" />
                 }
                 else if (!context.IsActive)
                 {
-                    <MudChip T="string" Size="Size.Small" Class="sv-chip-muted">OFF</MudChip>
+                    <StatusChip Text="OFF" Color="Color.Default" />
                 }
                 else
                 {
-                    <MudChip T="string" Size="Size.Small" Style="background:#0E2A1E; color:#2EC27E;">ACTIVE</MudChip>
+                    <StatusChip Text="ACTIVE" Color="Color.Success" />
                 }
             </MudTd>
             <MudTd class="mono">@(context.LastLoginAt?.ToString("yyyy-MM-dd HH:mm") ?? "—")</MudTd>

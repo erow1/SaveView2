@@ -51,11 +51,11 @@
             <MudTd>
                 @if (context.Enabled)
                 {
-                    <MudChip T="string" Size="Size.Small" Style="background:#0E2A1E; color:#2EC27E;">ON</MudChip>
+                    <StatusChip Text="ON" Color="Color.Success" />
                 }
                 else
                 {
-                    <MudChip T="string" Size="Size.Small" Class="sv-chip-muted">OFF</MudChip>
+                    <StatusChip Text="OFF" Color="Color.Default" />
                 }
             </MudTd>
             <MudTd>

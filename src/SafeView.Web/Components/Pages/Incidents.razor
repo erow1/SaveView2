@@ -131,23 +131,19 @@
             <MudTd><span class="mono">@context.Category</span></MudTd>
             <MudTd Class="sv-text-secondary">@(context.ModelName ?? "—")</MudTd>
             <MudTd>
-                <MudChip T="string" Size="Size.Small"
-                         Variant="@SeverityVariant(context.Severity)"
-                         Color="@SeverityColor(context.Severity)">@context.Severity</MudChip>
+                <StatusChip Text="@context.Severity.ToString()"
+                            Color="@SeverityColor(context.Severity)"
+                            Emphasize="@(context.Severity == IncidentSeverity.Critical)" />
             </MudTd>
             <MudTd>
                 <MudStack Row="true" Spacing="1">
-                    <MudChip T="string" Size="Size.Small"
-                             Variant="Variant.Outlined"
-                             Color="@StatusColor(context.Status)">@context.Status</MudChip>
+                    <StatusChip Text="@context.Status.ToString()" Color="@StatusColor(context.Status)" />
                     @if (context.WasFalsePositive)
                     {
                         <MudTooltip Text="@L["Incidents.FalsePositiveTooltip"]">
-                            <MudChip T="string" Size="Size.Small"
-                                     Variant="Variant.Outlined" Color="Color.Warning"
-                                     Icon="@Icons.Material.Filled.ThumbDown">
-                                @L["Incidents.FalsePositiveFlag"]
-                            </MudChip>
+                            <StatusChip Text="@(L["Incidents.FalsePositiveFlag"])"
+                                        Color="Color.Warning"
+                                        Icon="@Icons.Material.Filled.ThumbDown" />
                         </MudTooltip>
                     }
                 </MudStack>
