@@ -130,6 +130,37 @@ body.theme-dark .sv-chip-err  { background: #FF596422; color: #FF5964; border: 1
 
 body.theme-dark .sv-chip-success { background: #0E2A1E; color: #2EC27E; border: 1px solid #2EC27E55; }
 
+/* ── StatusChip outlined w trybie ciemnym — wnętrze tinted kolorem ramki ───
+   Outlined chip MudBlazor ma border + transparent fill. Tutaj dodajemy
+   semi-transparent fill w tym samym semantic color (analog do bbox fill
+   z ModelTestDialog) — chip wizualnie się "wypełnia" zamiast być pustym
+   konturem. Zachowuje czytelność tekstu (12-14% opacity to za mało żeby
+   przyciemnić tekst, a wystarcza by chip "świecił" subtelnie kolorem stanu).
+
+   color-mix(in srgb, var --, X% transparent) — modern CSS, wspierany
+   w Chrome 111+, Safari 16.2+, Firefox 113+. SafeView jest offline-first
+   na chrome-based przeglądarki = OK.
+
+   Tylko dla Variant.Outlined (.mud-chip-outlined). Filled chipy zostają
+   bez zmian — już mają full semantic background. */
+body.theme-dark .mud-chip.mud-chip-outlined.mud-chip-color-success {
+    background: color-mix(in srgb, var(--mud-palette-success) 14%, transparent);
+}
+body.theme-dark .mud-chip.mud-chip-outlined.mud-chip-color-error {
+    background: color-mix(in srgb, var(--mud-palette-error) 14%, transparent);
+}
+body.theme-dark .mud-chip.mud-chip-outlined.mud-chip-color-warning {
+    background: color-mix(in srgb, var(--mud-palette-warning) 14%, transparent);
+}
+body.theme-dark .mud-chip.mud-chip-outlined.mud-chip-color-info {
+    background: color-mix(in srgb, var(--mud-palette-info) 14%, transparent);
+}
+body.theme-dark .mud-chip.mud-chip-outlined.mud-chip-color-default {
+    /* Default chip jest szary — używamy text-secondary jako "chrome" tint, mniejsza
+       opacity (8%) bo szare na ciemnym tle łatwo wpada w niewidzialność. */
+    background: color-mix(in srgb, var(--mud-palette-text-secondary) 8%, transparent);
+}
+
 body.theme-dark .sv-snapshot-container { background: #050505; }
 body.theme-dark .sv-bar-track { background: #222222; }
 
