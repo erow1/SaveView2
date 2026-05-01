@@ -55,10 +55,9 @@
             <RowTemplate>
                 <MudTd class="mono" Style="font-size:11px;">@context.CreatedAt.ToLocalTime().ToString("MM-dd HH:mm:ss")</MudTd>
                 <MudTd>
-                    <span style="padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600;
-                                 background:@StatusBg(context.Status); color:@StatusFg(context.Status);">
-                        @context.Status.ToString().ToUpperInvariant()
-                    </span>
+                    <StatusChip Text="@context.Status.ToString().ToUpperInvariant()"
+                                Color="@StatusColor(context.Status)"
+                                Emphasize="@(context.Status == ActionExecutionStatus.Failed)" />
                 </MudTd>
                 <MudTd class="mono" Style="font-size:12px;">@(context.ActionName ?? context.ActionId)</MudTd>
                 <MudTd class="mono" Style="font-size:12px;">@(context.TriggerName ?? context.TriggerId)</MudTd>
@@ -72,7 +71,8 @@
                     }
                     else if (!string.IsNullOrEmpty(context.ErrorMessage))
                     {
-                        <span style="color:#FF5964; font-size:11px;">@context.ErrorMessage</span>
+                        @* Theme-adaptive error color (red w obu motywach przez --mud-palette-error). *@
+                        <span style="color:var(--mud-palette-error); font-size:11px;">@context.ErrorMessage</span>
                     }
                 </MudTd>
             </RowTemplate>
@@ -98,21 +98,16 @@
         _total = await History.CountAsync(filter);
     }
 
-    private static string StatusBg(ActionExecutionStatus s) => s switch
+    /// <summary>
+    /// ActionExecutionStatus → semantic MudBlazor Color. Failed dodatkowo Emphasize=true
+    /// w UI (Filled variant) — najbardziej krytyczny stan w action pipeline.
+    /// </summary>
+    private static Color StatusColor(ActionExecutionStatus s) => s switch
     {
-        ActionExecutionStatus.Success => "#0E2A1E",
-        ActionExecutionStatus.Failed => "#7C1020",
-        ActionExecutionStatus.Skipped => "#3A3A3A",
-        ActionExecutionStatus.RateLimited => "#8B6B1A",
-        _ => "#3A3A3A"
-    };
-
-    private static string StatusFg(ActionExecutionStatus s) => s switch
-    {
-        ActionExecutionStatus.Success => "#2EC27E",
-        ActionExecutionStatus.Failed => "#FFD7E8",
-        ActionExecutionStatus.Skipped => "#CCCCCC",
-        ActionExecutionStatus.RateLimited => "#FFE9B3",
-        _ => "#CCCCCC"
+        ActionExecutionStatus.Success     => Color.Success,
+        ActionExecutionStatus.Failed      => Color.Error,
+        ActionExecutionStatus.Skipped     => Color.Default,
+        ActionExecutionStatus.RateLimited => Color.Warning,
+        _ => Color.Default
     };
 }
