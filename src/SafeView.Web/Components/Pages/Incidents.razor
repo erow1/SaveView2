@@ -36,7 +36,8 @@
 
         <MudGrid Class="mt-2">
             <MudItem xs="12" md="4">
-                <MudSelect T="string" @bind-Value="_statusFilter" Label="@L["Incidents.FilterStatus"]"
+                <MudSelect T="string" Value="_statusFilter" ValueChanged="OnStatusChanged"
+                           Label="@L["Incidents.FilterStatus"]"
                            Variant="Variant.Outlined" Margin="Margin.Dense">
                     <MudSelectItem Value="@("all")">@L["Incidents.All"]</MudSelectItem>
                     <MudSelectItem Value="@("open")">@L["Incidents.Open"]</MudSelectItem>
@@ -193,6 +194,14 @@
     // ── Debounce: po zmianie filtra czekamy 350ms zanim trigger reload ───────
     private System.Threading.Timer? _debounce;
 
+    // ── Generation counter: chroni przed race condition gdy 2 LoadServerData działają
+    //    równolegle (np. user szybko zmienia preset → call A startuje, B startuje,
+    //    A kończy DRUGIE i nadpisuje stan B starymi danymi). Każdy load inkrementuje
+    //    licznik i sprawdza po queries czy nadal jest "tym najnowszym" — jeśli nie,
+    //    odrzuca wynik. Zwykła ct nie wystarczy bo MongoDB może zdążyć zwrócić dane
+    //    zanim ct dotrze do drivera. ─────────────────────────────────────────────
+    private int _loadGeneration;
+
     protected override async Task OnInitializedAsync()
     {
         _cameras = (await CameraRepo.ListAsync()).OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
@@ -204,9 +213,11 @@
     private void OnCameraChanged(string? v)              { _cameraId = v;    ScheduleReload(); }
     private void OnMinSeverityChanged(IncidentSeverity? v) { _minSeverity = v; ScheduleReload(); }
 
-    // Status filter: @bind-Value już zmieni _statusFilter, OnParametersSet trigger reload.
-    // Idziemy do bazy bo status to teraz filtr server-side (nie in-memory na _all).
-    protected override void OnParametersSet() => ScheduleReload();
+    // Status filter: explicit handler. NIE używamy OnParametersSet — Blazor nie woła go
+    // na zmianach @bind-Value w MudSelect na top-level page (parameters wiązane są tylko
+    // przez router). Explicit OnStatusChanged + ScheduleReload to jedyny sposób na
+    // pewną reaktywność.
+    private void OnStatusChanged(string v) { _statusFilter = v; ScheduleReload(); }
 
     private void ScheduleReload()
     {
@@ -223,9 +234,15 @@
     /// + zmianie strony/PageSize. Robi 2 paralelne queries do Mongo:
     ///   1. ListPagedAsync — strona (Skip/Limit) + total count
     ///   2. CountBySeverityAsync — KPI dla CAŁEGO filtra (nie tylko aktualnej strony)
+    ///
+    /// Generation counter chroni przed race: jeśli user zmieni filter w trakcie query,
+    /// startuje nowy load (nowa generacja). Stary load po ukończeniu sprawdza czy nadal
+    /// jest najnowszy — jeśli nie, ZWRACA pusty TableData bez zapisu do _totalCount/_critCount,
+    /// żeby NIE nadpisać poprawnych danych z nowszego loadu.
     /// </summary>
     private async Task<TableData<Incident>> LoadServerData(TableState state, CancellationToken ct)
     {
+        var thisGen = System.Threading.Interlocked.Increment(ref _loadGeneration);
         _loading = true;
         try
         {
@@ -233,6 +250,12 @@
             var pageTask = IncidentRepo.ListPagedAsync(filter, state.Page * state.PageSize, state.PageSize, ct);
             var sevTask = IncidentRepo.CountBySeverityAsync(filter, ct);
             await Task.WhenAll(pageTask, sevTask).ConfigureAwait(false);
+
+            // Race-guard: jeśli inny load wystartował po nas, nie dotykamy state — niech wygra
+            // ten nowszy. Zwracamy pusty TableData → MudTable nie nadpisze widocznej tabeli
+            // (nowszy ServerData call jest już w trakcie, jego wynik trafi za chwilę).
+            if (thisGen != System.Threading.Volatile.Read(ref _loadGeneration))
+                return new TableData<Incident> { Items = Array.Empty<Incident>(), TotalItems = (int)_totalCount };
 
             var page = pageTask.Result;
             var bySev = sevTask.Result;
@@ -244,11 +267,14 @@
         }
         catch (OperationCanceledException)
         {
-            return new TableData<Incident> { Items = Array.Empty<Incident>(), TotalItems = 0 };
+            return new TableData<Incident> { Items = Array.Empty<Incident>(), TotalItems = (int)_totalCount };
         }
         finally
         {
-            _loading = false;
+            // Reset loading tylko jeśli to my jesteśmy najnowszym loadem — inaczej zostaw true
+            // bo nowszy load nadal trwa.
+            if (thisGen == System.Threading.Volatile.Read(ref _loadGeneration))
+                _loading = false;
             // StateHasChanged niepotrzebne — MudTable po returnie sam re-renderuje
         }
     }
