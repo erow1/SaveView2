@@ -81,6 +81,7 @@ secrets.json
 /storage/
 /mediamtx-data/
 /logs/
+/.safeview.pid
 
 # Publish (dotnet publish output) — anchor żeby nie kolidował z ewent. folderami "Out/" "Publish/" w src
 /publish/
