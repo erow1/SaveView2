@@ -35,12 +35,12 @@
   <data name="Nav.LlmProviders"><value>Providery detekcji kontekstowej</value></data>
   <data name="Nav.LlmChat"><value>Asystent AI</value></data>
   <data name="LlmChat.Title"><value>Asystent AI</value></data>
-  <data name="LlmChat.Description"><value>Playground chatu z uploadem obrazów — zweryfikuj providera + model + multimodal przed wpięciem w triggery.</value></data>
+  <data name="LlmChat.Description"><value>Czat z modelem AI z uploadem obrazów — szybki test providera i modelu detekcji kontekstowej przed użyciem w triggerach.</value></data>
   <data name="LlmChat.Provider"><value>Dostawca</value></data>
   <data name="LlmChat.ProviderDefault"><value>(domyślny dostawca)</value></data>
   <data name="LlmChat.Model"><value>Model</value></data>
   <data name="LlmChat.ModelHint"><value>Wybierz model z obsługą obrazów (vision-capable)</value></data>
-  <data name="LlmChat.ModelsLoaded"><value>{0} modeli dostępnych</value></data>
+  <data name="LlmChat.ModelsLoaded"><value>Dostępnych modeli: {0}</value></data>
   <data name="LlmChat.LoadModels"><value>Wczytaj listę modeli</value></data>
   <data name="LlmChat.UnloadModelHint"><value>Wyładuj model z Ollama (wymusza świeży load przy kolejnym requeście — naprawia "zafiksowany" model)</value></data>
   <data name="LlmChat.UnloadOllamaOnly"><value>Unload dostępny tylko dla Ollama</value></data>
@@ -77,7 +77,7 @@
   <data name="LlmProviders.PingFailed"><value>{0}: brak odpowiedzi (endpoint zwrócił błąd)</value></data>
   <data name="LlmProviders.PingError"><value>Błąd testu: {0}</value></data>
   <data name="LlmProviders.LoadModels"><value>Wczytaj listę modeli z dostawcy</value></data>
-  <data name="LlmProviders.ModelsLoaded"><value>{0} modeli wczytanych — wybierz z listy lub wpisz własną nazwę</value></data>
+  <data name="LlmProviders.ModelsLoaded"><value>Wczytano modeli: {0} — wybierz z listy lub wpisz własną nazwę</value></data>
   <data name="LlmProviders.NoModelsReturned"><value>Dostawca nie zwrócił żadnych modeli. Sprawdź Base URL / klucz API.</value></data>
   <data name="LlmProviders.ModelsLoadFailed"><value>Nie udało się wczytać listy modeli: {0}</value></data>
   <data name="LlmProviders.LoadedChipsLabel"><value>Dostępne</value></data>

@@ -35,12 +35,12 @@
   <data name="Nav.LlmProviders"><value>Contextual detection providers</value></data>
   <data name="Nav.LlmChat"><value>AI Assistant</value></data>
   <data name="LlmChat.Title"><value>AI Assistant</value></data>
-  <data name="LlmChat.Description"><value>Chat playground with image upload — verify provider + model + multimodal support before wiring into triggers.</value></data>
+  <data name="LlmChat.Description"><value>AI chat with image upload — quick provider and contextual-detection model test before using in triggers.</value></data>
   <data name="LlmChat.Provider"><value>Provider</value></data>
   <data name="LlmChat.ProviderDefault"><value>(default provider)</value></data>
   <data name="LlmChat.Model"><value>Model</value></data>
   <data name="LlmChat.ModelHint"><value>Pick a vision-capable model for image analysis</value></data>
-  <data name="LlmChat.ModelsLoaded"><value>{0} models available</value></data>
+  <data name="LlmChat.ModelsLoaded"><value>Available models: {0}</value></data>
   <data name="LlmChat.LoadModels"><value>Load model list</value></data>
   <data name="LlmChat.UnloadModelHint"><value>Unload model from Ollama (forces fresh reload on next request — fixes "stuck" model)</value></data>
   <data name="LlmChat.UnloadOllamaOnly"><value>Unload supported only for Ollama backends</value></data>
@@ -77,7 +77,7 @@
   <data name="LlmProviders.PingFailed"><value>{0}: no response (endpoint returned an error)</value></data>
   <data name="LlmProviders.PingError"><value>Test error: {0}</value></data>
   <data name="LlmProviders.LoadModels"><value>Load model list from provider</value></data>
-  <data name="LlmProviders.ModelsLoaded"><value>{0} models loaded — pick from the list or type a custom name</value></data>
+  <data name="LlmProviders.ModelsLoaded"><value>Loaded models: {0} — pick from the list or type a custom name</value></data>
   <data name="LlmProviders.NoModelsReturned"><value>Provider returned no models. Check Base URL / API key.</value></data>
   <data name="LlmProviders.ModelsLoadFailed"><value>Failed to load models: {0}</value></data>
   <data name="LlmProviders.LoadedChipsLabel"><value>Available</value></data>

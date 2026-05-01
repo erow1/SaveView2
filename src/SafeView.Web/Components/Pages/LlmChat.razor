@@ -33,9 +33,13 @@
         </div>
     </MudStack>
 
-    @* ── Provider + model picker + akcje ─────────────────────────── *@
+    @* ── Provider + model picker + akcje ─────────────────────────────────────────────
+       Layout: pola (Provider + Model) w lewym stacku z flex-grow, akcje (3 ikony) w prawym
+       ButtonGroup. AlignItems.Start na głównym row + osobny mt na ButtonGroup wyrównuje
+       ikony do TOP linii inputów (czyli do labela/krawędzi pola), a NIE do dołu helper-textu —
+       inaczej ikony "pływały" pod Model fieldem gdy dochodził helper text. *@
     <MudPaper Class="pa-3 sv-card" Elevation="0">
-        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Start">
             <MudSelect T="string" Value="_selectedProviderId"
                        ValueChanged="OnProviderChanged"
                        Label="@L["LlmChat.Provider"]"
@@ -59,26 +63,27 @@
                              Variant="Variant.Outlined" Margin="Margin.Dense"
                              Class="mono" Style="flex:1; min-width:280px;" />
 
-            <MudTooltip Text="@L["LlmChat.LoadModels"]">
-                <MudIconButton Icon="@Icons.Material.Filled.CloudDownload"
-                               Variant="Variant.Outlined"
-                               Disabled="@(_loadingModels || _selectedProvider is null)"
-                               OnClick="LoadModelsAsync" />
-            </MudTooltip>
-
-            <MudTooltip Text="@(_canUnload ? L["LlmChat.UnloadModelHint"] : L["LlmChat.UnloadOllamaOnly"])">
-                <MudIconButton Icon="@Icons.Material.Filled.PowerSettingsNew"
-                               Variant="Variant.Outlined" Color="Color.Warning"
-                               Disabled="@(!_canUnload || _busy || string.IsNullOrWhiteSpace(_selectedModel))"
-                               OnClick="UnloadModelAsync" />
-            </MudTooltip>
-
-            <MudTooltip Text="@L["LlmChat.ClearChat"]">
-                <MudIconButton Icon="@Icons.Material.Filled.DeleteSweep"
-                               Variant="Variant.Outlined"
-                               Disabled="@(_history.Count == 0)"
-                               OnClick="ClearChat" />
-            </MudTooltip>
+            @* ButtonGroup grupuje 3 ikony wizualnie (wspólny outlined border, brak luzem rozsianych
+               okrągłych przycisków). Margin-top 6px wyrównuje top-edge przycisków z top-edge inputów
+               z labelem (kompensuje że MudSelect/Autocomplete mają label "wystający" nad input). *@
+            <MudButtonGroup Variant="Variant.Outlined" Style="margin-top:6px; flex-shrink:0;">
+                <MudTooltip Text="@L["LlmChat.LoadModels"]">
+                    <MudIconButton Icon="@Icons.Material.Filled.CloudDownload"
+                                   Disabled="@(_loadingModels || _selectedProvider is null)"
+                                   OnClick="LoadModelsAsync" />
+                </MudTooltip>
+                <MudTooltip Text="@(_canUnload ? L["LlmChat.UnloadModelHint"] : L["LlmChat.UnloadOllamaOnly"])">
+                    <MudIconButton Icon="@Icons.Material.Filled.PowerSettingsNew"
+                                   Color="Color.Warning"
+                                   Disabled="@(!_canUnload || _busy || string.IsNullOrWhiteSpace(_selectedModel))"
+                                   OnClick="UnloadModelAsync" />
+                </MudTooltip>
+                <MudTooltip Text="@L["LlmChat.ClearChat"]">
+                    <MudIconButton Icon="@Icons.Material.Filled.DeleteSweep"
+                                   Disabled="@(_history.Count == 0)"
+                                   OnClick="ClearChat" />
+                </MudTooltip>
+            </MudButtonGroup>
         </MudStack>
 
         <MudExpansionPanels Elevation="0" Class="mt-2">
