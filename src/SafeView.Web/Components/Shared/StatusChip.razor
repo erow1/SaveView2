@@ -24,11 +24,17 @@
     Nie używaj dla chipów INTERAKTYWNYCH (z OnClose, OnClick) — tam idź wprost MudChip.
 *@
 
+@*
+    font-size:12px wymuszony explicit żeby chip wyglądał TAK SAMO niezależnie od parent
+    komórki (część tabel ma <MudTd Style="font-size:11px"> co psuje chipa wewnątrz).
+    12px to MudBlazor default dla Size.Small = wzorzec z /admin/detection-classes (Rodzaj).
+*@
 <MudChip T="string" Size="Size.Small"
          Variant="@(Emphasize ? Variant.Filled : Variant.Outlined)"
          Color="@Color"
          Icon="@Icon"
-         Class="@Class">
+         Class="@Class"
+         Style="font-size:12px;">
     @Text
 </MudChip>
 

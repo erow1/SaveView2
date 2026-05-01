@@ -133,6 +133,14 @@ body:not(.theme-dark):not(.theme-light) {
     font-weight: 500;
 }
 
+/* Wszystkie MudChip Size="Size.Small" mają jednolitą wielkość czcionki 12px,
+   niezależnie od kontekstu (parent komórka tabeli z font-size override itp).
+   Wzorzec: chip Rodzaj na /admin/detection-classes — to jest jedyna wielkość
+   chipów statusowych w aplikacji. Bez tego override 11/12/13 px rozjazd. */
+.mud-chip.mud-chip-size-small {
+    font-size: 12px;
+}
+
 /* ── Status indicator (running/stopped) ────────────────────────────────── */
 .sv-status-ok  { font-weight: 700; }
 .sv-status-err { font-weight: 700; }
