@@ -19,6 +19,23 @@ public interface IIncidentRepository : IRepository<Incident>
         IncidentSeverity? severity = null, IncidentStatus? status = null,
         CancellationToken ct = default);
 
+    /// <summary>
+    /// Strona wyników z TotalCount — server-side pagination dla /incidents. Zwraca
+    /// pojedynczą stronę (Skip/Limit) + całkowitą liczbę dokumentów spełniających
+    /// filtr (potrzebne do pagera + KPI). Sortowanie zawsze DESC po OccurredAt
+    /// (zgodne z indeksem). Filtr "FalsePositiveAny" jest specjalny — dopasowuje
+    /// Status=FalsePositive LUB WasFalsePositive=true (operator może oznaczyć FP
+    /// nie zmieniając statusu).
+    /// </summary>
+    Task<PagedResult<Incident>> ListPagedAsync(IncidentFilter filter, int skip, int limit, CancellationToken ct = default);
+
+    /// <summary>
+    /// Histogram po Severity dla całego zbioru spełniającego filtr (NIE tylko aktualnej strony).
+    /// Używane do KPI (Critical/High/Medium counts). 4 paralelne CountDocumentsAsync — szybsze niż
+    /// ToList+GroupBy bo każdy CountDocuments idzie po indeksie i nie wczytuje payloadu.
+    /// </summary>
+    Task<IReadOnlyDictionary<IncidentSeverity, long>> CountBySeverityAsync(IncidentFilter filter, CancellationToken ct = default);
+
     /// <summary>Statystyki jakości szablonu VLLM w oknie czasowym. Używane w /admin/vllm-templates.</summary>
     Task<VllmTemplateStats> GetStatsByVllmTemplateAsync(string templateId, DateTime from, CancellationToken ct = default);
 
@@ -58,3 +75,32 @@ public sealed record DetectionClassStats(
 {
     public double FalsePositiveRate => FireCount > 0 ? (double)FalsePositiveCount / FireCount : 0;
 }
+
+/// <summary>
+/// Filtr dla <see cref="IIncidentRepository.ListPagedAsync"/> i <see cref="IIncidentRepository.CountBySeverityAsync"/>.
+/// Wszystkie pola opcjonalne — null = brak filtra. <see cref="MinSeverity"/> jest progiem (>=),
+/// nie equality — Critical+High+Medium zwracane gdy MinSeverity=Medium.
+/// <see cref="StatusOption"/> "FalsePositiveAny" obejmuje oba sygnały FP (Status + WasFalsePositive flag).
+/// </summary>
+public sealed record IncidentFilter(
+    DateTime? From = null,
+    DateTime? Until = null,
+    string? CameraId = null,
+    IncidentSeverity? MinSeverity = null,
+    IncidentStatusOption Status = IncidentStatusOption.All);
+
+/// <summary>
+/// UI-friendly status filter dla list incydentów. "FalsePositiveAny" to OR
+/// (Status=FalsePositive ∨ WasFalsePositive=true) — operator może oznaczyć incydent
+/// jako FP nie zmieniając jego statusu (np. Resolved + ThumbDown).
+/// </summary>
+public enum IncidentStatusOption
+{
+    All,
+    Open,
+    Acknowledged,
+    Resolved,
+    FalsePositiveAny
+}
+
+public sealed record PagedResult<T>(IReadOnlyList<T> Items, long TotalCount);

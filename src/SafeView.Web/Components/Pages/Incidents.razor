@@ -2,6 +2,7 @@
 @attribute [Authorize(Policy = "perm:incidents:view")]
 @implements IDisposable
 @using SafeView.Domain.Common
+@using SafeView.Application.Abstractions.Persistence
 @using SafeView.Application.Abstractions.Reports
 @using SafeView.Domain.Incidents
 @inject SafeView.Application.Abstractions.Persistence.IIncidentRepository IncidentRepo
@@ -86,11 +87,11 @@
         </MudStack>
     </MudPaper>
 
-    @* ── Live KPI: liczbowy podgląd dla aktualnych filtrów ─────────────────── *@
+    @* ── Live KPI: liczbowy podgląd dla aktualnych filtrów (cały zbiór, nie tylko strona) ─── *@
     <MudPaper Class="pa-4 sv-card" Elevation="0">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
             <MudText Typo="Typo.h6">@L["Incidents.Summary"]</MudText>
-            @if (_loadingPreview)
+            @if (_loading)
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Primary" Style="width:16px; height:16px;" />
                 <MudText Typo="Typo.caption" Class="sv-text-muted">@L["Reports.PreviewUpdating"]</MudText>
@@ -101,16 +102,19 @@
             }
         </MudStack>
         <MudGrid Class="mt-2">
-            <MudItem xs="6" md="3"><Stat Label="@L["Reports.Total"]" Value="@_filtered.Count.ToString()" /></MudItem>
+            <MudItem xs="6" md="3"><Stat Label="@L["Reports.Total"]" Value="@_totalCount.ToString()" /></MudItem>
             <MudItem xs="6" md="3"><Stat Label="Critical" Value="@_critCount.ToString()" Color="#FF2D2D" /></MudItem>
             <MudItem xs="6" md="3"><Stat Label="High" Value="@_highCount.ToString()" Color="#FF5964" /></MudItem>
             <MudItem xs="6" md="3"><Stat Label="Medium" Value="@_medCount.ToString()" Color="#F5A524" /></MudItem>
         </MudGrid>
     </MudPaper>
 
-    @* ── Tabela incydentów ─────────────────────────────────────────────────── *@
-    <MudTable Items="_filtered" Dense="true" Hover="true" Loading="_loadingPreview" Elevation="0"
-              Class="sv-card" OnRowClick="OnRowClick" T="Incident">
+    @* ── Tabela incydentów (server-side pagination — Mongo Skip/Limit) ────── *@
+    <MudTable @ref="_table"
+              ServerData="LoadServerData"
+              Dense="true" Hover="true" Loading="_loading" Elevation="0"
+              Class="sv-card" OnRowClick="OnRowClick" T="Incident"
+              RowsPerPage="50">
         <HeaderContent>
             <MudTh>@L["Table.When"]</MudTh>
             <MudTh>@L["Table.Camera"]</MudTh>
@@ -160,6 +164,9 @@
                 }
             </MudTd>
         </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new[] { 25, 50, 100, 250 }" />
+        </PagerContent>
     </MudTable>
 </MudStack>
 
@@ -176,84 +183,93 @@
     private bool _includeThumbnails;
     private bool _downloading;
 
-    // ── Dane ─────────────────────────────────────────────────────────────────
-    private List<Incident> _all = new();        // surowe z bazy (bez status filter)
-    private List<Incident> _filtered = new();   // po wszystkich filtrach (status + reszta)
+    // ── Dane: tylko aktualna strona + counts dla całego filtra ───────────────
+    private MudTable<Incident>? _table;
     private List<SafeView.Domain.Cameras.Camera> _cameras = new();
+    private long _totalCount;
     private int _critCount, _highCount, _medCount;
-    private bool _loadingPreview;
+    private bool _loading;
 
-    // ── Debounce + cancellation ──────────────────────────────────────────────
+    // ── Debounce: po zmianie filtra czekamy 350ms zanim trigger reload ───────
     private System.Threading.Timer? _debounce;
-    private CancellationTokenSource? _previewCts;
 
     protected override async Task OnInitializedAsync()
     {
         _cameras = (await CameraRepo.ListAsync()).OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
     }
 
-    // ── Reaktywne handlery ───────────────────────────────────────────────────
+    // ── Reaktywne handlery: każda zmiana filtra trigger debounce → ReloadServerData ─
     private void OnFromChanged(DateTime? v)              { _from = v;        ScheduleReload(); }
     private void OnToChanged(DateTime? v)                { _to = v;          ScheduleReload(); }
     private void OnCameraChanged(string? v)              { _cameraId = v;    ScheduleReload(); }
     private void OnMinSeverityChanged(IncidentSeverity? v) { _minSeverity = v; ScheduleReload(); }
 
-    // Status nie wymaga ponownego query — filtrujemy in-memory na _all.
-    // MudSelect @bind-Value zmieni _statusFilter, ale OnParametersSet wywoła ApplyStatusFilter.
-    protected override void OnParametersSet() => ApplyStatusFilter();
+    // Status filter: @bind-Value już zmieni _statusFilter, OnParametersSet trigger reload.
+    // Idziemy do bazy bo status to teraz filtr server-side (nie in-memory na _all).
+    protected override void OnParametersSet() => ScheduleReload();
 
     private void ScheduleReload()
     {
         _debounce?.Dispose();
-        _debounce = new System.Threading.Timer(_ => _ = InvokeAsync(LoadAsync),
-            null, TimeSpan.FromMilliseconds(350), Timeout.InfiniteTimeSpan);
+        _debounce = new System.Threading.Timer(_ => _ = InvokeAsync(async () =>
+        {
+            if (_table is not null)
+                await _table.ReloadServerData();
+        }), null, TimeSpan.FromMilliseconds(350), Timeout.InfiniteTimeSpan);
     }
 
-    private async Task LoadAsync()
+    /// <summary>
+    /// MudTable.ServerData callback — wywoływany przy starcie + każdym ReloadServerData()
+    /// + zmianie strony/PageSize. Robi 2 paralelne queries do Mongo:
+    ///   1. ListPagedAsync — strona (Skip/Limit) + total count
+    ///   2. CountBySeverityAsync — KPI dla CAŁEGO filtra (nie tylko aktualnej strony)
+    /// </summary>
+    private async Task<TableData<Incident>> LoadServerData(TableState state, CancellationToken ct)
     {
-        // Anulujemy stare zapytanie (kliki-kliki presetu) — pokazujemy wynik dla OSTATNIEJ
-        // kombinacji parametrów, nie pierwszej która wróci z bazy.
-        _previewCts?.Cancel();
-        _previewCts = new CancellationTokenSource();
-        var ct = _previewCts.Token;
-
-        _loadingPreview = true;
-        StateHasChanged();
+        _loading = true;
         try
         {
-            var (fromUtc, toUtc) = ResolveUtcRange();
-            var raw = await IncidentRepo.ListByDateRangeAsync(fromUtc, toUtc, ct).ConfigureAwait(false);
-            if (ct.IsCancellationRequested) return;
-            IEnumerable<Incident> q = raw;
-            if (!string.IsNullOrEmpty(_cameraId)) q = q.Where(i => i.CameraId == _cameraId);
-            if (_minSeverity is not null) q = q.Where(i => i.Severity >= _minSeverity);
-            _all = q.OrderByDescending(i => i.OccurredAt).ToList();
-            ApplyStatusFilter();
+            var filter = BuildFilter();
+            var pageTask = IncidentRepo.ListPagedAsync(filter, state.Page * state.PageSize, state.PageSize, ct);
+            var sevTask = IncidentRepo.CountBySeverityAsync(filter, ct);
+            await Task.WhenAll(pageTask, sevTask).ConfigureAwait(false);
+
+            var page = pageTask.Result;
+            var bySev = sevTask.Result;
+            _totalCount = page.TotalCount;
+            _critCount = (int)bySev[IncidentSeverity.Critical];
+            _highCount = (int)bySev[IncidentSeverity.High];
+            _medCount  = (int)bySev[IncidentSeverity.Medium];
+            return new TableData<Incident> { Items = page.Items, TotalItems = (int)page.TotalCount };
         }
-        catch (OperationCanceledException) { /* nowy request wystrzelił — ignorujemy */ }
+        catch (OperationCanceledException)
+        {
+            return new TableData<Incident> { Items = Array.Empty<Incident>(), TotalItems = 0 };
+        }
         finally
         {
-            if (!ct.IsCancellationRequested)
-            {
-                _loadingPreview = false;
-                StateHasChanged();
-            }
+            _loading = false;
+            // StateHasChanged niepotrzebne — MudTable po returnie sam re-renderuje
         }
     }
 
-    private void ApplyStatusFilter()
+    private IncidentFilter BuildFilter()
     {
-        _filtered = _statusFilter switch
+        var (fromUtc, toUtc) = ResolveUtcRange();
+        var status = _statusFilter switch
         {
-            "open"     => _all.Where(i => i.Status == IncidentStatus.Open).ToList(),
-            "ack"      => _all.Where(i => i.Status == IncidentStatus.Acknowledged).ToList(),
-            "resolved" => _all.Where(i => i.Status == IncidentStatus.Resolved).ToList(),
-            "fp"       => _all.Where(i => i.Status == IncidentStatus.FalsePositive || i.WasFalsePositive).ToList(),
-            _          => _all
+            "open"     => IncidentStatusOption.Open,
+            "ack"      => IncidentStatusOption.Acknowledged,
+            "resolved" => IncidentStatusOption.Resolved,
+            "fp"       => IncidentStatusOption.FalsePositiveAny,
+            _          => IncidentStatusOption.All
         };
-        _critCount = _filtered.Count(i => i.Severity == IncidentSeverity.Critical);
-        _highCount = _filtered.Count(i => i.Severity == IncidentSeverity.High);
-        _medCount  = _filtered.Count(i => i.Severity == IncidentSeverity.Medium);
+        return new IncidentFilter(
+            From: fromUtc,
+            Until: toUtc,
+            CameraId: string.IsNullOrEmpty(_cameraId) ? null : _cameraId,
+            MinSeverity: _minSeverity,
+            Status: status);
     }
 
     // ── Generowanie raportu (PDF/CSV) ────────────────────────────────────────
@@ -308,8 +324,6 @@
     public void Dispose()
     {
         _debounce?.Dispose();
-        _previewCts?.Cancel();
-        _previewCts?.Dispose();
     }
 
     // ── Style chipów ─────────────────────────────────────────────────────────
