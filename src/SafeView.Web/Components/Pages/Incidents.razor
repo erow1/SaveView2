@@ -152,7 +152,7 @@
                 @if (context.LlmAnalysis is { } a)
                 {
                     <div class="mt-1 sv-text-info" style="font-size:11px;">
-                        <span class="mono">LLM:</span> @a.RecommendedAction (FP @($"{a.FalsePositiveProbability:P0}"))
+                        <span class="mono">AI:</span> @a.RecommendedAction (FP @($"{a.FalsePositiveProbability:P0}"))
                         <MudTooltip Text="@a.Rationale">
                             <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" Class="sv-text-info" Style="vertical-align:middle;" />
                         </MudTooltip>

@@ -31,10 +31,10 @@
   <data name="Nav.Incidents"><value>Incydenty</value></data>
   <data name="Nav.Monitor"><value>Podgląd</value></data>
   <data name="Nav.Flow"><value>Flow pipeline</value></data>
-  <data name="Nav.VllmTemplates"><value>Szablony VLLM</value></data>
-  <data name="Nav.LlmProviders"><value>Dostawcy LLM</value></data>
-  <data name="Nav.LlmChat"><value>Chat z LLM (test)</value></data>
-  <data name="LlmChat.Title"><value>Chat &amp; test LLM</value></data>
+  <data name="Nav.VllmTemplates"><value>Szablony detekcji kontekstowej</value></data>
+  <data name="Nav.LlmProviders"><value>Providery detekcji kontekstowej</value></data>
+  <data name="Nav.LlmChat"><value>Asystent AI</value></data>
+  <data name="LlmChat.Title"><value>Asystent AI</value></data>
   <data name="LlmChat.Description"><value>Playground chatu z uploadem obrazów — zweryfikuj providera + model + multimodal przed wpięciem w triggery.</value></data>
   <data name="LlmChat.Provider"><value>Dostawca</value></data>
   <data name="LlmChat.ProviderDefault"><value>(domyślny dostawca)</value></data>
@@ -51,11 +51,11 @@
   <data name="LlmChat.MessagePlaceholder"><value>Napisz wiadomość…</value></data>
   <data name="LlmChat.Send"><value>Wyślij</value></data>
   <data name="LlmChat.EmptyHint"><value>Brak wiadomości — wybierz model, opcjonalnie dodaj obraz i wyślij.</value></data>
-  <data name="LlmProviders.Title"><value>Dostawcy LLM</value></data>
-  <data name="LlmProviders.Description"><value>Konfiguracje modeli LLM na różnych hostach/platformach (Ollama, LM Studio, vLLM, OpenAI, …). Trigger może wybrać który ma być użyty — np. szybki lokalny dla pożaru, większy chmurowy dla analiz intruza.</value></data>
+  <data name="LlmProviders.Title"><value>Providery detekcji kontekstowej</value></data>
+  <data name="LlmProviders.Description"><value>Konfiguracje modeli detekcji kontekstowej na różnych hostach/platformach (Ollama, LM Studio, vLLM, OpenAI, …). Trigger może wybrać który ma być użyty — np. szybki lokalny dla pożaru, większy chmurowy dla analiz intruza.</value></data>
   <data name="LlmProviders.Add"><value>Dodaj providera</value></data>
-  <data name="LlmProviders.AddTitle"><value>Nowy dostawca LLM</value></data>
-  <data name="LlmProviders.EditTitle"><value>Edytuj dostawcę LLM</value></data>
+  <data name="LlmProviders.AddTitle"><value>Nowy provider detekcji kontekstowej</value></data>
+  <data name="LlmProviders.EditTitle"><value>Edytuj providera detekcji kontekstowej</value></data>
   <data name="LlmProviders.DeleteTitle"><value>Usunąć dostawcę?</value></data>
   <data name="LlmProviders.DeleteMessage"><value>Dostawca „{0}" zostanie usunięty. Triggery używające go przełączą się na default.</value></data>
   <data name="LlmProviders.Saved"><value>Dostawca zapisany.</value></data>
@@ -118,21 +118,21 @@
   <data name="LlmProviders.InstallFailed"><value>Instalacja nieudana — zobacz logi.</value></data>
   <data name="LlmProviders.InstallError"><value>Błąd instalacji: {0}</value></data>
   <data name="LlmProviders.InstallCancelled"><value>Instalacja anulowana.</value></data>
-  <data name="Triggers.VllmProvider"><value>Dostawca LLM</value></data>
+  <data name="Triggers.VllmProvider"><value>Provider detekcji kontekstowej</value></data>
   <data name="Triggers.VllmProviderHint"><value>Wybór konkretnego providera (Ollama / vLLM / OpenAI). Puste = użyj domyślnego z /admin/llm-providers.</value></data>
   <data name="Triggers.VllmProviderDefault"><value>Domyślny provider</value></data>
-  <data name="VllmPlayground.Provider"><value>Dostawca LLM</value></data>
+  <data name="VllmPlayground.Provider"><value>Provider detekcji kontekstowej</value></data>
   <data name="VllmPlayground.ProviderHint"><value>Wybór providera (Ollama / vLLM / OpenAI). Puste = domyślny.</value></data>
   <data name="VllmPlayground.ProviderDefault"><value>Domyślny provider</value></data>
-  <data name="Nav.VllmPlayground"><value>Playground VLLM</value></data>
-  <data name="VllmPlayground.Title"><value>Playground VLLM</value></data>
-  <data name="VllmPlayground.Description"><value>Wgraj zdjęcie, wybierz szablon lub napisz własny prompt — sprawdź co VLLM odpowie, zanim włączysz go na produkcji.</value></data>
+  <data name="Nav.VllmPlayground"><value>Test detekcji kontekstowej</value></data>
+  <data name="VllmPlayground.Title"><value>Test detekcji kontekstowej</value></data>
+  <data name="VllmPlayground.Description"><value>Wgraj zdjęcie, wybierz szablon lub napisz własny prompt — sprawdź co model AI odpowie, zanim włączysz go na produkcji.</value></data>
   <data name="VllmPlayground.Run"><value>Uruchom test</value></data>
   <data name="VllmPlayground.Running"><value>Trwa…</value></data>
   <data name="VllmPlayground.Config"><value>Konfiguracja</value></data>
   <data name="VllmPlayground.LoadTemplate"><value>Wczytaj z szablonu</value></data>
   <data name="VllmPlayground.Model"><value>Nazwa modelu</value></data>
-  <data name="VllmPlayground.ModelHint"><value>Puste = użyj domyślnego z ustawień LLM. Np. qwen2.5-vl:7b, qwen2.5-vl:32b, gemma3:27b</value></data>
+  <data name="VllmPlayground.ModelHint"><value>Puste = użyj domyślnego z ustawień detekcji kontekstowej. Np. qwen2.5-vl:7b, qwen2.5-vl:32b, gemma3:27b</value></data>
   <data name="VllmPlayground.SystemPrompt"><value>System prompt (EN)</value></data>
   <data name="VllmPlayground.UserPrompt"><value>User prompt (PL)</value></data>
   <data name="VllmPlayground.UserPromptHint"><value>Placeholders: {camera}, {zone}, {trigger}, {labels}, {detections}, {time_of_day}</value></data>
@@ -158,23 +158,23 @@
   <data name="VllmPlayground.Observations"><value>Obserwacje</value></data>
   <data name="VllmPlayground.Alternatives"><value>Alternatywne wyjaśnienia</value></data>
   <data name="VllmPlayground.Duration"><value>Czas</value></data>
-  <data name="VllmPlayground.RawResponse"><value>Surowa odpowiedź LLM</value></data>
+  <data name="VllmPlayground.RawResponse"><value>Surowa odpowiedź modelu AI</value></data>
   <data name="VllmPlayground.Diagnostics"><value>Diagnostyka — co faktycznie wysłaliśmy</value></data>
   <data name="VllmPlayground.GenerateBtn"><value>Wygeneruj z opisu</value></data>
   <data name="VllmPlayground.Generating"><value>Generuję…</value></data>
-  <data name="VllmPlayground.GenerateTitle"><value>Generator promptu VLLM</value></data>
+  <data name="VllmPlayground.GenerateTitle"><value>Generator promptu detekcji kontekstowej</value></data>
   <data name="VllmPlayground.GenerateSuccess"><value>Prompt wygenerowany. Przetestuj na zdjęciu, potem ewentualnie "Zapisz jako szablon".</value></data>
   <data name="VllmPlayground.SaveAsTemplate"><value>Zapisz jako szablon</value></data>
-  <data name="VllmGenerator.Hint"><value>Opisz własnymi słowami co chcesz wykrywać — LLM wygeneruje kompletny prompt z systemową rolą, polskim user-promptem, schematem odpowiedzi i rekomendowanymi progami. Dopracujesz ręcznie jeśli trzeba.</value></data>
+  <data name="VllmGenerator.Hint"><value>Opisz własnymi słowami co chcesz wykrywać — Model AI wygeneruje kompletny prompt z systemową rolą, polskim user-promptem, schematem odpowiedzi i rekomendowanymi progami. Dopracujesz ręcznie jeśli trzeba.</value></data>
   <data name="VllmGenerator.DescriptionLabel"><value>Opis scenariusza</value></data>
   <data name="VllmGenerator.DescriptionHint"><value>Bądź konkretny: kto, co, gdzie. Np. "operator wózka widłowego bez kasku w hali magazynowej" zamiast ogólnego "brak PPE".</value></data>
   <data name="VllmGenerator.Examples"><value>Przykłady (kliknij aby wstawić)</value></data>
   <data name="VllmGenerator.Generate"><value>Wygeneruj</value></data>
-  <data name="VllmTemplates.Title"><value>Szablony promptów VLLM</value></data>
+  <data name="VllmTemplates.Title"><value>Szablony detekcji kontekstowej</value></data>
   <data name="VllmTemplates.Description"><value>Biblioteka gotowych promptów do walidacji wizyjnej zdarzeń BHP. Triggery używają ich jako bazy — edytujesz raz, działa w wielu triggerach.</value></data>
   <data name="VllmTemplates.Add"><value>Nowy szablon</value></data>
-  <data name="VllmTemplates.AddTitle"><value>Nowy szablon VLLM</value></data>
-  <data name="VllmTemplates.EditTitle"><value>Edytuj szablon VLLM</value></data>
+  <data name="VllmTemplates.AddTitle"><value>Nowy szablon detekcji kontekstowej</value></data>
+  <data name="VllmTemplates.EditTitle"><value>Edytuj szablon detekcji kontekstowej</value></data>
   <data name="VllmTemplates.DeleteTitle"><value>Usunąć szablon?</value></data>
   <data name="VllmTemplates.DeleteMessage"><value>Szablon „{0}" zostanie usunięty. Triggery które go używały zachowają swoje obecne ustawienia.</value></data>
   <data name="VllmTemplates.Saved"><value>Szablon zapisany.</value></data>
@@ -193,13 +193,13 @@
   <data name="VllmTemplates.UserTemplate"><value>User prompt (PL)</value></data>
   <data name="VllmTemplates.UserTemplateHelp"><value>Placeholders: {camera}, {zone}, {trigger}, {labels}, {detections}, {time_of_day}</value></data>
   <data name="VllmTemplates.SchemaJson"><value>JSON schema odpowiedzi</value></data>
-  <data name="VllmTemplates.SchemaJsonHelp"><value>Strict schema — VLLM musi zwrócić dokładnie taki JSON. Wymagane pola: confirmed, confidence, severity, reason, image_quality, recommended_action.</value></data>
+  <data name="VllmTemplates.SchemaJsonHelp"><value>Strict schema — Model AI musi zwrócić dokładnie taki JSON. Wymagane pola: confirmed, confidence, severity, reason, image_quality, recommended_action.</value></data>
   <data name="VllmTemplates.RequireGoodImage"><value>Wymagaj dobrej jakości obrazu</value></data>
   <data name="VllmTemplates.Hint"><value>Szablony wbudowane są tylko do odczytu — użyj "Duplikuj" aby stworzyć własną wersję.</value></data>
   <data name="VllmTemplates.Stats30d"><value>Ostatnie 30 dni</value></data>
   <data name="VllmTemplates.Fires"><value>wypaleń</value></data>
   <data name="VllmTemplates.FpTooltip"><value>{0} z {1} alertów oznaczono jako false-positive — prompt prawdopodobnie wymaga korekty.</value></data>
-  <data name="VllmTemplates.AvgConfTooltip"><value>Średnia pewność zwracana przez VLLM</value></data>
+  <data name="VllmTemplates.AvgConfTooltip"><value>Średnia pewność zwracana przez model AI</value></data>
   <data name="VllmTemplates.Export"><value>Eksportuj</value></data>
   <data name="VllmTemplates.ExportAll"><value>Eksportuj wszystkie</value></data>
   <data name="VllmTemplates.Import"><value>Importuj</value></data>
@@ -224,19 +224,19 @@
   <data name="VllmPlayground.RefineBtn"><value>Popraw z feedbackiem</value></data>
   <data name="VllmPlayground.RefineTitle"><value>Poprawa promptu</value></data>
   <data name="VllmPlayground.RefineSuccess"><value>Prompt zaktualizowany. Przetestuj ponownie.</value></data>
-  <data name="VllmRefine.Hint"><value>Podaj konkretnie co jest nie tak z obecnym promptem. LLM zwróci tylko zmienione fragmenty, reszta zostaje nienaruszona.</value></data>
+  <data name="VllmRefine.Hint"><value>Podaj konkretnie co jest nie tak z obecnym promptem. Model AI zwróci tylko zmienione fragmenty, reszta zostaje nienaruszona.</value></data>
   <data name="VllmRefine.FeedbackLabel"><value>Co poprawić</value></data>
   <data name="VllmRefine.FeedbackHint"><value>Im konkretniej, tym lepiej. "Bądź bardziej rygorystyczny" jest słabe; "odrzucaj gdy osoba trzyma narzędzie w ręku — to nie palenie" jest dobre.</value></data>
   <data name="VllmRefine.Examples"><value>Przykłady (klik wstawia)</value></data>
   <data name="VllmRefine.Submit"><value>Popraw</value></data>
   <data name="IncidentDetail.MarkFalsePositive"><value>Fałszywy alarm</value></data>
-  <data name="IncidentDetail.MarkFalsePositiveHint"><value>Oznacz że VLLM niesłusznie potwierdził ten alert. Feedback trafia do statystyk szablonu — łatwiej zobaczyć które prompty są słabe.</value></data>
+  <data name="IncidentDetail.MarkFalsePositiveHint"><value>Oznacz że Model AI niesłusznie potwierdził ten alert. Feedback trafia do statystyk szablonu — łatwiej zobaczyć które prompty są słabe.</value></data>
   <data name="IncidentDetail.FalsePositiveBadge"><value>FAŁSZYWY ALARM</value></data>
   <data name="IncidentDetail.FalsePositiveMarked"><value>Oznaczono jako fałszywy alarm. Dzięki.</value></data>
-  <data name="IncidentDetail.AnalyzeLlm"><value>Analiza LLM</value></data>
-  <data name="IncidentDetail.AnalyzeLlmHint"><value>Zapytaj LLM o ocenę tego incydentu — ryzyko false-positive, rekomendowana akcja, uzasadnienie.</value></data>
+  <data name="IncidentDetail.AnalyzeLlm"><value>Analiza AI</value></data>
+  <data name="IncidentDetail.AnalyzeLlmHint"><value>Zapytaj model AI o ocenę tego incydentu — ryzyko false-positive, rekomendowana akcja, uzasadnienie.</value></data>
   <data name="IncidentDetail.Analyzing"><value>Analizuję…</value></data>
-  <data name="IncidentDetail.AnalyzeNoResult"><value>LLM nie zwrócił wyniku.</value></data>
+  <data name="IncidentDetail.AnalyzeNoResult"><value>Model AI nie zwrócił wyniku.</value></data>
   <data name="IncidentDetail.Acknowledge"><value>Potwierdź</value></data>
   <data name="IncidentDetail.Acknowledged"><value>Potwierdzono.</value></data>
   <data name="IncidentDetail.Resolve"><value>Rozwiąż</value></data>
@@ -252,7 +252,7 @@
   <data name="Triggers.VllmLoadTemplateHint"><value>Pre-populuje pola poniżej konfiguracją z wybranego szablonu.</value></data>
   <data name="Triggers.VllmBoundToTemplate"><value>Oparty na szablonie</value></data>
   <data name="Triggers.VllmMinSeverity"><value>Min. severity</value></data>
-  <data name="Triggers.VllmMinSeverityHint"><value>VLLM musi zwrócić severity co najmniej tej wartości żeby trigger wypalił.</value></data>
+  <data name="Triggers.VllmMinSeverityHint"><value>Model AI musi zwrócić severity co najmniej tej wartości żeby trigger wypalił.</value></data>
   <data name="Triggers.VllmRequireGoodImage"><value>Wymagaj dobrej jakości obrazu</value></data>
   <data name="Flow.Title"><value>Flow pipeline</value></data>
   <data name="Flow.Description"><value>Topologia systemu z live-animacją zdarzeń. Kliknij node aby przejść do edytora.</value></data>
@@ -263,8 +263,8 @@
   <data name="Flow.Legend.Zone"><value>Strefa</value></data>
   <data name="Flow.Legend.Trigger"><value>Trigger</value></data>
   <data name="Flow.Legend.Action"><value>Akcja</value></data>
-  <data name="Flow.Legend.Model"><value>Model ML</value></data>
-  <data name="Flow.LiveLegend"><value>Linia żółta = trigger fire, zielona = akcja OK, czerwona = błąd / VLLM rejected</value></data>
+  <data name="Flow.Legend.Model"><value>Detekcja obiektowa</value></data>
+  <data name="Flow.LiveLegend"><value>Linia żółta = trigger fire, zielona = akcja OK, czerwona = błąd / AI rejected</value></data>
   <data name="Triggers.ModelIncompatible"><value>Wybrany model nie jest przypisany do żadnego ROI w strefach używających tego triggera — detekcja się nie wykona. Dodaj ten model do ROI albo zmień wybór.</value></data>
   <data name="Triggers.SpatialSection"><value>Filtry przestrzenne (dystans w metrach)</value></data>
   <data name="Triggers.SpatialHint"><value>Sprawdza dystans między parami obiektów po rzutowaniu na podłogę. Wymaga skalibrowanej kamery (min. 4 punkty kalibracji).</value></data>
@@ -377,13 +377,13 @@
   <data name="Nav.Triggers"><value>Triggery</value></data>
   <data name="Nav.Actions"><value>Akcje</value></data>
   <!-- Detection pipeline — ROI/Trigger/Action -->
-  <data name="Rois.Description"><value>Prostokątne regiony kamery, w których uruchamiane są modele ML. Optymalizuje detekcję na kamerach 4K.</value></data>
+  <data name="Rois.Description"><value>Prostokątne regiony kamery, w których uruchamiane są modele detekcji obiektowej. Optymalizuje detekcję na kamerach 4K.</value></data>
   <data name="Rois.Add"><value>Dodaj ROI</value></data>
   <data name="Rois.AddTitle"><value>Dodaj region zainteresowania</value></data>
   <data name="Rois.EditTitle"><value>Edytuj region zainteresowania</value></data>
   <data name="Rois.Rectangle"><value>Prostokąt (X, Y, szer., wys.)</value></data>
-  <data name="Rois.Models"><value>Modele ML</value></data>
-  <data name="Rois.ModelsHint"><value>Wybierz modele ML które mają działać na tym ROI.</value></data>
+  <data name="Rois.Models"><value>Detekcje obiektowe</value></data>
+  <data name="Rois.ModelsHint"><value>Wybierz modele detekcji obiektowej które mają działać na tym ROI.</value></data>
   <data name="Rois.Mode"><value>Tryb inferencji</value></data>
   <data name="Rois.ModeHint"><value>Native/Resize = Faza 1. Sliced/Adaptive = Faza 2 (zachowuje czułość detekcji dla 4K).</value></data>
   <data name="Rois.Inference"><value>Strategia inferencji</value></data>
@@ -404,7 +404,7 @@
   <data name="Rois.SensExplain"><value>Niska czułość = mniejszy koszt CPU, ale możesz przegapić drobny/daleki obiekt. Wysoka = więcej wywołań ciężkiego modelu na "niby-kandydatach".</value></data>
   <data name="Rois.PrescanPadding"><value>Margines wokół wycinka</value></data>
   <data name="Rois.PrescanPaddingHelp"><value>Ile kontekstu wokół znalezionego obiektu dostać ciężki model. 20% zwykle wystarcza — za duży margines niweluje oszczędność.</value></data>
-  <data name="Rois.NoModels"><value>Brak modeli ML — najpierw dodaj model w „Modele".</value></data>
+  <data name="Rois.NoModels"><value>Brak modeli detekcji obiektowej — najpierw dodaj model w „Modele".</value></data>
   <data name="Rois.InvalidRectangle"><value>Nieprawidłowy prostokąt — musi mieścić się w [0..1] i być niepusty.</value></data>
   <data name="Rois.AddCameraFirst"><value>Najpierw dodaj kamerę.</value></data>
   <data name="Rois.Saved"><value>ROI zapisane.</value></data>
@@ -430,16 +430,16 @@
   <data name="Triggers.BboxRule.Iou"><value>Przecięcie IoU</value></data>
   <data name="Triggers.IouTooltip"><value>IoU (Intersection over Union) = pole przecięcia / pole sumy bbox i strefy. Wartość 0..1: 0.3 = luźne dopasowanie (30% pokrycia), 0.5 = standard, 0.7+ = ścisłe. Używaj gdy „Środek w strefie" jest za luźne.</value></data>
   <data name="Triggers.UseModelDefault"><value>użyj domyślnej modelu</value></data>
-  <data name="Triggers.VllmSection"><value>Walidacja VLLM (opcjonalna)</value></data>
-  <data name="Triggers.VllmHint"><value>Pozwól modelowi VLLM zweryfikować trigger zanim odpali akcje. Redukuje false-positive (np. „czy to naprawdę ogień czy tylko lampa?"). Wymaga skonfigurowanego LLM w Ustawienia → LLM. Dodaje ~1-3s opóźnienia.</value></data>
-  <data name="Triggers.VllmEnabled"><value>Włącz walidację VLLM</value></data>
+  <data name="Triggers.VllmSection"><value>Walidacja kontekstowa (opcjonalna)</value></data>
+  <data name="Triggers.VllmHint"><value>Pozwól modelowi AI zweryfikować trigger zanim odpali akcje. Redukuje false-positive (np. „czy to naprawdę ogień czy tylko lampa?"). Wymaga skonfigurowanego providera w Konfiguracja → Providery detekcji kontekstowej. Dodaje ~1-3s opóźnienia.</value></data>
+  <data name="Triggers.VllmEnabled"><value>Włącz walidację kontekstową</value></data>
   <data name="Triggers.VllmPrompt"><value>Szablon promptu</value></data>
-  <data name="Triggers.VllmPromptHint"><value>Placeholdery: {camera}, {zone}, {trigger}, {labels}, {detections}. VLLM zwraca JSON: {confirmed, confidence, reason}.</value></data>
+  <data name="Triggers.VllmPromptHint"><value>Placeholdery: {camera}, {zone}, {trigger}, {labels}, {detections}. Model AI zwraca JSON: {confirmed, confidence, reason}.</value></data>
   <data name="Triggers.VllmSystemPrompt"><value>System prompt (rola)</value></data>
   <data name="Triggers.VllmIncludeFrame"><value>Dołącz klatkę (wymaga vision model)</value></data>
-  <data name="Triggers.VllmRejectOnError"><value>Odrzucaj przy błędzie LLM (fail-closed)</value></data>
+  <data name="Triggers.VllmRejectOnError"><value>Odrzucaj przy błędzie modelu AI (fail-closed)</value></data>
   <data name="Triggers.VllmModelName"><value>Nazwa modelu (override)</value></data>
-  <data name="Triggers.VllmModelNameHint"><value>Pusto = użyj domyślnego z Ustawienia → LLM (np. gpt-4o, llava-1.6, qwen2-vl)</value></data>
+  <data name="Triggers.VllmModelNameHint"><value>Pusto = użyj domyślnego z Konfiguracja → Providery detekcji kontekstowej (np. gpt-4o, llava-1.6, qwen2-vl)</value></data>
   <data name="Triggers.VllmMinConfidence"><value>Min. pewność aby potwierdzić</value></data>
   <data name="Actions.EmailHint"><value>Wyślij email przez SMTP gdy trigger wypali. Konfiguracja SMTP per akcja dla izolacji.</value></data>
   <data name="Actions.Email.To"><value>Do (oddzielone przecinkami)</value></data>
@@ -643,7 +643,7 @@
   <data name="Table.Count"><value>Liczba</value></data>
 
   <!-- Pages: Home / Dashboard -->
-  <data name="Home.Description"><value>Automatyczna detekcja zagrożeń BHP w środowisku produkcyjnym z wykorzystaniem ML (ONNX/Roboflow) i LLM (vLLM) hostowanych lokalnie.</value></data>
+  <data name="Home.Description"><value>Automatyczna detekcja zagrożeń BHP w środowisku produkcyjnym z wykorzystaniem detekcji obiektowej i kontekstowej hostowanych lokalnie.</value></data>
   <data name="Home.CamerasActive"><value>Kamery aktywne</value></data>
   <data name="Home.Incidents24h"><value>Incydenty (24h)</value></data>
   <data name="Home.ActiveModels"><value>Aktywne modele</value></data>
@@ -706,7 +706,7 @@
   <data name="IncidentDetail.Label"><value>Klasa</value></data>
   <data name="IncidentDetail.Confidence"><value>Pewność</value></data>
   <data name="IncidentDetail.Bbox"><value>Bbox</value></data>
-  <data name="IncidentDetail.LlmAnalysis"><value>Analiza LLM</value></data>
+  <data name="IncidentDetail.LlmAnalysis"><value>Analiza AI</value></data>
   <data name="IncidentDetail.LlmRecommended"><value>Rekomendacja</value></data>
   <data name="Incidents.FilterStatus"><value>Filtr statusu</value></data>
   <data name="Incidents.All"><value>Wszystkie</value></data>
@@ -715,7 +715,7 @@
   <data name="Incidents.Resolved"><value>Rozwiązane</value></data>
   <data name="Incidents.FalsePositive"><value>Fałszywe</value></data>
   <data name="Incidents.FalsePositiveFlag"><value>FAŁSZYWY ALARM</value></data>
-  <data name="Incidents.FalsePositiveTooltip"><value>Operator oznaczył ten incident jako false-positive — trafia do statystyk szablonu VLLM.</value></data>
+  <data name="Incidents.FalsePositiveTooltip"><value>Operator oznaczył ten incident jako false-positive — trafia do statystyk szablonu detekcji kontekstowej.</value></data>
 
   <!-- Pages: Camera detail -->
   <data name="CameraDetail.Last24h"><value>Ostatnie 24h</value></data>
@@ -725,7 +725,7 @@
   <data name="CameraDetail.NoFrame"><value>Brak klatki — wykonaj snapshot lub poczekaj na pierwszy incydent.</value></data>
   <data name="CameraDetail.Capturing"><value>Pobieram…</value></data>
   <data name="CameraDetail.CaptureFrame"><value>Pobierz nową klatkę</value></data>
-  <data name="CameraDetail.LlmSummary"><value>Podsumowanie aktywności (LLM)</value></data>
+  <data name="CameraDetail.LlmSummary"><value>Podsumowanie aktywności (AI)</value></data>
   <data name="CameraDetail.Analyzing"><value>Analizuję…</value></data>
   <data name="CameraDetail.Analyze7d"><value>Analizuj 7d</value></data>
   <data name="CameraDetail.LlmHint"><value>Kliknij "Analizuj 7d" aby otrzymać podsumowanie wzorców incydentów dla tej kamery.</value></data>
@@ -768,7 +768,7 @@
   <data name="ZoneEditor.NoRules"><value>Brak reguł — strefa nie wygeneruje incydentów.</value></data>
 
   <!-- Pages: Models -->
-  <data name="Models.Title"><value>Modele ML</value></data>
+  <data name="Models.Title"><value>Detekcje obiektowe</value></data>
   <data name="Models.AddModel"><value>Dodaj model</value></data>
   <data name="Models.Test"><value>Testuj na zdjęciu</value></data>
   <data name="Models.TestTitle"><value>Szybki test</value></data>
@@ -1208,7 +1208,7 @@
 
   <!-- Kreator krok 2: ROI (prostokąt analizy ML) -->
   <data name="Wizard.StepRoi.Title"><value>Obszar analizy (ROI)</value></data>
-  <data name="Wizard.StepRoi.Subtitle"><value>Wybierz prostokątny obszar analizowany przez model ML. Dla większości wdrożeń = cały kadr.</value></data>
+  <data name="Wizard.StepRoi.Subtitle"><value>Wybierz prostokątny obszar analizowany przez model detekcji obiektowej. Dla większości wdrożeń = cały kadr.</value></data>
   <data name="Wizard.StepRoi.FullFrame"><value>Cały kadr</value></data>
   <data name="Wizard.StepRoi.FullFrameHint"><value>Analiza całego widoku kamery. Najprostsze — rekomendowane jako domyślne.</value></data>
   <data name="Wizard.StepRoi.Name"><value>Nazwa nowego ROI</value></data>
@@ -1238,7 +1238,7 @@
   <data name="Wizard.StepZone.ExistingZone"><value>istniejąca strefa</value></data>
 
   <data name="Wizard.Help.StepRoi"><value>ROI (Obszar analizy):
-  • Prostokątna część kadru gdzie działa model ML.
+  • Prostokątna część kadru gdzie działa model detekcji obiektowej.
   • "Cały kadr" = analizuj wszystko. 95% przypadków.
   • Wąski ROI oszczędza CPU/GPU gdy tylko część widoku jest istotna.
 

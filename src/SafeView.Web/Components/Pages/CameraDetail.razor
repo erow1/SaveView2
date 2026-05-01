@@ -269,7 +269,7 @@ else
             try { chat = await ChatFactory.GetForAsync(null); }
             catch (InvalidOperationException)
             {
-                _llmSummary = "Brak skonfigurowanego dostawcy LLM. Dodaj na /admin/llm-providers.";
+                _llmSummary = "Brak skonfigurowanego providera detekcji kontekstowej. Dodaj na /admin/llm-providers.";
                 return;
             }
 
@@ -295,7 +295,7 @@ else
                 },
                 new SafeView.Application.Abstractions.LLM.ChatOptions(Temperature: 0.2, MaxTokens: 400));
 
-            _llmSummary = resp.Success ? resp.Content : $"Błąd LLM: {resp.ErrorMessage}";
+            _llmSummary = resp.Success ? resp.Content : $"Błąd modelu AI: {resp.ErrorMessage}";
         }
         catch (Exception ex) { _llmSummary = $"Błąd: {ex.Message}"; }
         finally { _busyLlm = false; }
