@@ -59,9 +59,9 @@
             </MudTd>
             <MudTd class="mono">@($"{context.RecommendedMinConfidence * 100:F0}%")</MudTd>
             <MudTd>
-                <MudChip T="string" Size="Size.Small" Style="@SeverityStyle(context.DefaultMinSeverity)">
-                    @context.DefaultMinSeverity
-                </MudChip>
+                <StatusChip Text="@context.DefaultMinSeverity.ToString()"
+                            Color="@SeverityColor(context.DefaultMinSeverity)"
+                            Emphasize="@(context.DefaultMinSeverity == ResponseSeverity.Critical)" />
             </MudTd>
             <MudTd>
                 @if (context.IsBuiltIn)
@@ -77,23 +77,20 @@
                 @if (_stats.TryGetValue(context.Id, out var st) && st.FireCount > 0)
                 {
                     <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-                        <MudChip T="string" Size="Size.Small" Class="sv-chip-muted mono">
-                            @st.FireCount @L["VllmTemplates.Fires"]
-                        </MudChip>
+                        <StatusChip Text="@($"{st.FireCount} {L["VllmTemplates.Fires"]}")"
+                                    Color="Color.Default" Class="mono" />
                         @if (st.FalsePositiveCount > 0)
                         {
                             <MudTooltip Text="@string.Format(L["VllmTemplates.FpTooltip"], st.FalsePositiveCount, st.FireCount)">
-                                <MudChip T="string" Size="Size.Small" Style="@FpStyle(st.FalsePositiveRate)">
-                                    FP @($"{st.FalsePositiveRate * 100:F0}%")
-                                </MudChip>
+                                <StatusChip Text="@($"FP {st.FalsePositiveRate * 100:F0}%")"
+                                            Color="@FpColor(st.FalsePositiveRate)" Class="mono" />
                             </MudTooltip>
                         }
                         @if (st.AvgConfidence is { } ac)
                         {
                             <MudTooltip Text="@L["VllmTemplates.AvgConfTooltip"]">
-                                <MudChip T="string" Size="Size.Small" Class="sv-chip-muted mono">
-                                    conf @($"{ac * 100:F0}%")
-                                </MudChip>
+                                <StatusChip Text="@($"conf {ac * 100:F0}%")"
+                                            Color="Color.Default" Class="mono" />
                             </MudTooltip>
                         }
                     </MudStack>
@@ -153,11 +150,16 @@
         _loading = false;
     }
 
-    private static string FpStyle(double rate)
+    /// <summary>
+    /// FP rate → semantic Color. Niższa wartość = lepszy szablon (mniej false-positives).
+    /// Progi takie same jak w starym FpStyle (10%, 30%) — tylko zwracamy MudBlazor Color
+    /// zamiast inline hex (auto theme adaptation).
+    /// </summary>
+    private static Color FpColor(double rate)
     {
-        if (rate < 0.10) return "background:#0E2A1E; color:#2EC27E;";
-        if (rate < 0.30) return "background:#3A2F14; color:#F5A524;";
-        return "background:#3A1515; color:#FF5964;";
+        if (rate < 0.10) return Color.Success; // <10% FP = healthy
+        if (rate < 0.30) return Color.Warning; // 10-30% = attention
+        return Color.Error;                    // 30%+ = template needs work
     }
 
     private async Task ExportOne(PromptTemplate t)
@@ -301,13 +303,17 @@
         await Reload();
     }
 
-    private static string SeverityStyle(ResponseSeverity s) => s switch
+    /// <summary>
+    /// ResponseSeverity → semantic MudBlazor Color (analog SeverityColor w /incidents).
+    /// Critical używa Error + osobnego Emphasize=true w UI (Filled variant) dla wyróżnienia.
+    /// </summary>
+    private static Color SeverityColor(ResponseSeverity s) => s switch
     {
-        ResponseSeverity.None => "background:#222; color:#888;",
-        ResponseSeverity.Low => "background:#1B2A3A; color:#7EB6FF;",
-        ResponseSeverity.Medium => "background:#3A2F14; color:#F5A524;",
-        ResponseSeverity.High => "background:#3A1515; color:#FF5964;",
-        ResponseSeverity.Critical => "background:#4A0D0D; color:#FF2D2D; font-weight:700;",
-        _ => "background:#222; color:#888;"
+        ResponseSeverity.None     => Color.Default,
+        ResponseSeverity.Low      => Color.Info,
+        ResponseSeverity.Medium   => Color.Warning,
+        ResponseSeverity.High     => Color.Error,
+        ResponseSeverity.Critical => Color.Error,
+        _ => Color.Default
     };
 }
