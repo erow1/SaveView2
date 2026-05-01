@@ -32,7 +32,8 @@
         <MudTooltip Text="@($"Build {SafeView.Web.BuildInfo.BuildDateUtc} UTC · git {SafeView.Web.BuildInfo.GitSha}")">
             <MudText Typo="Typo.caption" Class="me-3 d-none d-sm-flex"
                      Style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--mud-palette-text-secondary); opacity:0.55; letter-spacing:0.2px;">
-                v@SafeView.Web.BuildInfo.Version
+                @* Razor parser traktuje "v@Foo" jak email — literał. Trzeba jawny @(...). *@
+                v@(SafeView.Web.BuildInfo.Version)
             </MudText>
         </MudTooltip>
         <MudTooltip Text="@(Theme.IsDark ? L["Theme.SwitchToLight"] : L["Theme.SwitchToDark"])">
